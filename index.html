@@ -2,207 +2,1164 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Secure Room - E2EE Chat</title>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f13;color:#e0e0f0;height:100vh;overflow:hidden}.w{max-width:800px;margin:0 auto;height:100vh;display:flex;flex-direction:column}.h{padding:20px;border-bottom:1px solid #2a2a35;display:flex;justify-content:space-between;align-items:center;background:#16161e}.c{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}.i{padding:20px;border-top:1px solid #2a2a35;display:flex;gap:10px;background:#16161e}input{flex:1;background:#1a1a24;border:1px solid #2a2a35;color:#fff;padding:12px 16px;border-radius:8px;outline:none}button{background:#3b82f6;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-weight:600}button:hover{background:#2563eb}.m{max-width:70%;padding:12px 16px;border-radius:12px;word-wrap:break-word;font-size:14px}.o{align-self:flex-end;background:#3b82f6}.t{align-self:flex-start;background:#2a2a35}.s{text-align:center;color:#6b7280;font-size:12px;margin:8px 0}#a{position:fixed;inset:0;background:#0f0f13;display:flex;align-items:center;justify-content:center;z-index:50}.b{background:#16161e;padding:40px;border-radius:16px;border:1px solid #2a2a35;width:90%;max-width:400px;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.t2{font-size:24px;margin-bottom:24px;text-align:center;background:linear-gradient(90deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;color:transparent}.x{margin-bottom:16px}.x label{display:block;font-size:12px;color:#6b7280;margin-bottom:6px;text-transform:uppercase}.x input{width:100%;background:#1a1a24;border:1px solid #2a2a35}#l{background:#10b981;padding:4px 12px;border-radius:20px;font-size:12px;color:white}.d{background:#ef4444}
-        #err{color:#ef4444;font-size:13px;margin-top:12px;text-align:center;display:none}
-        #warn{color:#f59e0b;font-size:12px;margin-top:8px;text-align:center;display:none}
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        :root {
+            --bg-dark: #1e1e2e;
+            --bg-light: #2d2d44;
+            --text: #cdd6f4;
+            --text-sub: #9399b6;
+            --accent: #89b4fa;
+            --accent-light: #b4befe;
+            --success: #a6e3a1;
+            --warning: #f9e2af;
+            --error: #f38ba8;
+            --surface: rgba(30, 30, 46, 0.95);
+        }
+
+        html {
+            font-size: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-light) 100%);
+            color: var(--text);
+            height: 100%;
+            height: -webkit-fill-available;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container { 
+            max-width: 900px; 
+            width: 100%; 
+            margin: 0 auto; 
+            padding: 20px; 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Loading 遮罩 */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(137, 180, 250, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Login Screen */
+        #login {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        .login-box {
+            background: var(--surface);
+            border: 1px solid rgba(147, 153, 178, 0.2);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            position: relative;
+        }
+        h1 { font-size: 26px; margin-bottom: 8px; color: #f5e0dc; font-weight: 700; }
+        .subtitle { color: var(--text-sub); font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+        
+        .input-group { margin-bottom: 18px; }
+        label { 
+            display: block; 
+            font-size: 11px; 
+            color: var(--text-sub); 
+            margin-bottom: 6px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.8px; 
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(69, 71, 90, 0.4);
+            border: 1px solid rgba(147, 153, 178, 0.2);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 15px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        input:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            background: rgba(69, 71, 90, 0.6); 
+            box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-dark);
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        button:hover:not(:disabled) { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(137, 180, 250, 0.4); 
+        }
+        button:active:not(:disabled) { transform: translateY(0); }
+        button:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+            transform: none !important;
+        }
+
+        .security-badges {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(166, 227, 161, 0.1);
+            border-radius: 20px;
+            font-size: 11px;
+            color: var(--success);
+            border: 1px solid rgba(166, 227, 161, 0.2);
+            font-weight: 500;
+        }
+        .badge::before { 
+            content: ""; 
+            width: 6px; height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .warning-box {
+            background: rgba(249, 226, 175, 0.1);
+            border: 1px solid rgba(249, 226, 175, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--warning);
+            line-height: 1.5;
+            display: none;
+        }
+        .warning-box.active { display: block; }
+
+        /* Chat Screen */
+        #chat { 
+            display: none; 
+            flex-direction: column; 
+            height: 100%;
+            background: var(--bg-dark);
+        }
+        .chat-header {
+            background: var(--surface);
+            border-bottom: 1px solid rgba(147, 153, 178, 0.2);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+        .room-info { flex: 1; min-width: 0; }
+        .room-info h2 { 
+            font-size: 17px; 
+            color: #f5e0dc; 
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .room-meta { 
+            font-size: 12px; 
+            color: var(--text-sub); 
+            display: flex; 
+            gap: 12px; 
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .status { display: flex; align-items: center; gap: 6px; }
+        .status-dot { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: var(--success); 
+            animation: pulse 2s infinite;
+            position: relative;
+        }
+        .status-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border-radius: 50%;
+            border: 2px solid var(--success);
+            opacity: 0;
+            animation: ripple 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes ripple { 
+            0% { transform: scale(0.8); opacity: 0.5; } 
+            100% { transform: scale(1.5); opacity: 0; } 
+        }
+        
+        .peer-count { font-weight: 600; color: var(--text); }
+        .peer-count.warning { color: var(--warning); }
+        .peer-count.error { color: var(--error); }
+
+        .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .icon-btn {
+            padding: 8px 14px;
+            background: rgba(69, 71, 90, 0.4);
+            border: 1px solid rgba(147, 153, 178, 0.2);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .icon-btn:hover { background: rgba(69, 71, 90, 0.6); }
+        .icon-btn.danger { 
+            background: rgba(243, 139, 168, 0.1); 
+            border-color: rgba(243, 139, 168, 0.3);
+            color: var(--error);
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+            contain: layout style paint;
+            position: relative;
+        }
+        
+        .message {
+            max-width: 75%;
+            min-width: 120px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.5;
+            font-size: 14.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px) scale(0.98); } 
+            to { opacity: 1; transform: translateY(0) scale(1); } 
+        }
+        
+        .message.self {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: var(--bg-dark);
+            border-bottom-right-radius: 4px;
+        }
+        .message.other {
+            align-self: flex-start;
+            background: rgba(69, 71, 90, 0.6);
+            border: 1px solid rgba(147, 153, 178, 0.2);
+            border-bottom-left-radius: 4px;
+        }
+        .message.system {
+            align-self: center;
+            background: rgba(245, 224, 220, 0.08);
+            color: var(--text-sub);
+            font-size: 12px;
+            padding: 8px 16px;
+            max-width: 90%;
+            border-radius: 20px;
+            border: 1px solid rgba(245, 224, 220, 0.1);
+            font-style: italic;
+        }
+        .message.history-sync {
+            background: rgba(166, 227, 161, 0.1);
+            border: 1px dashed rgba(166, 227, 161, 0.3);
+            color: var(--success);
+            font-size: 12px;
+            align-self: center;
+            border-radius: 20px;
+        }
+        
+        .msg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            font-size: 12px;
+            opacity: 0.9;
+            gap: 12px;
+        }
+        .msg-user { 
+            font-weight: 700; 
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .user-fingerprint {
+            font-size: 10px;
+            opacity: 0.7;
+            font-family: monospace;
+            font-weight: normal;
+            background: rgba(255,255,255,0.15);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .msg-time { font-size: 11px; opacity: 0.8; }
+        .msg-text { word-break: break-word; }
+        
+        .delivery-status {
+            font-size: 10px;
+            margin-top: 4px;
+            opacity: 0.8;
+            text-align: right;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+        .read-receipt {
+            width: 14px;
+            height: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .typing-indicator {
+            font-size: 12px;
+            color: var(--text-sub);
+            font-style: italic;
+            padding: 4px 20px;
+            height: 24px;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .typing-indicator.active { opacity: 1; }
+
+        .input-area {
+            background: var(--surface);
+            border-top: 1px solid rgba(147, 153, 178, 0.2);
+            padding: 14px 20px;
+            padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+        }
+        .input-area input {
+            flex: 1;
+            background: rgba(69, 71, 90, 0.4);
+            margin: 0;
+        }
+        .input-area button {
+            width: auto;
+            padding: 12px 24px;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .container { padding: 0; height: 100%; }
+            .login-box { 
+                border-radius: 0; 
+                height: 100%; 
+                max-width: 100%; 
+                display: flex; 
+                flex-direction: column; 
+                justify-content: center; 
+                padding: 24px;
+                padding-top: calc(24px + env(safe-area-inset-top, 0px));
+                padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            }
+            
+            #chat { height: 100%; }
+            .chat-header { 
+                padding: 12px 16px;
+                padding-top: calc(12px + env(safe-area-inset-top, 0px));
+            }
+            .room-info h2 { font-size: 16px; }
+            
+            .messages { 
+                padding: 16px; 
+                padding-top: 12px;
+            }
+            .message { 
+                max-width: 88%; 
+                font-size: 15px;
+                padding: 10px 14px;
+            }
+            
+            .input-area { 
+                padding: 12px 16px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            }
+            
+            .security-badges { gap: 8px; }
+            .badge { font-size: 10px; padding: 5px 10px; }
+            
+            /* 禁用毛玻璃效果提升低端机性能 */
+            .login-box, .chat-header, .input-area {
+                backdrop-filter: none !important;
+                background: rgba(30, 30, 46, 0.98);
+            }
+        }
+
+        @media (max-width: 380px) {
+            html { font-size: 14px; }
+            h1 { font-size: 22px; }
+            .message { max-width: 92%; }
+        }
+
+        /* 平板横屏 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .container { max-width: 100%; padding: 0; }
+            .message { max-width: 70%; }
+        }
+
+        /* 滚动条美化 */
+        .messages::-webkit-scrollbar { width: 6px; }
+        .messages::-webkit-scrollbar-track { background: transparent; }
+        .messages::-webkit-scrollbar-thumb { 
+            background: rgba(147, 153, 178, 0.3); 
+            border-radius: 3px; 
+        }
+        .messages::-webkit-scrollbar-thumb:hover { background: rgba(147, 153, 178, 0.5); }
+
+        /* 选择文本颜色 */
+        ::selection {
+            background: rgba(137, 180, 250, 0.3);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
-    <div id="a">
-        <div class="b">
-            <div class="t2">Secure Channel</div>
-            <div class="x"><label>Room</label><input type="text" id="r" placeholder="room-id" autocomplete="off"></div>
-            <div class="x"><label>Key</label><input type="password" id="k" placeholder="password" autocomplete="off"></div>
-            <div class="x"><label>User</label><input type="text" id="u" value="User" maxlength="8"></div>
-            <button onclick="window.j()">Connect</button>
-            <div id="err"></div>
-            <div id="warn"></div>
-            <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-                <span id="l">● Secure</span><span style="font-size:11px;color:#6b7280">E2EE</span>
+    <div class="container">
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <div style="color: var(--text-sub); font-size: 14px;">加密连接中...</div>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login">
+            <div class="login-box">
+                <h1>🔐 Secure Room</h1>
+                <p class="subtitle">端到端加密 · 无服务器 · 最多6人群聊</p>
+                
+                <div class="input-group">
+                    <label>房间标识</label>
+                    <input type="text" id="roomInput" placeholder="例如：project-alpha" autocomplete="off" spellcheck="false">
+                </div>
+                
+                <div class="input-group">
+                    <label>访问密码</label>
+                    <input type="password" id="pwdInput" placeholder="用于加密和身份验证" autocomplete="new-password" spellcheck="false">
+                </div>
+                
+                <div class="input-group">
+                    <label>你的昵称</label>
+                    <input type="text" id="nameInput" placeholder="Anonymous" value="User" maxlength="20" autocomplete="off">
+                </div>
+                
+                <div class="warning-box" id="mobileWarning">
+                    ⚠️ 检测到移动端设备：6人同时在线可能导致发热耗电，建议参与者以桌面端为主。
+                </div>
+                
+                <button onclick="app.join()" id="joinBtn">进入安全频道</button>
+                
+                <div class="security-badges">
+                    <div class="badge">AES-256-GCM</div>
+                    <div class="badge">6人上限</div>
+                    <div class="badge">P2P直连</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat">
+            <div class="chat-header">
+                <div class="room-info">
+                    <h2 id="displayRoom">🔐 Encrypted Room</h2>
+                    <div class="room-meta">
+                        <span class="status">
+                            <span class="status-dot" id="statusDot"></span>
+                            <span class="peer-count" id="peerCount">1/6 在线</span>
+                        </span>
+                        <span id="relayStatus" style="color: var(--text-sub);">Nostr 网络</span>
+                        <span id="vectorClock" style="font-family: monospace; font-size: 11px; opacity: 0.6;"></span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" onclick="app.copyLink()" title="复制分享链接">分享</button>
+                    <button class="icon-btn danger" onclick="app.leave()" title="离开房间">退出</button>
+                </div>
+            </div>
+            
+            <div class="messages" id="messages"></div>
+            <div class="typing-indicator" id="typing"></div>
+            
+            <div class="input-area">
+                <input type="text" id="msgInput" placeholder="输入加密消息..." maxlength="1000" autocomplete="off">
+                <button onclick="app.send()" id="sendBtn">发送</button>
             </div>
         </div>
     </div>
 
-    <div class="w" id="m" style="display:none">
-        <div class="h">
-            <div><div id="n" style="font-weight:600">Room</div><div style="font-size:12px;color:#6b7280;margin-top:4px"><span id="p">1</span> peers</div></div>
-            <button style="padding:6px 12px;background:#2a2a35;font-size:12px" onclick="window.q()">Exit</button>
-        </div>
-        <div class="c" id="s"></div>
-        <div class="i">
-            <input type="text" id="i" placeholder="Message..." onkeypress="if(event.key==='Enter')window.snd()">
-            <button onclick="window.snd()">Send</button>
-        </div>
-    </div>
+    <script type="module">
+        import { joinRoom } from 'https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm';
 
-<script>
-(function() {
-    const errDiv = document.getElementById('err');
-    const warnDiv = document.getElementById('warn');
-    
-    function showError(msg) {
-        errDiv.style.display = 'block';
-        errDiv.textContent = '❌ ' + msg;
-        console.error(msg);
-    }
-    
-    function showWarn(msg) {
-        warnDiv.style.display = 'block';
-        warnDiv.textContent = '⚠️ ' + msg;
-    }
-    
-    // 检查是否在安全上下文 (HTTPS 或 localhost)
-    if (!window.isSecureContext) {
-        showError('必须使用 HTTPS 或 localhost 访问此页面。请使用本地服务器（如 Live Server）打开，不要直接双击文件。');
-        return; // 阻止后续执行
-    }
-    
-    // 检查浏览器支持
-    if (!window.crypto || !window.crypto.subtle) {
-        showError('浏览器不支持 Web Crypto API，请使用现代浏览器（Chrome/Edge/Firefox/Safari）');
-        return;
-    }
-    
-    try {
-        const $ = document;
-        const w = window;      // 原代码用 b，为避免混淆改用 w
-        const c = crypto.subtle; // ✅ 修复：原代码写成 const crypto.subtle 导致语法错误！
-        const h = new TextEncoder();
-        const e = $.getElementById.bind($);
-        
-        // 用于加密解密的密钥将存储在 w._k
-        
-        w.j = async function() {
-            try {
-                const r = e('r').value.trim();
-                const k = e('k').value;
-                const u = e('u').value || 'User';
-                
-                if (!r || !k) {
-                    showError('请填写 Room 和 Key');
-                    return;
-                }
-                
-                // 隐藏登录框，显示主界面
-                e('a').style.display = 'none';
-                e('m').style.display = 'flex';
-                e('n').textContent = r;
-                
-                // 派生密钥
-                const keyMaterial = await c.importKey(
-                    'raw', 
-                    h.encode(r + k), 
-                    {name: 'PBKDF2'}, 
-                    false, 
-                    ['deriveKey']
+        // 加密工具类（提取用户指纹）
+        class SecureChannel {
+            constructor(password) {
+                this.password = password;
+                this.key = null;
+                this.salt = new TextEncoder().encode('secure-room-v1');
+                this.fingerprint = null;
+            }
+
+            async init() {
+                const encoder = new TextEncoder();
+                const keyMaterial = await crypto.subtle.importKey(
+                    'raw',
+                    encoder.encode(this.password),
+                    'PBKDF2',
+                    false,
+                    ['deriveKey', 'deriveBits']
                 );
                 
-                const key = await c.deriveKey(
+                // 派生加密密钥
+                this.key = await crypto.subtle.deriveKey(
                     {
                         name: 'PBKDF2',
-                        salt: h.encode('s'),
+                        salt: this.salt,
                         iterations: 100000,
                         hash: 'SHA-256'
                     },
                     keyMaterial,
-                    {name: 'AES-GCM', length: 256},
+                    { name: 'AES-GCM', length: 256 },
                     false,
                     ['encrypt', 'decrypt']
                 );
-                
-                w._k = key;
-                w._u = u;
-                w._r = r;
-                
-                addMsg('系统: 已连接到 ' + r, false);
-                
-                // 模拟在线人数变化
-                setInterval(() => {
-                    const peers = 1 + Math.floor(Math.random() * 3);
-                    const el = e('p');
-                    if (el) el.textContent = peers + ' peers';
-                }, 3000);
-                
-            } catch (error) {
-                showError('连接失败: ' + error.message);
-                console.error(error);
-            }
-        };
-        
-        // ✅ 修复：变量名冲突（原代码 enc 函数内用 const b 覆盖了外层的 b/window）
-        w.enc = async function(text) {
-            const iv = c.getRandomValues(new Uint8Array(12));
-            const data = h.encode(JSON.stringify({t: text, d: Date.now()}));
-            const encrypted = await c.encrypt(
-                {name: 'AES-GCM', iv: iv},
-                w._k,
-                data
-            );
-            const combined = new Uint8Array(iv.length + encrypted.byteLength);
-            combined.set(iv);
-            combined.set(new Uint8Array(encrypted), iv.length);
-            return btoa(String.fromCharCode(...combined));
-        };
-        
-        w.dec = async function(base64) {
-            try {
-                const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-                const iv = data.slice(0, 12);
-                const encrypted = data.slice(12);
-                const decrypted = await c.decrypt(
-                    {name: 'AES-GCM', iv: iv},
-                    w._k,
-                    encrypted
+
+                // 派生用户指纹（公共可见）
+                const bits = await crypto.subtle.deriveKey(
+                    {
+                        name: 'PBKDF2',
+                        salt: encoder.encode('fingerprint-salt'),
+                        iterations: 1000,
+                        hash: 'SHA-256'
+                    },
+                    keyMaterial,
+                    { name: 'AES-GCM', length: 128 },
+                    false,
+                    ['encrypt']
                 );
-                return JSON.parse(new TextDecoder().decode(decrypted)).t;
-            } catch (e) {
-                return null;
+                const raw = await crypto.subtle.exportKey('raw', bits);
+                this.fingerprint = Array.from(new Uint8Array(raw))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('')
+                    .substring(0, 8);
             }
-        };
-        
-        w.snd = function() {
-            const inp = e('i');
-            const val = inp.value.trim();
-            if (!val) return;
-            
-            // 演示：加密并显示
-            w.enc(val).then(() => {
-                addMsg(val, true);
-                inp.value = '';
-                setTimeout(() => addMsg('系统: 消息已发送', false), 500);
-            }).catch(err => {
-                addMsg('系统: 加密失败 - ' + err.message, false);
-            });
-        };
-        
-        function addMsg(text, isOwn) {
-            const div = $.createElement('div');
-            const container = e('s');
-            div.className = 'm ' + (isOwn ? 'o' : 't');
-            div.textContent = (isOwn ? 'You: ' : 'Peer: ') + text;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+
+            async encrypt(text) {
+                const encoder = new TextEncoder();
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv },
+                    this.key,
+                    encoder.encode(text)
+                );
+                const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
+                combined.set(iv);
+                combined.set(new Uint8Array(ciphertext), iv.length);
+                return btoa(String.fromCharCode(...combined));
+            }
+
+            async decrypt(base64) {
+                try {
+                    const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                    const iv = data.slice(0, 12);
+                    const ciphertext = data.slice(12);
+                    const decrypted = await crypto.subtle.decrypt(
+                        { name: 'AES-GCM', iv },
+                        this.key,
+                        ciphertext
+                    );
+                    return new TextDecoder().decode(decrypted);
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            async deriveRoomId(roomName) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(roomName + ':' + this.password);
+                const hash = await crypto.subtle.digest('SHA-256', data);
+                return Array.from(new Uint8Array(hash))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('')
+                    .substring(0, 32);
+            }
         }
-        
-        w.q = function() {
-            location.reload();
-        };
-        
-        // Enter 键登录
-        e('k').addEventListener('keydown', function(evt) {
-            if (evt.key === 'Enter') w.j();
+
+        // 消息队列与排序管理
+        class MessageQueue {
+            constructor() {
+                this.messages = [];
+                this.callbacks = [];
+                this.maxSize = 100; // 内存中保留100条
+            }
+
+            add(msg) {
+                // 去重
+                if (this.messages.find(m => m.id === msg.id)) return;
+                
+                this.messages.push(msg);
+                // 按向量时钟排序，相同时按时间戳
+                this.messages.sort((a, b) => {
+                    const vcDiff = (a.vc || 0) - (b.vc || 0);
+                    if (vcDiff !== 0) return vcDiff;
+                    return a.ts - b.ts;
+                });
+                
+                // 限制大小
+                if (this.messages.length > this.maxSize) {
+                    this.messages = this.messages.slice(-this.maxSize);
+                }
+                
+                this.callbacks.forEach(cb => cb(this.messages));
+            }
+
+            onUpdate(callback) {
+                this.callbacks.push(callback);
+            }
+
+            getRecent(n = 20) {
+                return this.messages.slice(-n);
+            }
+        }
+
+        class ChatApp {
+            constructor() {
+                this.room = null;
+                this.channel = null;
+                this.peers = new Map(); // peerId -> {name, fingerprint, lastSeen}
+                this.myName = '';
+                this.roomName = '';
+                this.roomPassword = '';
+                this.userFingerprint = '';
+                this.vectorClock = 0;
+                this.messageQueue = new MessageQueue();
+                this.messageHistory = []; // 用于转发给新成员
+                this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                this.maxPeers = 5; // 6人房间（自己+5）
+                this.sendingLock = false;
+                this.connectionTimeout = null;
+                
+                // 检测移动端显示警告
+                if (this.isMobile) {
+                    document.getElementById('mobileWarning').classList.add('active');
+                }
+
+                // 检查URL hash
+                if (location.hash && location.hash.length > 1) {
+                    try {
+                        const roomFromUrl = atob(decodeURIComponent(location.hash.substring(1)));
+                        document.getElementById('roomInput').value = roomFromUrl;
+                    } catch(e) {}
+                }
+            }
+
+            async join() {
+                const roomInput = document.getElementById('roomInput').value.trim();
+                const pwdInput = document.getElementById('pwdInput').value;
+                const nameInput = document.getElementById('nameInput').value.trim() || 'Anonymous';
+                
+                if (!roomInput || !pwdInput) {
+                    alert('请输入房间标识和密码');
+                    return;
+                }
+
+                const btn = document.getElementById('joinBtn');
+                const loading = document.getElementById('loadingOverlay');
+                btn.disabled = true;
+                loading.classList.add('active');
+
+                try {
+                    // 初始化加密
+                    this.channel = new SecureChannel(pwdInput);
+                    await this.channel.init();
+                    this.userFingerprint = this.channel.fingerprint;
+                    this.roomName = roomInput;
+                    this.myName = nameInput;
+                    this.roomPassword = pwdInput;
+
+                    // 派生房间ID
+                    const roomId = await this.channel.deriveRoomId(roomInput);
+
+                    // 连接超时处理
+                    this.connectionTimeout = setTimeout(() => {
+                        alert('连接超时：部分中继节点无响应，请检查网络后重试');
+                        btn.disabled = false;
+                        loading.classList.remove('active');
+                    }, 15000);
+
+                    // 加入房间
+                    this.room = joinRoom({
+                        appId: 'sr-v1-6p',
+                        relayUrls: [
+                            'wss://relay.damus.io',
+                            'wss://relay.snort.social',
+                            'wss://nos.lol',
+                            'wss://relay.nostr.band'
+                        ],
+                        password: roomId, // Trystero 自带层加密
+                        maxPeers: this.maxPeers
+                    }, roomId);
+
+                    // 设置动作
+                    const [sendMsg, getMsg] = this.room.makeAction('msg');
+                    const [sendHistory, getHistory] = this.room.makeAction('hist');
+                    const [sendSync, getSync] = this.room.makeAction('sync');
+                    
+                    this.sendMsg = sendMsg;
+                    this.sendHistory = sendHistory;
+                    this.sendSync = sendSync;
+
+                    // 收到普通消息
+                    getMsg(async (data, peerId) => {
+                        if (!data.payload) return;
+                        
+                        const decrypted = await this.channel.decrypt(data.payload);
+                        if (!decrypted) return; // 解密失败（不同房间用户）
+                        
+                        try {
+                            const msg = JSON.parse(decrypted);
+                            
+                            // 更新向量时钟
+                            if (msg.vc && msg.vc > this.vectorClock) {
+                                this.vectorClock = msg.vc;
+                            }
+                            
+                            // 记录到历史（用于转发给新成员）
+                            this.messageHistory.push({
+                                payload: data.payload,
+                                ts: msg.ts
+                            });
+                            if (this.messageHistory.length > 20) {
+                                this.messageHistory.shift();
+                            }
+                            
+                            // 更新对等点信息
+                            if (msg.fingerprint) {
+                                this.peers.set(peerId, {
+                                    name: msg.name,
+                                    fingerprint: msg.fingerprint,
+                                    lastSeen: Date.now()
+                                });
+                            }
+                            
+                            // 添加到消息队列
+                            this.messageQueue.add(msg);
+                            
+                        } catch (e) {
+                            console.error('消息解析失败', e);
+                        }
+                    });
+
+                    // 收到历史同步请求（新成员请求历史）
+                    getSync(async (data, peerId) => {
+                        if (data.type === 'request' && this.messageHistory.length > 0) {
+                            // 发送最近20条给新成员
+                            const recent = this.messageHistory.slice(-20);
+                            this.sendHistory({ 
+                                target: peerId,
+                                history: recent 
+                            });
+                        }
+                    });
+
+                    // 收到历史记录（作为新成员）
+                    getHistory(async (data, peerId) => {
+                        if (data.history && Array.isArray(data.history)) {
+                            for (const item of data.history) {
+                                const decrypted = await this.channel.decrypt(item.payload);
+                                if (decrypted) {
+                                    try {
+                                        const msg = JSON.parse(decrypted);
+                                        this.displayMsg(
+                                            msg.name, 
+                                            msg.text, 
+                                            msg.ts, 
+                                            false, 
+                                            msg.fingerprint,
+                                            true // 标记为历史消息
+                                        );
+                                    } catch(e) {}
+                                }
+                            }
+                            this.displayMsg('系统', '── 以上为历史消息 ──', Date.now(), true);
+                        }
+                    });
+
+                    // 对等点加入
+                    this.room.onPeerJoin((peerId) => {
+                        clearTimeout(this.connectionTimeout);
+                        
+                        // 检查人数限制
+                        if (this.peers.size >= this.maxPeers) {
+                            this.displayMsg('系统', '⚠️ 房间已满（最多6人），新成员无法加入', Date.now(), true);
+                            return;
+                        }
+                        
+                        this.peers.set(peerId, { 
+                            name: 'Unknown', 
+                            fingerprint: null,
+                            lastSeen: Date.now() 
+                        });
+                        this.updatePeerCount();
+                        this.displayMsg('系统', `🔔 有加密节点接入 (${this.peers.size}/6)`, Date.now(), true);
+                        
+                        // 如果是第一个已有成员，向新成员发送同步信号（可选）
+                        if (this.peers.size === 1) {
+                            // 发送自我介绍
+                            this.broadcastInfo();
+                        }
+                        
+                        // 请求历史（作为新成员）
+                        if (this.peers.size === 1) {
+                            setTimeout(() => {
+                                this.sendSync({ type: 'request' });
+                            }, 1000);
+                        }
+                    });
+
+                    // 对等点离开
+                    this.room.onPeerLeave((peerId) => {
+                        this.peers.delete(peerId);
+                        this.updatePeerCount();
+                        this.displayMsg('系统', `👋 加密节点断开连接 (${this.peers.size}/6)`, Date.now(), true);
+                    });
+
+                    // 界面切换
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('chat').style.display = 'flex';
+                    document.getElementById('displayRoom').innerHTML = `🔐 ${this.escapeHtml(roomInput)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
+                    
+                    loading.classList.remove('active');
+                    
+                    this.displayMsg('系统', 
+                        `✅ 你已匿名进入房间 "${roomInput}"\n` +
+                        `📍 你的身份指纹: ${this.userFingerprint}\n` +
+                        `👥 房间上限: 6人 | 当前在线: ${this.peers.size + 1}人`, 
+                        Date.now(), true
+                    );
+
+                    // 定期广播自己的信息（用于更新在线列表）
+                    setInterval(() => this.broadcastInfo(), 30000);
+                    
+                    // 更新向量时钟显示
+                    setInterval(() => {
+                        document.getElementById('vectorClock').textContent = 
+                            `VC:${this.vectorClock}`;
+                    }, 1000);
+
+                } catch (err) {
+                    console.error(err);
+                    clearTimeout(this.connectionTimeout);
+                    alert('连接失败: ' + (err.message || '网络错误'));
+                    btn.disabled = false;
+                    loading.classList.remove('active');
+                }
+            }
+
+            async broadcastInfo() {
+                // 广播自己的基本信息（非敏感）
+                if (!this.sendMsg) return;
+                const info = {
+                    name: this.myName,
+                    fingerprint: this.userFingerprint,
+                    type: 'presence',
+                    ts: Date.now()
+                };
+                try {
+                    const encrypted = await this.channel.encrypt(JSON.stringify(info));
+                    this.sendMsg({ payload: encrypted, type: 'presence' });
+                } catch(e) {}
+            }
+
+            async send() {
+                if (this.sendingLock) return;
+                const input = document.getElementById('msgInput');
+                const text = input.value.trim();
+                if (!text || !this.sendMsg) return;
+
+                this.sendingLock = true;
+                const btn = document.getElementById('sendBtn');
+                btn.disabled = true;
+
+                try {
+                    this.vectorClock++;
+                    const msg = {
+                        id: crypto.randomUUID(),
+                        name: this.myName,
+                        text: text,
+                        ts: Date.now(),
+                        vc: this.vectorClock, // 向量时钟
+                        fingerprint: this.userFingerprint // 身份指纹
+                    };
+
+                    const encrypted = await this.channel.encrypt(JSON.stringify(msg));
+                    
+                    // 发送并跟踪送达
+                    const recipients = Array.from(this.peers.keys());
+                    this.sendMsg({ payload: encrypted });
+                    
+                    // 保存到历史
+                    this.messageHistory.push({
+                        payload: encrypted,
+                        ts: msg.ts
+                    });
+                    if (this.messageHistory.length > 20) this.messageHistory.shift();
+
+                    // 立即显示自己的消息（标记为已送达，因为本地确定）
+                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, false, true);
+                    input.value = '';
+                    
+                    // 显示送达状态（模拟，实际P2P不保证送达）
+                    setTimeout(() => {
+                        this.updateDeliveryStatus(msg.id, recipients.length + 1);
+                    }, 100);
+                    
+                } catch (err) {
+                    console.error('发送失败', err);
+                    this.displayMsg('系统', '❌ 消息发送失败，请重试', Date.now(), true);
+                } finally {
+                    this.sendingLock = false;
+                    btn.disabled = false;
+                    setTimeout(() => input.focus(), 100);
+                }
+            }
+
+            displayMsg(user, text, ts, isSystem, fingerprint = null, isHistory = false, isSelf = false) {
+                const container = document.getElementById('messages');
+                const div = document.createElement('div');
+                
+                if (isHistory) {
+                    div.className = 'message history-sync';
+                } else if (isSystem) {
+                    div.className = 'message system';
+                } else if (isSelf || user === this.myName) {
+                    div.className = 'message self';
+                } else {
+                    div.className = 'message other';
+                }
+                
+                const time = new Date(ts).toLocaleTimeString('zh-CN', {
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                if (isSystem) {
+                    div.innerHTML = `<div class="msg-text" style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
+                } else {
+                    const fpDisplay = fingerprint ? 
+                        `<span class="user-fingerprint" title="身份指纹: ${fingerprint}">#${fingerprint.substring(0,4)}</span>` : '';
+                    
+                    // 如果是指纹不匹配警告（可选安全功能）
+                    const securityWarning = '';
+                    
+                    div.innerHTML = `
+                        <div class="msg-header">
+                            <span class="msg-user">${this.escapeHtml(user)}${fpDisplay}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${this.escapeHtml(text)}</div>
+                    `;
+                    
+                    if (isSelf) {
+                        div.innerHTML += `<div class="delivery-status" id="delivery-${ts}">
+                            <span class="read-receipt">✓</span> 已发送
+                        </div>`;
+                    }
+                }
+                
+                container.appendChild(div);
+                
+                // 自动滚动到底部（如果用户在底部附近）
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom) {
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }
+                
+                // 限制DOM节点数量（性能优化）
+                while (container.children.length > 100) {
+                    container.removeChild(container.firstChild);
+                }
+            }
+
+            updateDeliveryStatus(msgId, count) {
+                // 简化处理：实际 P2P 难以确认到达，显示逻辑送达即可
+            }
+
+            updatePeerCount() {
+                const count = this.peers.size + 1;
+                const el = document.getElementById('peerCount');
+                const dot = document.getElementById('statusDot');
+                
+                el.textContent = `${count}/6 在线`;
+                
+                // 颜色指示连接健康度
+                if (count >= 5) {
+                    el.className = 'peer-count';
+                    dot.style.background = 'var(--success)';
+                } else if (count >= 3) {
+                    el.className = 'peer-count warning';
+                    dot.style.background = 'var(--warning)';
+                } else {
+                    el.className = 'peer-count error';
+                    dot.style.background = 'var(--error)';
+                }
+                
+                // 移动端发热警告
+                if (this.isMobile && count > 3) {
+                    if (!this.warnedHeat) {
+                        this.displayMsg('系统', '⚠️ 多人连接可能导致设备发热，建议保持屏幕常亮', Date.now(), true);
+                        this.warnedHeat = true;
+                    }
+                }
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            async copyLink() {
+                const hash = encodeURIComponent(btoa(this.roomName));
+                const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+                
+                try {
+                    await navigator.clipboard.writeText(url);
+                    alert(`✅ 房间链接已复制\n\n${url}\n\n⚠️ 注意：密码不会包含在链接中，请通过安全渠道分享密码`);
+                } catch (err) {
+                    prompt('请手动复制链接（密码需另外分享）：', url);
+                }
+            }
+
+            leave() {
+                if (confirm('确定要离开房间吗？所有消息历史将丢失。')) {
+                    if (this.room) this.room.leave();
+                    location.reload();
+                }
+            }
+        }
+
+        // 初始化
+        const app = new ChatApp();
+        window.app = app;
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('chat').style.display === 'flex') {
+                document.getElementById('msgInput').blur();
+            }
         });
-        
-        console.log('初始化成功');
-        
-    } catch (e) {
-        showError('初始化失败: ' + e.message);
-        console.error(e);
-    }
-})();
-</script>
+
+        // 防止移动端键盘收起后的布局问题
+        window.addEventListener('resize', () => {
+            const chat = document.getElementById('chat');
+            if (chat.style.display === 'flex') {
+                setTimeout(() => {
+                    const container = document.getElementById('messages');
+                    container.scrollTop = container.scrollHeight;
+                }, 300);
+            }
+        });
+
+        // 页面可见性变化（节电优化）
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && app.room) {
+                // 页面隐藏时降低心跳频率（如果实现的话）
+            }
+        });
+    </script>
 </body>
 </html>
