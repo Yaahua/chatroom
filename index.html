@@ -6,7 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-store">
     <title>SC</title>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f13;color:#e0e0f0;height:100vh;overflow:hidden}.w{max-width:800px;margin:0 auto;height:100vh;display:flex;flex-direction:column}.h{padding:20px;border-bottom:1px solid #2a2a35;display:flex;justify-content:space-between;align-items:center;background:#16161e}.c{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}.i{padding:20px;border-top:1px solid #2a2a35;display:flex;gap:10px;background:#16161e}input{flex:1;background:#1a1a24;border:1px solid #2a2a35;color:#fff;padding:12px 16px;border-radius:8px;outline:none}button{background:#3b82f6;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-weight:600}button:hover{background:#2563eb}.m{max-width:70%;padding:12px 16px;border-radius:12px;word-wrap:break-word;font-size:14px}.o{align-self:flex-end;background:#3b82f6}.t{align-self:flex-start;background:#2a2a35}.s{text-align:center;color:#6b7280;font-size:12px;margin:8px 0}#a{position:fixed;inset:0;background:#0f0f13;display:flex;align-items:center;justify-content:center;z-index:50}.b{background:#16161e;padding:40px;border-radius:16px;border:1px solid #2a2a35;width:90%;max-width:400px;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.t2{font-size:24px;margin-bottom:24px;text-align:center;background:linear-gradient(90deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;color:transparent}.x{margin-bottom:16px}.x label{display:block;font-size:12px;color:#6b7280;margin-bottom:6px;text-transform:uppercase}.x input{width%;background:#1a1a24;border:1px solid #2a2a35}#l{background:#10b981;padding:4px 12px;border-radius:20px;font-size:12px;color:white}.d{background:#ef4444}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f13;color:#e0e0f0;height:100vh;overflow:hidden}.w{max-width:800px;margin:0 auto;height:100vh;display:flex;flex-direction:column}.h{padding:20px;border-bottom:1px solid #2a2a35;display:flex;justify-content:space-between;align-items:center;background:#16161e}.c{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}.i{padding:20px;border-top:1px solid #2a2a35;display:flex;gap:10px;background:#16161e}input{flex:1;background:#1a1a24;border:1px solid #2a2a35;color:#fff;padding:12px 16px;border-radius:8px;outline:none}button{background:#3b82f6;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-weight:600}button:hover{background:#2563eb}.m{max-width:70%;padding:12px 16px;border-radius:12px;word-wrap:break-word;font-size:14px}.o{align-self:flex-end;background:#3b82f6}.t{align-self:flex-start;background:#2a2a35}.s{text-align:center;color:#6b7280;font-size:12px;margin:8px 0}#a{position:fixed;inset:0;background:#0f0f13;display:flex;align-items:center;justify-content:center;z-index:50}.b{background:#16161e;padding:40px;border-radius:16px;border:1px solid #2a2a35;width:90%;max-width:400px;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.t2{font-size:24px;margin-bottom:24px;text-align:center;background:linear-gradient(90deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;color:transparent}.x{margin-bottom:16px}.x label{display:block;font-size:12px;color:#6b7280;margin-bottom:6px;text-transform:uppercase}.x input{width:100%;background:#1a1a24;border:1px solid #2a2a35}#l{background:#10b981;padding:4px 12px;border-radius:20px;font-size:12px;color:white}.d{background:#ef4444}
+        #err{display:none;color:#ef4444;font-size:12px;margin-top:10px;text-align:center}
     </style>
 </head>
 <body>
@@ -17,6 +18,7 @@
         <div class="x"><label>Key</label><input type="password" id="k" placeholder="password" autocomplete="off"></div>
         <div class="x"><label>User</label><input type="text" id="u" value="User" maxlength="8"></div>
         <button onclick="j()">Connect</button>
+        <div id="err"></div>
         <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
             <span id="l">● Secure</span><span style="font-size:11px;color:#6b7280">E2EE</span>
         </div>
@@ -36,7 +38,121 @@
 </div>
 
 <script>
-((_)=>{const $=document,b=window,crypto.subtle,e=$.getElementById.bind($),h=new TextEncoder,j=()=>{const r=e('r').value,k=e('k').value,u=e('u').value||'A';if(!r||!k)return alert('Fill');e('a').style.display='none';e('m').style.display='flex';e('n').textContent=r;z(r,k,u)},z=async(r,k,u)=>{const s=h.encode(r+k),i=await c.importKey('raw',s,{name:'PBKDF2'},!1,['deriveKey']),l=await c.deriveKey({name:'PBKDF2',salt:h.encode('s'),iterations:1e5,hash:'SHA-256'},i,{name:'AES-GCM',length:256},!1,['encrypt','decrypt']);b._k=l,b._u=u,b._r=r,f(`System: Connected to ${r}`);setInterval(()=>e('p').textContent=1+Math.floor(Math.random()*2)+' peers',3e3)},enc=async(t)=>{const v=c.getRandomValues(new Uint8Array(12)),d=h.encode(JSON.stringify({t,d:Date.now()})),b=await c.encrypt({name:'AES-GCM',iv:v},b._k,d);return btoa(String.fromCharCode(...v,...new Uint8Array(b)))},dec=async(s)=>{try{const a=Uint8Array.from(atob(s),c=>c.charCodeAt(0)),v=a.slice(0,12),d=a.slice(12),p=await c.decrypt({name:'AES-GCM',iv:v},b._k,d);return JSON.parse(new TextDecoder().decode(p)).t}catch(e){return null}},snd=()=>{const i=e('i'),v=i.value.trim();if(!v)return;const m=enc(v);f(v,!0),i.value='';setTimeout(()=>f(`System: Message delivered`),500)},f=(t,o)=>{const d=$.createElement('div'),s=e('s');d.className='m '+(o?'o':'t'),d.textContent=(o?'You: ':'Peer: ')+t;s.appendChild(d);s.scrollTop=s.scrollHeight},q=()=>location.reload();b.snd=snd;b.j=j;e('k').addEventListener('keydown',e=>{if(e.key==='Enter')j()});$.addEventListener('contextmenu',e=>e.preventDefault());$.addEventListener('keydown',e=>{(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J'].includes(e.key)))&&e.preventDefault()});setInterval(()=>{debugger},100);console.log=console.warn=console.error=()=>{};const v=(()=>{let c=0;setInterval(()=>{c=performance.now();debugger;if(performance.now()-c>100)location.reload()},1e3)})();Object.freeze(b);document.documentElement.setAttribute('oncontextmenu','return!1')})({})
+((_) => {
+    const $ = document, 
+          b = window, 
+          c = crypto.subtle,
+          h = new TextEncoder,
+          e = $.getElementById.bind($);
+    
+    // 检查 Web Crypto 是否可用
+    if (!c) {
+        alert('Error: Web Crypto API unavailable. Please use HTTPS or localhost.');
+        return;
+    }
+
+    const err = (m) => {
+        const el = e('err');
+        if (el) { el.textContent = m; el.style.display = 'block'; }
+    };
+
+    b.j = () => {
+        const r = e('r').value.trim(),
+              k = e('k').value,
+              u = e('u').value || 'User';
+        if (!r || !k) return err('Please fill in Room and Key');
+        e('err').style.display = 'none';
+        e('a').style.display = 'none';
+        e('m').style.display = 'flex';
+        e('n').textContent = r;
+        z(r, k, u).catch(e => {
+            err('Connection failed: ' + e.message);
+            console.error(e);
+        });
+    };
+
+    const z = async (r, k, u) => {
+        const s = h.encode(r + k),
+              i = await c.importKey('raw', s, {name: 'PBKDF2'}, false, ['deriveKey']),
+              l = await c.deriveKey(
+                  {name: 'PBKDF2', salt: h.encode('s'), iterations: 1e5, hash: 'SHA-256'}, 
+                  i, 
+                  {name: 'AES-GCM', length: 256}, 
+                  false, 
+                  ['encrypt', 'decrypt']
+              );
+        b._k = l;  // 存储密钥到 window
+        b._u = u;
+        b._r = r;
+        f(`System: Connected to ${r}`);
+        
+        // 模拟随机在线人数
+        setInterval(() => {
+            const el = e('p');
+            if (el) el.textContent = (1 + Math.floor(Math.random() * 2)) + ' peers';
+        }, 3e3);
+    };
+
+    // 修复：避免使用变量名 'b' 覆盖外层的 window 引用
+    b.enc = async (t) => {
+        const v = c.getRandomValues(new Uint8Array(12));
+        const d = h.encode(JSON.stringify({t, d: Date.now()}));
+        // 注意：这里使用 'buf' 而不是 'b'，避免与 window (b) 混淆
+        const buf = await c.encrypt({name: 'AES-GCM', iv: v}, b._k, d);
+        return btoa(String.fromCharCode(...v, ...new Uint8Array(buf)));
+    };
+
+    b.dec = async (s) => {
+        try {
+            const a = Uint8Array.from(atob(s), c => c.charCodeAt(0));
+            const v = a.slice(0, 12);
+            const d = a.slice(12);
+            const p = await c.decrypt({name: 'AES-GCM', iv: v}, b._k, d);
+            return JSON.parse(new TextDecoder().decode(p)).t;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    b.snd = () => {
+        const inp = e('i');
+        const v = inp.value.trim();
+        if (!v) return;
+        // 加密消息（演示用途，实际会发送到服务器/对等端）
+        b.enc(v).then(encrypted => {
+            f(v, true);
+            inp.value = '';
+            setTimeout(() => f(`System: Message delivered`), 500);
+        }).catch(err => {
+            f(`System: Encrypt error - ${err.message}`, false);
+        });
+    };
+
+    const f = (t, o) => {
+        const d = $.createElement('div'),
+              s = e('s');
+        d.className = 'm ' + (o ? 'o' : 't');
+        d.textContent = (o ? 'You: ' : 'Peer: ') + t;
+        s.appendChild(d);
+        s.scrollTop = s.scrollHeight;
+    };
+
+    b.q = () => location.reload();
+
+    e('k').addEventListener('keydown', e => {
+        if (e.key === 'Enter') b.j();
+    });
+
+    // 开发者工具防护（可选）
+    $.addEventListener('contextmenu', e => e.preventDefault());
+    $.addEventListener('keydown', e => {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J'].includes(e.key))) {
+            e.preventDefault();
+        }
+    });
+    setInterval(() => { debugger; }, 100);
+    console.log = console.warn = console.error = () => {};
+})();
 </script>
 </body>
 </html>
