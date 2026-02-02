@@ -246,6 +246,18 @@
         }
         .toast.show { opacity: 1; }
         
+        /* 连接状态指示器 */
+        .conn-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .conn-status.connecting { background: var(--warn); animation: pulse 1s infinite; }
+        .conn-status.connected { background: var(--accent); }
+        .conn-status.failed { background: var(--err); }
+        
         @media (max-width:600px){
             .msg{max-width:90%}
             #userList{max-width:150px}
@@ -283,7 +295,8 @@
                 <strong>去中心化多人加密聊天</strong><br>
                 • 支持最多 8 人同时在线（Mesh 网络）<br>
                 • 消息端到端加密，服务器不存储记录<br>
-                • 显示精确时间戳和消息序号
+                • 显示精确时间戳和消息序号<br>
+                • <span style="color:var(--accent)">已启用 TURN 服务器穿透</span>
             </div>
             
             <div id="userInfo" style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px;background:#000;border-radius:8px;border:1px solid #333">
@@ -338,7 +351,9 @@
             <div id="roomInfo">
                 <div>
                     <div id="roomTitle">房间: -</div>
-                    <div style="font-size:11px;color:#666;margin-top:2px" id="connectionStatus">初始化...</div>
+                    <div style="font-size:11px;color:#666;margin-top:2px" id="connectionStatus">
+                        <span class="conn-status connecting"></span>初始化...
+                    </div>
                 </div>
                 <div id="onlineCount">1人在线</div>
             </div>
@@ -421,11 +436,11 @@
             
             // 连接管理
             client: null,
-            peers: new Map(), // userId -> {pc, dc, username, userId, connected, polite}
+            peers: new Map(), // userId -> {pc, dc, username, userId, connected, polite, pendingMessages}
             
             // 消息序列号
             messageSeq: 0,
-            receivedMessages: new LRUCache(1000), // 使用 LRU 缓存防止内存泄漏
+            receivedMessages: new LRUCache(1000),
             
             // 连接建立标志
             connectionEstablished: false,
@@ -666,7 +681,6 @@
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('chat').classList.remove('hidden');
                 document.getElementById('roomTitle').textContent = `房间: ${this.roomCode}`;
-                document.getElementById('connectionStatus').textContent = this.isHost ? '等待成员加入...' : '正在连接...';
                 
                 // 显示固定底部的输入框
                 const inputEl = document.getElementById('input');
@@ -766,10 +780,13 @@
                     // 用户ID字典序较小的作为 polite peer（优先接受 offer）
                     const amPolite = this.userId < userId;
                     
-                    if (!this.peers.has(userId)) {
-                        // 如果已经存在连接，先关闭
-                        this.initiateConnection(userId, username, avatarColor, amPolite);
-                    }
+                    // 延迟一点时间再初始化，确保对方已经准备好
+                    setTimeout(() => {
+                        if (!this.peers.has(userId) || 
+                            ['failed', 'closed', 'disconnected'].includes(this.peers.get(userId)?.pc?.connectionState)) {
+                            this.initiateConnection(userId, username, avatarColor, amPolite);
+                        }
+                    }, 500);
                     
                 } else if (action === 'leave') {
                     this.log(`${username} 离开房间`);
@@ -778,12 +795,13 @@
                 }
             },
 
-            // 初始化连接（使用 Perfect Negotiation 模式）
+            // 初始化连接（使用 TURN 服务器）
             async initiateConnection(targetUserId, targetName, targetColor, polite = false) {
+                // 检查现有连接，如果存在且有效则复用
                 if (this.peers.has(targetUserId)) {
                     const existing = this.peers.get(targetUserId);
-                    if (existing.pc && (existing.pc.connectionState === 'connected' || existing.pc.connectionState === 'connecting')) {
-                        this.log(`与 ${targetName} 的连接已存在，跳过`);
+                    if (existing.pc && ['connected', 'connecting'].includes(existing.pc.connectionState)) {
+                        this.log(`与 ${targetName} 的连接已存在且有效，跳过`);
                         return;
                     }
                     // 如果存在但已断开，先清理
@@ -792,11 +810,27 @@
                 
                 this.log(`正在连接 ${targetName} (polite: ${polite})...`);
                 
-                const pc = new RTCPeerConnection({
-                    iceServers: [
-                        {urls: 'stun:stun.l.google.com:19302'},
-                        {urls: 'stun:stun1.l.google.com:19302'}
-                    ]
+                // TURN 服务器配置（包含 UDP 和 TCP）
+                const iceServers = [
+                    {
+                        urls: "stun:stun.relay.metered.ca:80"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ];
+                
+                const pc = new RTCPeerConnection({ 
+                    iceServers: iceServers,
+                    iceTransportPolicy: 'all',
+                    iceCandidatePoolSize: 10
                 });
                 
                 const peer = {
@@ -808,15 +842,24 @@
                     connected: false,
                     polite: polite,
                     makingOffer: false,
-                    ignoreOffer: false
+                    ignoreOffer: false,
+                    isSettingRemoteAnswerPending: false,
+                    pendingMessages: [] // 待发送消息队列
                 };
                 
                 this.peers.set(targetUserId, peer);
                 
                 // 只有非 polite 方才创建数据通道（避免冲突）
                 if (!polite) {
-                    const dc = pc.createDataChannel('chat', {ordered: true});
-                    this.setupDataChannel(dc, peer);
+                    try {
+                        const dc = pc.createDataChannel('chat', {
+                            ordered: true,
+                            maxRetransmits: 3
+                        });
+                        this.setupDataChannel(dc, peer);
+                    } catch(e) {
+                        this.log(`创建 DataChannel 失败: ${e.message}`, true);
+                    }
                 } else {
                     // polite 方等待 ondatachannel
                     pc.ondatachannel = (e) => {
@@ -825,12 +868,9 @@
                     };
                 }
                 
-                // ICE 处理 - 使用更可靠的收集方式
-                const iceCandidates = [];
+                // ICE 处理
                 pc.onicecandidate = (e) => {
                     if (e.candidate) {
-                        iceCandidates.push(e.candidate);
-                        // 立即发送 ICE 候选，加快连接速度
                         this.publish('signal', {
                             targetUserId: targetUserId,
                             type: 'ice',
@@ -840,27 +880,45 @@
                     }
                 };
                 
-                // 使用 icegatheringstatechange 事件
                 pc.onicegatheringstatechange = () => {
                     this.log(`ICE 收集状态: ${pc.iceGatheringState}`);
                 };
                 
+                pc.oniceconnectionstatechange = () => {
+                    this.log(`ICE 连接状态: ${pc.iceConnectionState}`);
+                };
+                
                 pc.onconnectionstatechange = () => {
                     this.log(`${targetName} 连接状态: ${pc.connectionState}`);
+                    const statusEl = document.getElementById('connectionStatus');
+                    
                     if (pc.connectionState === 'connected') {
                         peer.connected = true;
                         this.updateOnlineCount();
                         this.updateUserList();
                         this.showToast(`${targetName} 已连接`);
-                    } else if (pc.connectionState === 'disconnected') {
-                        // 给短暂断开重连的机会
-                        setTimeout(() => {
-                            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                                this.removePeer(targetUserId);
+                        if (statusEl) {
+                            statusEl.innerHTML = '<span class="conn-status connected"></span>P2P已连接';
+                        }
+                    } else if (pc.connectionState === 'connecting') {
+                        if (statusEl) {
+                            statusEl.innerHTML = '<span class="conn-status connecting"></span>建立P2P连接...';
+                        }
+                    } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+                        if (pc.connectionState === 'disconnected') {
+                            // 给短暂断开重连的机会
+                            setTimeout(() => {
+                                if (pc.connectionState === 'disconnected') {
+                                    this.log(`${targetName} 连接断开，清理资源`);
+                                    this.removePeer(targetUserId);
+                                }
+                            }, 5000);
+                        } else {
+                            this.removePeer(targetUserId);
+                            if (statusEl && this.peers.size === 0) {
+                                statusEl.innerHTML = '<span class="conn-status failed"></span>连接已断开';
                             }
-                        }, 5000);
-                    } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-                        this.removePeer(targetUserId);
+                        }
                     }
                 };
                 
@@ -880,6 +938,7 @@
                             fromName: this.username,
                             fromColor: this.avatarColor
                         });
+                        this.log(`已向 ${targetName} 发送 offer`);
                     } catch(e) {
                         this.log(`创建 offer 失败: ${e.message}`, true);
                     } finally {
@@ -901,7 +960,6 @@
                     // 如果 peer 不存在，创建新的（我们是 polite 方）
                     if (!peer) {
                         const amPolite = this.userId < fromUserId;
-                        // 在 handlePresence 中应该已经创建了，但如果信号先到，这里补充创建
                         await this.initiateConnection(fromUserId, fromName, fromColor, amPolite);
                         peer = this.peers.get(fromUserId);
                     }
@@ -912,7 +970,8 @@
                     }
                     
                     // Perfect Negotiation 冲突处理
-                    const readyForOffer = !peer.makingOffer && (peer.pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
+                    const readyForOffer = !peer.makingOffer && 
+                        (peer.pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
                     
                     peer.ignoreOffer = !readyForOffer && !peer.polite;
                     
@@ -961,7 +1020,7 @@
                     
                 } else if (type === 'ice') {
                     if (!peer) {
-                        // 可能 ICE 候选在信令完成前到达，缓存或忽略
+                        // ICE 候选在信令完成前到达，缓存或忽略
                         return;
                     }
                     
@@ -979,10 +1038,26 @@
                 peer.dataChannel = dc;
                 
                 dc.onopen = () => {
-                    this.log(`与 ${peer.username} 的数据通道已打开`);
+                    this.log(`[DataChannel] ${peer.username} 通道已打开`);
                     peer.connected = true;
                     this.updateOnlineCount();
                     this.updateUserList();
+                    this.showToast(`${peer.username} 已就绪`);
+                    
+                    // 发送缓存的消息
+                    if (peer.pendingMessages && peer.pendingMessages.length > 0) {
+                        this.log(`发送 ${peer.pendingMessages.length} 条缓存消息给 ${peer.username}`);
+                        while (peer.pendingMessages.length > 0) {
+                            const msg = peer.pendingMessages.shift();
+                            try {
+                                dc.send(JSON.stringify(msg));
+                            } catch(e) {
+                                this.log(`发送缓存消息失败: ${e.message}`, true);
+                                peer.pendingMessages.unshift(msg); // 放回队列头部
+                                break;
+                            }
+                        }
+                    }
                 };
                 
                 dc.onmessage = (e) => {
@@ -995,15 +1070,14 @@
                 };
                 
                 dc.onclose = () => {
-                    this.log(`${peer.username} 的数据通道已关闭`);
-                    // 不要立即删除 peer，给重连机会
+                    this.log(`[DataChannel] ${peer.username} 通道已关闭`);
                     peer.connected = false;
                     this.updateOnlineCount();
                     this.updateUserList();
                 };
                 
                 dc.onerror = (err) => {
-                    this.log(`数据通道错误: ${err.message}`, true);
+                    this.log(`[DataChannel] ${peer.username} 错误: ${err.message}`, true);
                 };
             },
 
@@ -1043,7 +1117,7 @@
                 }
             },
 
-            // 发送消息（广播给所有 peers）
+            // 发送消息（广播给所有 peers，支持离线缓存）
             send() {
                 const input = document.getElementById('msgInput');
                 const content = input.value.trim();
@@ -1062,19 +1136,24 @@
                     type: 'chat'
                 };
                 
-                // 发送给所有已连接的 peers
+                // 发送给所有已连接或连接中的 peers
                 let sentCount = 0;
-                const connectedPeers = [];
+                let pendingCount = 0;
                 
                 this.peers.forEach((peer, uid) => {
                     if (peer.dataChannel && peer.dataChannel.readyState === 'open') {
                         try {
                             peer.dataChannel.send(JSON.stringify(message));
                             sentCount++;
-                            connectedPeers.push(peer.username);
                         } catch(e) {
                             console.error(`发送给 ${peer.username} 失败`, e);
                         }
+                    } else if (peer.pc && ['new', 'connecting'].includes(peer.pc.connectionState)) {
+                        // 连接中但通道未开，缓存消息
+                        if (!peer.pendingMessages) peer.pendingMessages = [];
+                        peer.pendingMessages.push(message);
+                        pendingCount++;
+                        this.log(`消息已缓存，等待 ${peer.username} 连接就绪...`);
                     }
                 });
                 
@@ -1082,10 +1161,10 @@
                 this.displayMessage(message, true);
                 input.value = '';
                 
-                if (this.peers.size > 0 && sentCount === 0) {
-                    this.showToast('消息暂存，等待连接恢复...');
+                if (this.peers.size > 0 && sentCount === 0 && pendingCount === 0) {
+                    this.showToast('没有就绪的连接，消息仅自己可见');
                 } else if (sentCount > 0) {
-                    this.log(`消息已发送给 ${sentCount} 人`);
+                    this.log(`消息已发送给 ${sentCount} 人，缓存 ${pendingCount} 人`);
                 }
             },
 
@@ -1143,11 +1222,18 @@
                 const totalCount = connectedCount + 1; // +1 是自己
                 document.getElementById('onlineCount').textContent = `${totalCount}人在线`;
                 
-                let statusText = '等待其他成员...';
+                let statusText = '';
+                const statusEl = document.getElementById('connectionStatus');
+                
                 if (connectedCount > 0) {
-                    statusText = `已连接 ${connectedCount} 个节点`;
+                    statusText = `<span class="conn-status connected"></span>已连接 ${connectedCount} 个节点`;
+                } else if (this.peers.size > 0) {
+                    statusText = `<span class="conn-status connecting"></span>正在建立P2P连接...`;
+                } else {
+                    statusText = `<span class="conn-status connecting"></span>等待其他成员...`;
                 }
-                document.getElementById('connectionStatus').textContent = statusText;
+                
+                if (statusEl) statusEl.innerHTML = statusText;
             },
 
             updateUserList() {
@@ -1255,19 +1341,12 @@
         
         // 页面关闭前清理
         window.addEventListener('beforeunload', () => {
-            if (App.connectionEstablished) {
-                // 使用同步请求或 sendBeacon 确保消息发送
-                if (navigator.sendBeacon && App.client) {
-                    const data = JSON.stringify({
-                        username: App.username,
-                        userId: App.userId,
-                        action: 'leave',
-                        timestamp: Date.now()
-                    });
-                    const blob = new Blob([data], {type: 'application/json'});
-                    navigator.sendBeacon(`https://httpbin.org/post`, blob); // 备用，实际应使用 MQTT 的 will message
-                }
-                App.publish('presence', {username: App.username, userId: App.userId, action: 'leave'});
+            if (App.connectionEstablished && App.client) {
+                App.publish('presence', {
+                    username: App.username, 
+                    userId: App.userId, 
+                    action: 'leave'
+                });
             }
         });
     </script>
