@@ -23,6 +23,7 @@
             --code-bg: rgba(0, 200, 170, 0.08);
             --system-bg: rgba(0, 0, 0, 0.03);
             --hover-bg: rgba(0, 0, 0, 0.05);
+            --voice-bg: rgba(0, 200, 170, 0.12);
         }
         
         [data-theme="dark"]{
@@ -42,6 +43,7 @@
             --code-bg: rgba(0, 208, 132, 0.1);
             --system-bg: rgba(255, 255, 255, 0.05);
             --hover-bg: rgba(255, 255, 255, 0.08);
+            --voice-bg: rgba(0, 208, 132, 0.15);
         }
         
         *{
@@ -60,6 +62,7 @@
             overflow-x: hidden;
             position: relative;
             line-height: 1.5;
+            user-select: none;
         }
         
         .hidden{display:none !important}
@@ -305,7 +308,6 @@
             white-space: nowrap;
         }
         
-        /* 主题切换按钮 */
         .theme-toggle{
             width: 40px !important;
             height: 40px;
@@ -383,7 +385,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            padding-bottom: 100px;
+            padding-bottom: 140px;
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -483,6 +485,121 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         
+        /* 语音消息样式 */
+        .msg-voice {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            min-width: 120px;
+            max-width: 280px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .msg-voice .voice-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            flex-shrink: 0;
+            position: relative;
+        }
+        
+        .msg-voice .voice-icon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: var(--accent);
+            opacity: 0.3;
+            animation: voicePulse 2s infinite;
+            display: none;
+        }
+        
+        .msg-voice.playing .voice-icon::after {
+            display: block;
+        }
+        
+        @keyframes voicePulse {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        .msg-voice .voice-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .msg-voice .voice-duration {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+        }
+        
+        .msg-voice .voice-wave {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 20px;
+        }
+        
+        .msg-voice .wave-bar {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+            opacity: 0.4;
+            transition: height 0.3s;
+        }
+        
+        .msg-voice.playing .wave-bar {
+            animation: wave 1s ease-in-out infinite;
+        }
+        
+        @keyframes wave {
+            0%, 100% { height: 4px; }
+            50% { height: 16px; }
+        }
+        
+        .msg.self .msg-voice {
+            flex-direction: row-reverse;
+        }
+        
+        .msg.self .msg-voice .voice-duration {
+            text-align: right;
+        }
+        
+        .msg-voice .voice-status {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--error);
+            border-radius: 50%;
+            display: none;
+        }
+        
+        .msg:not(.self) .msg-voice .voice-status {
+            right: 8px;
+        }
+        
+        .msg.self .msg-voice .voice-status {
+            left: 8px;
+        }
+        
+        .msg-voice.unread .voice-status {
+            display: block;
+        }
+        
         #input{
             position: fixed;
             bottom: 0;
@@ -497,6 +614,12 @@
             z-index: 100;
             gap: 12px;
             align-items: center;
+            background: var(--bg-secondary);
+            backdrop-filter: blur(20px);
+        }
+        
+        .input-mode-text #input {
+            display: flex;
         }
         
         #inputWrapper {
@@ -532,17 +655,16 @@
             opacity: 0.6;
         }
         
-        .img-btn {
+        .input-btn {
             width: 40px !important;
             height: 40px;
             padding: 0 !important;
             margin: 0 !important;
             border-radius: 50% !important;
             background: var(--bg-secondary) !important;
-            backdrop-filter: blur(10px) !important;
             border: 1px solid var(--glass-border) !important;
             color: var(--text) !important;
-            font-size: 20px;
+            font-size: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -551,11 +673,14 @@
             transition: all 0.3s ease !important;
         }
         
-        .img-btn:hover {
+        .input-btn:hover {
             transform: scale(1.05) !important;
-            box-shadow: 0 6px 20px var(--shadow) !important;
             background: var(--accent) !important;
             color: white !important;
+        }
+        
+        .input-btn:active {
+            transform: scale(0.95) !important;
         }
         
         #input button.send-btn{
@@ -565,6 +690,138 @@
             border-radius: 20px;
             white-space: nowrap;
             font-weight: 600;
+        }
+        
+        /* 语音输入按钮 */
+        .voice-record-btn {
+            flex: 1;
+            height: 44px;
+            border-radius: 22px;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            touch-action: none;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .voice-record-btn:active, .voice-record-btn.recording {
+            background: var(--voice-bg);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: scale(0.98);
+        }
+        
+        .voice-record-btn.recording {
+            animation: recordingPulse 1.5s infinite;
+        }
+        
+        @keyframes recordingPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 200, 170, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(0, 200, 170, 0); }
+        }
+        
+        .voice-record-btn .record-hint {
+            position: absolute;
+            font-size: 12px;
+            opacity: 0.7;
+            bottom: 4px;
+        }
+        
+        /* 录音遮罩层 */
+        #recordOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        #recordOverlay.show {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .record-wave-container {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 20px 60px var(--shadow);
+        }
+        
+        .record-wave {
+            width: 160px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .record-wave-bar {
+            width: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: height 0.1s;
+            height: 10px;
+        }
+        
+        .record-timer {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--text);
+            font-family: "SF Mono", monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .record-hint-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .record-cancel-zone {
+            position: absolute;
+            bottom: 100px;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 2px dashed var(--error);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--error);
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s;
+        }
+        
+        .record-cancel-zone.danger {
+            opacity: 1;
+            transform: scale(1);
+            background: rgba(255, 59, 48, 0.1);
         }
         
         input[type="text"].setup-input{
@@ -741,11 +998,25 @@
             #roomTitle { font-size: 16px; }
             .theme-toggle { width: 36px !important; height: 36px !important; }
             .theme-toggle svg { width: 18px; height: 18px; }
+            .record-timer { font-size: 36px; }
+            .record-wave-container { width: 160px; height: 160px; }
         }
     </style>
 </head>
 <body>
     <div id="toast" class="toast"></div>
+
+    <!-- 录音遮罩层 -->
+    <div id="recordOverlay" onclick="window.chatApp?.cancelRecord()">
+        <div class="record-timer" id="recordTimer">00:00</div>
+        <div class="record-wave-container" id="waveContainer">
+            <div class="record-wave" id="recordWave"></div>
+        </div>
+        <div class="record-hint-text" id="recordHint">松开发送，上滑取消</div>
+        <div class="record-cancel-zone" id="cancelZone">
+            <span>松开取消</span>
+        </div>
+    </div>
 
     <div id="imageModal" onclick="window.chatApp?.closeImageModal()">
         <button class="close-modal" onclick="event.stopPropagation(); window.chatApp?.closeImageModal()">×</button>
@@ -769,7 +1040,7 @@
             <h1>哈吉米德的聊天室</h1>
             <div class="info">
                 端到端加密 · 去中心化 Mesh 网络<br>
-                支持图片传输 · 最多 8 人
+                支持语音/图片传输 · 最多 8 人
             </div>
             
             <div id="userInfo" class="glass" style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:16px;border-radius:16px;background:var(--surface)">
@@ -827,7 +1098,6 @@
                 <div id="onlineCount">1人</div>
             </div>
             
-            <!-- 主题切换按钮 -->
             <button class="theme-toggle" onclick="window.chatApp?.toggleTheme()" title="切换主题">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="5" fill="currentColor" fill-opacity="0.2"></circle>
@@ -848,13 +1118,37 @@
         
         <div id="messages"></div>
         
-        <div id="input" class="glass-strong">
+        <div id="input" class="glass-strong input-mode-text">
             <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="window.chatApp?.handleImageSelect(event)">
-            <button class="img-btn" onclick="window.chatApp?.triggerImageSelect()" title="发送图片">📷</button>
-            <div id="inputWrapper">
-                <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')window.chatApp?.send()">
+            
+            <!-- 语音/文本切换按钮 -->
+            <button class="input-btn" onclick="window.chatApp?.toggleInputMode()" title="切换语音/文字" id="modeToggleBtn">
+                🎙️
+            </button>
+            
+            <!-- 文本输入模式 -->
+            <div id="textInputWrapper" style="flex:1;display:flex;gap:10px;align-items:center;">
+                <div id="inputWrapper" style="flex:1;">
+                    <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')window.chatApp?.send()">
+                </div>
+                <button class="input-btn" onclick="window.chatApp?.triggerImageSelect()" title="发送图片" style="font-size:16px;">
+                    📷
+                </button>
+                <button onclick="window.chatApp?.send()" class="send-btn" style="border-radius:20px;padding:10px 20px;width:auto;">发送</button>
             </div>
-            <button onclick="window.chatApp?.send()" class="send-btn" style="border-radius:20px">发送</button>
+            
+            <!-- 语音输入模式 -->
+            <div id="voiceInputWrapper" class="hidden" style="flex:1;">
+                <button class="voice-record-btn" id="recordBtn" 
+                    onmousedown="window.chatApp?.startRecord(event)" 
+                    ontouchstart="window.chatApp?.startRecord(event)"
+                    onmouseup="window.chatApp?.stopRecord(event)"
+                    ontouchend="window.chatApp?.stopRecord(event)"
+                    onmousemove="window.chatApp?.handleRecordMove(event)"
+                    ontouchmove="window.chatApp?.handleRecordMove(event)">
+                    <span id="recordBtnText">按住说话</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -915,6 +1209,355 @@
             }
         };
 
+        // 语音管理器：处理录制、分片传输、播放
+        class VoiceManager {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.recorder = null;
+                this.audioChunks = [];
+                this.recordStartTime = 0;
+                this.recordTimer = null;
+                this.maxDuration = 60; // 60秒限制
+                this.chunkSize = 16384; // 16KB分片
+                
+                // 接收中的语音缓冲
+                this.receivingBuffers = new Map(); // voiceId -> {chunks:[], meta:null, received:0}
+                
+                // 播放状态
+                this.currentPlaying = null; // {voiceId, audioEl}
+                this.audioContext = null;
+            }
+
+            // 初始化音频上下文（用于波形动画）
+            initAudioContext() {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            // 开始录制
+            async startRecording() {
+                try {
+                    this.initAudioContext();
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            sampleRate: 16000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        } 
+                    });
+
+                    this.audioChunks = [];
+                    this.recorder = new MediaRecorder(stream, {
+                        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                            ? 'audio/webm;codecs=opus' 
+                            : 'audio/webm'
+                    });
+
+                    this.recorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) this.audioChunks.push(e.data);
+                    };
+
+                    this.recorder.onstop = () => {
+                        this.finalizeRecording();
+                        // 停止所有轨道
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    this.recorder.start(100); // 每100ms收集一次数据，实现流式分片发送
+                    this.recordStartTime = Date.now();
+                    
+                    // 启动计时器
+                    this.startRecordTimer();
+                    
+                    return true;
+                } catch (err) {
+                    console.error('录音失败:', err);
+                    this.app.showToast('无法访问麦克风');
+                    return false;
+                }
+            }
+
+            startRecordTimer() {
+                const updateTimer = () => {
+                    const elapsed = Math.floor((Date.now() - this.recordStartTime) / 1000);
+                    const remaining = this.maxDuration - elapsed;
+                    
+                    if (remaining <= 0) {
+                        this.stopRecording();
+                        return;
+                    }
+                    
+                    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const secs = (elapsed % 60).toString().padStart(2, '0');
+                    const timerEl = document.getElementById('recordTimer');
+                    if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+                    
+                    // 更新波形动画（模拟）
+                    this.updateWaveAnimation();
+                };
+                
+                updateTimer();
+                this.recordTimer = setInterval(updateTimer, 1000);
+            }
+
+            updateWaveAnimation() {
+                const bars = document.querySelectorAll('.record-wave-bar');
+                bars.forEach(bar => {
+                    const height = 10 + Math.random() * 40;
+                    bar.style.height = `${height}px`;
+                });
+            }
+
+            stopRecording(canceled = false) {
+                if (this.recordTimer) {
+                    clearInterval(this.recordTimer);
+                    this.recordTimer = null;
+                }
+                
+                if (this.recorder && this.recorder.state !== 'inactive') {
+                    this.recorder.stop();
+                    this.canceled = canceled;
+                }
+            }
+
+            async finalizeRecording() {
+                if (this.canceled || this.audioChunks.length === 0) return;
+                
+                const duration = Math.floor((Date.now() - this.recordStartTime) / 1000);
+                if (duration < 1) {
+                    this.app.showToast('录音时间太短');
+                    return;
+                }
+
+                const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                
+                // 如果小于16KB，直接发送，否则分片
+                if (blob.size <= this.chunkSize) {
+                    await this.sendVoiceBlob(blob, duration, false);
+                } else {
+                    await this.sendVoiceBlob(blob, duration, true);
+                }
+            }
+
+            async sendVoiceBlob(blob, duration, needChunking) {
+                const voiceId = `voice_${this.app.user.id}_${Date.now()}`;
+                const arrayBuffer = await blob.arrayBuffer();
+                
+                if (!needChunking) {
+                    // 小文件直接发送（仍是二进制，但一次性）
+                    const message = {
+                        id: `${this.app.user.id}_${Date.now()}`,
+                        userId: this.app.user.id,
+                        username: this.app.user.name,
+                        avatarColor: this.app.user.color,
+                        type: 'voice',
+                        voiceId: voiceId,
+                        duration: duration,
+                        data: arrayBuffer, // ArrayBuffer
+                        isChunked: false,
+                        timestamp: new Date().toISOString()
+                    };
+                    this.app.broadcastVoice(message);
+                    this.app.displayVoiceMessage(message, true);
+                } else {
+                    // 大文件分片发送
+                    const totalChunks = Math.ceil(arrayBuffer.byteLength / this.chunkSize);
+                    
+                    // 1. 发送元信息（JSON）
+                    const meta = {
+                        id: `${this.app.user.id}_${Date.now()}`,
+                        userId: this.app.user.id,
+                        username: this.app.user.name,
+                        avatarColor: this.app.user.color,
+                        type: 'voice_meta',
+                        voiceId: voiceId,
+                        duration: duration,
+                        totalChunks: totalChunks,
+                        totalSize: arrayBuffer.byteLength,
+                        timestamp: new Date().toISOString()
+                    };
+                    this.app.broadcastMessage(meta);
+                    
+                    // 2. 分片发送二进制数据
+                    for (let i = 0; i < totalChunks; i++) {
+                        const start = i * this.chunkSize;
+                        const end = Math.min(start + this.chunkSize, arrayBuffer.byteLength);
+                        const chunk = arrayBuffer.slice(start, end);
+                        
+                        // 创建分片消息头（包含voiceId和index信息在前几个字节）
+                        const header = new TextEncoder().encode(`${voiceId}|${i}|`);
+                        const combined = new Uint8Array(header.length + chunk.byteLength);
+                        combined.set(header, 0);
+                        combined.set(new Uint8Array(chunk), header.length);
+                        
+                        this.app.broadcastRaw(combined.buffer);
+                    }
+                    
+                    // 3. 发送结束标记（JSON）
+                    setTimeout(() => {
+                        this.app.broadcastMessage({
+                            type: 'voice_end',
+                            voiceId: voiceId,
+                            timestamp: new Date().toISOString()
+                        });
+                    }, 100);
+                    
+                    // 本地立即显示（使用原始blob）
+                    this.app.displayVoiceMessage({
+                        ...meta,
+                        type: 'voice',
+                        blob: blob,
+                        local: true
+                    }, true);
+                }
+            }
+
+            // 接收分片
+            handleChunk(peerId, arrayBuffer) {
+                try {
+                    // 解析头部 text|index|
+                    const uint8 = new Uint8Array(arrayBuffer);
+                    const decoder = new TextDecoder();
+                    let headerEnd = 0;
+                    for (let i = 0; i < uint8.length; i++) {
+                        if (uint8[i] === 0) { // 寻找null终止符或简单解析
+                            headerEnd = i;
+                            break;
+                        }
+                        if (i > 100) break; // 安全限制
+                    }
+                    
+                    const header = decoder.decode(uint8.slice(0, Math.min(100, uint8.length)));
+                    const match = header.match(/^([^|]+)\|(\d+)\|/);
+                    if (!match) return;
+                    
+                    const voiceId = match[1];
+                    const index = parseInt(match[2]);
+                    const dataStart = match[0].length;
+                    const chunkData = uint8.slice(dataStart);
+                    
+                    if (!this.receivingBuffers.has(voiceId)) {
+                        this.receivingBuffers.set(voiceId, { chunks: [], received: 0, meta: null });
+                    }
+                    
+                    const buffer = this.receivingBuffers.get(voiceId);
+                    
+                    // 确保数组足够大
+                    while (buffer.chunks.length <= index) buffer.chunks.push(null);
+                    buffer.chunks[index] = chunkData;
+                    buffer.received++;
+                    
+                    // 检查是否收到所有分片
+                    if (buffer.meta && buffer.received >= buffer.meta.totalChunks) {
+                        this.assembleVoice(voiceId);
+                    }
+                } catch (e) {
+                    console.error('分片处理错误:', e);
+                }
+            }
+
+            handleVoiceMeta(peerId, data) {
+                if (!this.receivingBuffers.has(data.voiceId)) {
+                    this.receivingBuffers.set(data.voiceId, { chunks: [], received: 0, meta: data });
+                } else {
+                    const buffer = this.receivingBuffers.get(data.voiceId);
+                    buffer.meta = data;
+                    // 可能已经收完分片
+                    if (buffer.received >= data.totalChunks) {
+                        this.assembleVoice(data.voiceId);
+                    }
+                }
+            }
+
+            handleVoiceEnd(peerId, data) {
+                // 可以在这里处理结束逻辑，目前依靠数量判断
+            }
+
+            assembleVoice(voiceId) {
+                const buffer = this.receivingBuffers.get(voiceId);
+                if (!buffer || !buffer.meta) return;
+                
+                try {
+                    // 合并所有分片
+                    let totalLength = 0;
+                    buffer.chunks.forEach(c => totalLength += c ? c.length : 0);
+                    
+                    const combined = new Uint8Array(totalLength);
+                    let offset = 0;
+                    buffer.chunks.forEach(chunk => {
+                        if (chunk) {
+                            combined.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+                    });
+                    
+                    const blob = new Blob([combined], { type: 'audio/webm' });
+                    const message = {
+                        ...buffer.meta,
+                        type: 'voice',
+                        blob: blob,
+                        data: combined.buffer // 用于直接播放
+                    };
+                    
+                    this.app.displayVoiceMessage(message, false);
+                    this.receivingBuffers.delete(voiceId);
+                } catch (e) {
+                    console.error('组装语音失败:', e);
+                }
+            }
+
+            // 播放控制
+            async playVoice(voiceId, blobOrUrl) {
+                // 停止当前播放
+                if (this.currentPlaying) {
+                    this.currentPlaying.audio.pause();
+                    this.currentPlaying.audio.currentTime = 0;
+                    this.updateVoicePlayingUI(this.currentPlaying.voiceId, false);
+                    if (this.currentPlaying.voiceId === voiceId) {
+                        this.currentPlaying = null;
+                        return;
+                    }
+                }
+                
+                const url = blobOrUrl instanceof Blob ? URL.createObjectURL(blobOrUrl) : blobOrUrl;
+                const audio = new Audio(url);
+                
+                audio.onended = () => {
+                    this.updateVoicePlayingUI(voiceId, false);
+                    this.currentPlaying = null;
+                    if (blobOrUrl instanceof Blob) URL.revokeObjectURL(url);
+                };
+                
+                audio.onpause = () => {
+                    this.updateVoicePlayingUI(voiceId, false);
+                };
+                
+                try {
+                    await audio.play();
+                    this.currentPlaying = { voiceId, audio };
+                    this.updateVoicePlayingUI(voiceId, true);
+                } catch (e) {
+                    console.error('播放失败:', e);
+                    this.app.showToast('播放失败');
+                }
+            }
+
+            updateVoicePlayingUI(voiceId, isPlaying) {
+                const elements = document.querySelectorAll(`[data-voice-id="${voiceId}"]`);
+                elements.forEach(el => {
+                    if (isPlaying) el.classList.add('playing');
+                    else el.classList.remove('playing');
+                });
+                
+                // 移除未读红点
+                if (isPlaying) {
+                    elements.forEach(el => el.classList.remove('unread'));
+                }
+            }
+        }
+
         class ChatApplication {
             constructor() {
                 this.user = { name: null, id: null, color: null };
@@ -924,6 +1567,15 @@
                 this.messages = { seq: 0, cache: new LRUCache(1000) };
                 this.connection = { established: false };
                 this.theme = localStorage.getItem('theme') || 'light';
+                
+                // 语音管理器
+                this.voiceManager = new VoiceManager(this);
+                
+                // 输入模式：text/voice
+                this.inputMode = 'text';
+                this.isRecording = false;
+                this.recordCancelZone = false;
+                
                 this.init();
             }
 
@@ -957,6 +1609,20 @@
 
                 this.checkRecentRoom();
                 this.setupEventListeners();
+                this.initWaveBars();
+            }
+
+            initWaveBars() {
+                const container = document.getElementById('recordWave');
+                if (container) {
+                    container.innerHTML = '';
+                    for (let i = 0; i < 20; i++) {
+                        const bar = document.createElement('div');
+                        bar.className = 'record-wave-bar';
+                        bar.style.height = '10px';
+                        container.appendChild(bar);
+                    }
+                }
             }
 
             setupEventListeners() {
@@ -987,6 +1653,112 @@
                         this.send();
                     }
                 });
+                
+                // 防止录音时的默认行为（如滚动）
+                const recordBtn = document.getElementById('recordBtn');
+                if (recordBtn) {
+                    recordBtn.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+                }
+            }
+
+            toggleInputMode() {
+                const textWrapper = document.getElementById('textInputWrapper');
+                const voiceWrapper = document.getElementById('voiceInputWrapper');
+                const btn = document.getElementById('modeToggleBtn');
+                
+                if (this.inputMode === 'text') {
+                    this.inputMode = 'voice';
+                    textWrapper.classList.add('hidden');
+                    voiceWrapper.classList.remove('hidden');
+                    btn.textContent = '⌨️';
+                    btn.title = '切换键盘';
+                } else {
+                    this.inputMode = 'text';
+                    textWrapper.classList.remove('hidden');
+                    voiceWrapper.classList.add('hidden');
+                    btn.textContent = '🎙️';
+                    btn.title = '切换语音';
+                }
+            }
+
+            // 录音控制
+            async startRecord(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.isRecording) return;
+                
+                const success = await this.voiceManager.startRecording();
+                if (!success) return;
+                
+                this.isRecording = true;
+                this.recordCancelZone = false;
+                
+                // 显示遮罩
+                const overlay = document.getElementById('recordOverlay');
+                overlay.classList.add('show');
+                
+                // 更新按钮状态
+                const btn = document.getElementById('recordBtn');
+                btn.classList.add('recording');
+                document.getElementById('recordBtnText').textContent = '松开结束';
+            }
+
+            stopRecord(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!this.isRecording) return;
+                
+                this.isRecording = false;
+                
+                // 隐藏遮罩
+                const overlay = document.getElementById('recordOverlay');
+                overlay.classList.remove('show');
+                
+                // 更新按钮状态
+                const btn = document.getElementById('recordBtn');
+                btn.classList.remove('recording');
+                document.getElementById('recordBtnText').textContent = '按住说话';
+                
+                // 停止录制（传入是否取消）
+                this.voiceManager.stopRecording(this.recordCancelZone);
+                
+                if (this.recordCancelZone) {
+                    this.showToast('已取消');
+                }
+            }
+
+            handleRecordMove(e) {
+                if (!this.isRecording) return;
+                
+                e.preventDefault();
+                const touch = e.touches ? e.touches[0] : e;
+                const overlay = document.getElementById('recordOverlay');
+                const cancelZone = document.getElementById('cancelZone');
+                
+                // 计算是否在上滑取消区域（屏幕下方20%区域）
+                const screenHeight = window.innerHeight;
+                const y = touch.clientY;
+                
+                // 如果手指移动到屏幕上半部分，显示取消区域
+                if (y < screenHeight * 0.5) {
+                    this.recordCancelZone = true;
+                    cancelZone.classList.add('danger');
+                    document.getElementById('recordHint').textContent = '松开取消发送';
+                } else {
+                    this.recordCancelZone = false;
+                    cancelZone.classList.remove('danger');
+                    document.getElementById('recordHint').textContent = '松开发送，上滑取消';
+                }
+            }
+
+            cancelRecord() {
+                // 点击遮罩层取消
+                if (this.isRecording) {
+                    this.recordCancelZone = true;
+                    this.stopRecord({ preventDefault: () => {}, stopPropagation: () => {} });
+                }
             }
 
             toggleTheme() {
@@ -1139,6 +1911,7 @@
                             
                             if (topic.includes('presence')) this.handlePresence(data);
                             else if (topic.includes('signal')) this.handleSignal(data);
+                            else if (topic.includes('broadcast')) this.handleBroadcast(data);
                         } catch(e) {}
                     });
                     
@@ -1261,6 +2034,7 @@
 
             setupDataChannel(dc, peer) {
                 peer.dataChannel = dc;
+                
                 dc.onopen = () => {
                     peer.connected = true;
                     this.updateOnlineCount();
@@ -1272,14 +2046,35 @@
                         try { dc.send(JSON.stringify(msg)); } catch(e) { peer.pendingMessages.unshift(msg); break; }
                     }
                 };
+                
                 dc.onmessage = (e) => {
-                    try { this.displayMessage(JSON.parse(e.data)); } catch(err) {}
+                    if (e.data instanceof ArrayBuffer || e.data instanceof Uint8Array) {
+                        // 二进制语音分片
+                        this.voiceManager.handleChunk(peer.userId, e.data);
+                    } else {
+                        // JSON文本消息
+                        try {
+                            const data = JSON.parse(e.data);
+                            this.handleDataChannelMessage(data, peer);
+                        } catch(err) {}
+                    }
                 };
+                
                 dc.onclose = () => {
                     peer.connected = false;
                     this.updateOnlineCount();
                     this.updateUserList();
                 };
+            }
+
+            handleDataChannelMessage(data, peer) {
+                if (data.type === 'voice_meta') {
+                    this.voiceManager.handleVoiceMeta(peer.userId, data);
+                } else if (data.type === 'voice_end') {
+                    this.voiceManager.handleVoiceEnd(peer.userId, data);
+                } else if (data.type === 'chat' || data.type === 'image') {
+                    this.displayMessage(data, false);
+                }
             }
 
             waitForICE(pc) {
@@ -1319,6 +2114,69 @@
                     const topic = `p2p-multi/${this.room.code}/${subtopic}`;
                     this.mqtt.client.publish(topic, JSON.stringify({ ...data, userId: this.user.id, timestamp: Date.now() }));
                 }
+            }
+
+            // 广播消息（文本/图片）
+            broadcastMessage(message) {
+                let sent = 0;
+                this.peers.forEach((peer) => {
+                    if (peer.dataChannel?.readyState === 'open') {
+                        try { 
+                            peer.dataChannel.send(JSON.stringify(message)); 
+                            sent++; 
+                        } catch(e) {}
+                    } else if (['new', 'connecting'].includes(peer.pc?.connectionState)) {
+                        peer.pendingMessages = peer.pendingMessages || [];
+                        peer.pendingMessages.push(message);
+                    }
+                });
+                return sent;
+            }
+
+            // 广播二进制数据（语音分片）
+            broadcastRaw(arrayBuffer) {
+                this.peers.forEach((peer) => {
+                    if (peer.dataChannel?.readyState === 'open') {
+                        try { 
+                            peer.dataChannel.send(arrayBuffer); 
+                        } catch(e) {}
+                    }
+                });
+            }
+
+            // 广播语音（小文件一次性发送）
+            broadcastVoice(message) {
+                // 小文件直接通过DataChannel发送，但注意DataChannel现在支持binary
+                // 对于小语音，我们仍用JSON包装，但data是ArrayBuffer
+                // 注意：JSON.stringify会丢掉ArrayBuffer，所以小文件实际也应该分片或转blob url？
+                // 修正：小文件直接走分片逻辑更统一，或者单独处理
+                // 这里简单处理：小文件转为Uint8Array，然后发送
+                const buffer = message.data;
+                delete message.data; // 从json中移除buffer
+                
+                // 先发meta
+                this.broadcastMessage({
+                    ...message,
+                    type: 'voice_meta',
+                    totalChunks: 1,
+                    totalSize: buffer.byteLength
+                });
+                
+                // 再发数据（带简单头部）
+                const header = new TextEncoder().encode(`${message.voiceId}|0|`);
+                const combined = new Uint8Array(header.length + buffer.byteLength);
+                combined.set(header, 0);
+                combined.set(new Uint8Array(buffer), header.length);
+                this.broadcastRaw(combined.buffer);
+                
+                // 发结束
+                setTimeout(() => {
+                    this.broadcastMessage({ type: 'voice_end', voiceId: message.voiceId });
+                }, 50);
+            }
+
+            handleBroadcast(data) {
+                // 处理MQTT广播（备用通道，主要用于信号）
             }
 
             triggerImageSelect() {
@@ -1377,19 +2235,6 @@
                 input.value = '';
             }
 
-            broadcastMessage(message) {
-                let sent = 0, pending = 0;
-                this.peers.forEach((peer) => {
-                    if (peer.dataChannel?.readyState === 'open') {
-                        try { peer.dataChannel.send(JSON.stringify(message)); sent++; } catch(e) {}
-                    } else if (['new', 'connecting'].includes(peer.pc?.connectionState)) {
-                        peer.pendingMessages = peer.pendingMessages || [];
-                        peer.pendingMessages.push(message);
-                        pending++;
-                    }
-                });
-            }
-
             displayMessage(msg, isSelf = false) {
                 if (this.messages.cache.has(msg.id)) return;
                 this.messages.cache.add(msg.id);
@@ -1413,6 +2258,54 @@
                 
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
+            }
+
+            // 显示语音消息
+            displayVoiceMessage(msg, isSelf = false) {
+                if (!msg.local && this.messages.cache.has(msg.voiceId)) return;
+                this.messages.cache.add(msg.voiceId);
+                
+                const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const div = document.createElement('div');
+                div.className = `msg ${isSelf ? 'self' : ''}`;
+                
+                const duration = msg.duration || 0;
+                const waveBars = Array(20).fill(0).map(() => 4 + Math.random() * 12).join('% ');
+                
+                div.innerHTML = `
+                    <div class="msg-header">
+                        <span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || 'var(--text)')}">${isSelf ? '我' : msg.username}</span>
+                        <span class="msg-time">${time}</span>
+                    </div>
+                    <div class="msg-content msg-voice unread" 
+                         data-voice-id="${msg.voiceId}" 
+                         onclick="window.chatApp?.voiceManager.playVoice('${msg.voiceId}', window.chatApp?.getVoiceBlob('${msg.voiceId}') || '${msg.voiceId}')"
+                         style="background: ${isSelf ? 'var(--accent)' : 'var(--voice-bg)'}; color: ${isSelf ? 'white' : 'var(--text)'}; border: none;">
+                        <div class="voice-icon" style="background: ${isSelf ? 'rgba(255,255,255,0.3)' : 'var(--accent)'}">
+                            ▶
+                        </div>
+                        <div class="voice-info">
+                            <div class="voice-duration">${duration}"</div>
+                            <div class="voice-wave">
+                                ${Array(12).fill(0).map((_, i) => `<div class="wave-bar" style="height:${4 + Math.random() * 12}px;animation-delay:${i * 0.05}s;background:${isSelf ? 'rgba(255,255,255,0.8)' : 'var(--accent)'}"></div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="voice-status"></div>
+                    </div>
+                `;
+                
+                // 保存blob以便播放
+                if (msg.blob) {
+                    if (!this.voiceBlobs) this.voiceBlobs = new Map();
+                    this.voiceBlobs.set(msg.voiceId, msg.blob);
+                }
+                
+                document.getElementById('messages').appendChild(div);
+                this.scrollToBottom();
+            }
+
+            getVoiceBlob(voiceId) {
+                return this.voiceBlobs?.get(voiceId);
             }
 
             openImageModal(src) {
