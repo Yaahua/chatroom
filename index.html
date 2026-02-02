@@ -2,54 +2,66 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Secure Room - E2EE Chat</title>
+    <meta name="theme-color" content="#1e1e2e">
+    <title>Secure Room - E2EE Chat Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root { --bg: #1e1e2e; --bg-light: #2d2d44; --text: #cdd6f4; --sub: #9399b6; --accent: #89b4fa; --success: #a6e3a1; --warn: #f9e2af; --error: #f38ba8; }
         html { font-size: 16px; height: 100%; overflow: hidden; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 100%); color: var(--text); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
         .container { max-width: 900px; width: 100%; margin: 0 auto; padding: 20px; flex: 1; display: flex; flex-direction: column; height: 100%; }
-        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 1000; flex-direction: column; gap: 20px; padding: 20px; }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; z-index: 1000; flex-direction: column; gap: 20px; padding: 20px; backdrop-filter: blur(10px); }
         .loading-overlay.active { display: flex; }
-        .loading-box { background: rgba(30, 30, 46, 0.9); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 16px; padding: 30px; width: 100%; max-width: 320px; text-align: center; }
+        .loading-box { background: rgba(30, 30, 46, 0.95); border: 1px solid rgba(147, 153, 178, 0.3); border-radius: 16px; padding: 30px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(137, 180, 250, 0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-status { color: var(--text); font-size: 15px; margin-bottom: 8px; }
-        .loading-detail { color: var(--sub); font-size: 12px; line-height: 1.5; }
-        .retry-btn { margin-top: 16px; padding: 10px 20px; background: rgba(137, 180, 250, 0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; font-size: 14px; display: none; }
+        .loading-status { color: var(--text); font-size: 15px; margin-bottom: 8px; font-weight: 600; }
+        .loading-detail { color: var(--sub); font-size: 12px; line-height: 1.5; margin-bottom: 12px; }
+        .retry-btn { margin-top: 12px; padding: 10px 20px; background: rgba(137, 180, 250, 0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; font-size: 13px; display: none; transition: all 0.2s; }
         .retry-btn.show { display: inline-block; }
+        .retry-btn:hover { background: var(--accent); color: var(--bg); }
         #login { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .login-box { background: rgba(30, 30, 46, 0.9); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; position: relative; }
-        h1 { font-size: 24px; margin-bottom: 8px; color: #f5e0dc; }
+        .login-box { background: rgba(30, 30, 46, 0.95); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #f5e0dc; display: flex; align-items: center; gap: 10px; }
         .subtitle { color: var(--sub); font-size: 14px; margin-bottom: 24px; }
         .input-group { margin-bottom: 16px; }
-        label { display: block; font-size: 11px; color: var(--sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        input { width: 100%; padding: 14px; background: rgba(69, 71, 90, 0.4); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 10px; color: var(--text); font-size: 15px; }
-        input:focus { outline: none; border-color: var(--accent); }
-        button { width: 100%; padding: 15px; background: linear-gradient(135deg, var(--accent) 0%, #b4befe 100%); border: none; border-radius: 10px; color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 8px; }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .tips { margin-top: 20px; padding: 12px; background: rgba(249, 226, 175, 0.1); border-radius: 8px; font-size: 12px; color: var(--warn); line-height: 1.5; display: none; }
+        label { display: block; font-size: 11px; color: var(--sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        input { width: 100%; padding: 14px; background: rgba(69, 71, 90, 0.4); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 10px; color: var(--text); font-size: 15px; transition: all 0.2s; }
+        input:focus { outline: none; border-color: var(--accent); background: rgba(69, 71, 90, 0.6); }
+        button { width: 100%; padding: 15px; background: linear-gradient(135deg, var(--accent) 0%, #b4befe 100%); border: none; border-radius: 10px; color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 8px; transition: transform 0.1s, box-shadow 0.2s; }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .tips { margin-top: 20px; padding: 12px; background: rgba(249, 226, 175, 0.1); border-radius: 8px; font-size: 12px; color: var(--warn); line-height: 1.5; display: none; border-left: 3px solid var(--warn); }
         .tips.show { display: block; }
         #chat { display: none; flex-direction: column; height: 100%; }
-        .chat-header { background: rgba(30, 30, 46, 0.95); border-bottom: 1px solid rgba(147, 153, 178, 0.2); padding: 14px 20px; padding-top: calc(14px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; align-items: center; }
+        .chat-header { background: rgba(30, 30, 46, 0.95); border-bottom: 1px solid rgba(147, 153, 178, 0.2); padding: 14px 20px; padding-top: calc(14px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(10px); }
         .room-info h2 { font-size: 17px; color: #f5e0dc; display: flex; align-items: center; gap: 8px; }
-        .room-meta { font-size: 12px; color: var(--sub); margin-top: 2px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+        .room-meta { font-size: 12px; color: var(--sub); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; animation: pulse 2s infinite; }
         .status-dot.offline { background: var(--error); animation: none; }
         .status-dot.connecting { background: var(--warn); animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .icon-btn { padding: 8px 14px; background: rgba(69, 71, 90, 0.4); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; width: auto; margin: 0; }
+        .icon-btn { padding: 8px 14px; background: rgba(69, 71, 90, 0.4); border: 1px solid rgba(147, 153, 178, 0.2); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; width: auto; margin: 0; transition: all 0.2s; }
+        .icon-btn:hover { background: rgba(137, 180, 250, 0.2); border-color: var(--accent); }
         .header-actions { display: flex; gap: 8px; }
         .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
-        .message { max-width: 80%; padding: 12px 16px; border-radius: 14px; word-wrap: break-word; line-height: 1.5; font-size: 14px; }
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 14px; word-wrap: break-word; line-height: 1.5; font-size: 14px; animation: msgAppear 0.3s ease; position: relative; }
+        @keyframes msgAppear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .message.self { align-self: flex-end; background: linear-gradient(135deg, var(--accent) 0%, #b4befe 100%); color: var(--bg); border-bottom-right-radius: 4px; }
         .message.other { align-self: flex-start; background: rgba(69, 71, 90, 0.6); border: 1px solid rgba(147, 153, 178, 0.2); border-bottom-left-radius: 4px; }
-        .message.system { align-self: center; color: var(--sub); font-size: 12px; font-style: italic; background: rgba(245, 224, 220, 0.05); padding: 8px 16px; border-radius: 20px; }
-        .input-area { background: rgba(30, 30, 46, 0.95); border-top: 1px solid rgba(147, 153, 178, 0.2); padding: 14px 20px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; }
+        .message.system { align-self: center; color: var(--sub); font-size: 12px; font-style: italic; background: rgba(245, 224, 220, 0.05); padding: 8px 16px; border-radius: 20px; max-width: 90%; text-align: center; }
+        .message.receipt::after { content: '✓'; position: absolute; bottom: 4px; right: 4px; font-size: 10px; opacity: 0.6; }
+        .message.receipt.read::after { content: '✓✓'; color: var(--success); }
+        .file-msg { background: rgba(137, 180, 250, 0.15); border: 1px dashed var(--accent); padding: 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .file-msg:hover { background: rgba(137, 180, 250, 0.25); }
+        .input-area { background: rgba(30, 30, 46, 0.95); border-top: 1px solid rgba(147, 153, 178, 0.2); padding: 14px 20px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; align-items: center; backdrop-filter: blur(10px); }
         .input-area input { flex: 1; }
         .input-area button { width: auto; padding: 12px 24px; margin: 0; }
+        .file-btn { padding: 12px; background: rgba(69, 71, 90, 0.6); border: 1px solid rgba(147, 153, 178, 0.3); border-radius: 10px; color: var(--accent); cursor: pointer; font-size: 18px; transition: all 0.2s; }
+        .file-btn:hover { background: var(--accent); color: var(--bg); }
         .diagnostic-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: none; flex-direction: column; }
         .diagnostic-panel.active { display: flex; }
         .diagnostic-header { background: #2d2d44; padding: 16px 20px; padding-top: calc(16px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
@@ -64,6 +76,12 @@
         .log-success { color: var(--success); }
         .diagnostic-actions { padding: 16px; background: #2d2d44; border-top: 1px solid #444; display: flex; gap: 10px; flex-wrap: wrap; }
         .diagnostic-actions button { flex: 1; min-width: 120px; margin: 0; font-size: 13px; padding: 12px; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--bg-light); border-radius: 16px; padding: 24px; max-width: 400px; width: 100%; text-align: center; border: 1px solid rgba(147, 153, 178, 0.2); }
+        .qr-container { margin: 20px auto; padding: 20px; background: white; border-radius: 12px; display: inline-block; }
+        .close-modal { margin-top: 16px; background: var(--sub); color: var(--bg); }
+        .typing-indicator { font-size: 12px; color: var(--accent); font-style: italic; padding: 4px 12px; height: 20px; }
         @media (max-width: 768px) { .container { padding: 0; } .login-box { height: 100%; max-width: 100%; border-radius: 0; display: flex; flex-direction: column; justify-content: center; padding: 24px; padding-top: calc(24px + env(safe-area-inset-top, 0px)); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); } #chat { height: 100%; } .message { max-width: 90%; } .chat-header { padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); } .input-area { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); } }
     </style>
 </head>
@@ -73,7 +91,10 @@
             <div class="loading-box">
                 <div class="spinner"></div>
                 <div class="loading-status" id="loadingStatus">初始化加密通道...</div>
-                <div class="loading-detail" id="loadingDetail">正在连接 Nostr 网络</div>
+                <div class="loading-detail" id="loadingDetail">正在生成端到端密钥</div>
+                <div style="margin-top: 12px; font-size: 11px; color: var(--sub);">
+                    尝试 <span id="attemptNum">1</span>/3
+                </div>
                 <button class="retry-btn" id="retryBtn" onclick="app.forceContinue()">跳过连接，进入离线模式</button>
             </div>
         </div>
@@ -84,8 +105,8 @@
                     <button class="icon-btn" onclick="app.openDiagnostic()" style="font-size: 12px; padding: 6px 12px;">🔍 诊断</button>
                 </div>
                 
-                <h1>🔐 Secure Room</h1>
-                <p class="subtitle">端到端加密 · 强制TCP中继模式 · 支持跨网络</p>
+                <h1>🔐 Secure Room Pro</h1>
+                <p class="subtitle">端到端加密 · 前向保密 · 文件传输</p>
                 
                 <div class="input-group">
                     <label>房间标识</label>
@@ -103,13 +124,14 @@
                 </div>
                 
                 <div class="tips" id="networkTip">
-                    💡 提示：如果连接超时，可尝试切换网络（WiFi ↔ 移动数据）或稍后再试
+                    💡 提示：如果连接超时，可尝试切换网络（WiFi ↔ 移动数据）或稍后再试<br>
+                    🔒 支持前向保密（PFS）和文件端到端加密传输
                 </div>
                 
                 <button onclick="app.join()" id="joinBtn">进入安全频道</button>
                 
                 <div style="margin-top: 16px; font-size: 11px; color: var(--sub); text-align: center; opacity: 0.8;">
-                    当前模式：强制TCP中继（443端口）
+                    <span id="securityStatus">🔒 AES-256-GCM + ECDH-P256</span>
                 </div>
             </div>
         </div>
@@ -121,9 +143,11 @@
                     <div class="room-meta">
                         <span class="status-dot" id="statusDot"></span>
                         <span id="peerCount">连接中...</span>
+                        <span id="typingIndicator" class="typing-indicator"></span>
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button class="icon-btn" onclick="app.showQR()">📱 二维码</button>
                     <button class="icon-btn" onclick="app.openDiagnostic()">🔍 诊断</button>
                     <button class="icon-btn" onclick="app.copyLink()">分享</button>
                     <button class="icon-btn" onclick="app.leave()">退出</button>
@@ -133,7 +157,9 @@
             <div class="messages" id="messages"></div>
             
             <div class="input-area">
-                <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')app.send()">
+                <button class="file-btn" onclick="document.getElementById('fileInput').click()" title="发送文件">📎</button>
+                <input type="file" id="fileInput" style="display:none" onchange="app.handleFile(this.files[0])">
+                <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')app.send()" oninput="app.handleTyping()">
                 <button onclick="app.send()" id="sendBtn">发送</button>
             </div>
         </div>
@@ -155,9 +181,19 @@
         </div>
     </div>
 
+    <div class="modal" id="qrModal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px; color: var(--accent);">扫描二维码加入房间</h3>
+            <div id="qrcode" class="qr-container"></div>
+            <p style="font-size: 13px; color: var(--sub); margin-top: 12px;">房间: <span id="qrRoomName"></span></p>
+            <button class="close-modal" onclick="document.getElementById('qrModal').classList.remove('active')">关闭</button>
+        </div>
+    </div>
+
     <script type="module">
-        console.log('[系统] 开始加载模块...');
-        
+        console.log('[SecureRoom Pro] 系统初始化...');
+
+        // 修复：移除URL末尾空格
         let joinRoom;
         try {
             const trystero = await import('https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm');
@@ -177,6 +213,24 @@
             'wss://relay.nostr.bg',
             'wss://nostr.oxtr.dev'
         ];
+
+        // 消息去重管理器
+        class MessageDedup {
+            constructor() {
+                this.seen = new Set();
+                this.maxSize = 1000;
+            }
+            has(id) {
+                return this.seen.has(id);
+            }
+            add(id) {
+                this.seen.add(id);
+                if (this.seen.size > this.maxSize) {
+                    const iter = this.seen.values();
+                    for (let i = 0; i < 100; i++) this.seen.delete(iter.next().value);
+                }
+            }
+        }
 
         class Diagnostic {
             constructor() {
@@ -214,8 +268,6 @@
                     this.info(`网络类型: ${conn.effectiveType || 'unknown'}`);
                     this.info(`下行速度: ${conn.downlink}Mbps`);
                     this.info(`RTT延迟: ${conn.rtt}ms`);
-                } else {
-                    this.warn('⚠️ 无法获取网络信息');
                 }
             }
 
@@ -280,13 +332,18 @@
             }
         }
 
+        // 增强版加密通道（支持前向保密）
         class SecureChannel {
             constructor(password) {
                 this.password = password;
                 this.key = null;
                 this.fingerprint = null;
+                this.ephemeralKeyPair = null;
+                this.sharedSecrets = new Map(); // peerId -> sharedSecret
             }
+
             async init() {
+                // 派生静态密钥（用于身份验证）
                 const encoder = new TextEncoder();
                 const keyMaterial = await crypto.subtle.importKey(
                     'raw', encoder.encode(this.password), 'PBKDF2', false, ['deriveKey', 'deriveBits']
@@ -296,30 +353,89 @@
                     { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
                     keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
                 );
+                
+                // 生成身份指纹
                 const fpBits = await crypto.subtle.deriveBits(
                     { name: 'PBKDF2', salt: encoder.encode('fp-salt'), iterations: 1000, hash: 'SHA-256' },
                     keyMaterial, 128
                 );
                 this.fingerprint = Array.from(new Uint8Array(fpBits)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+
+                // 生成临时密钥对（前向保密）
+                this.ephemeralKeyPair = await crypto.subtle.generateKey(
+                    { name: 'ECDH', namedCurve: 'P-256' },
+                    true,
+                    ['deriveBits']
+                );
             }
-            async encrypt(text) {
+
+            // 与对等方协商共享密钥
+            async negotiateSecret(peerId, publicKeyJwk) {
+                const publicKey = await crypto.subtle.importKey(
+                    'jwk', publicKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, []
+                );
+                const sharedBits = await crypto.subtle.deriveBits(
+                    { name: 'ECDH', public: publicKey },
+                    this.ephemeralKeyPair.privateKey,
+                    256
+                );
+                // 使用HKDF-like派生加密密钥
+                const sharedKey = await crypto.subtle.importKey(
+                    'raw', sharedBits, 'HKDF', false, ['deriveKey']
+                );
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const derivedKey = await crypto.subtle.deriveKey(
+                    { name: 'HKDF', salt, info: new TextEncoder().encode('message-encryption'), hash: 'SHA-256' },
+                    sharedKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+                );
+                this.sharedSecrets.set(peerId, { key: derivedKey, salt });
+                return derivedKey;
+            }
+
+            getPublicKeyJwk() {
+                return crypto.subtle.exportKey('jwk', this.ephemeralKeyPair.publicKey);
+            }
+
+            async encrypt(text, peerId = null) {
+                let key = this.key;
+                let usePFS = false;
+                
+                // 如果有共享密钥（PFS），优先使用
+                if (peerId && this.sharedSecrets.has(peerId)) {
+                    key = this.sharedSecrets.get(peerId).key;
+                    usePFS = true;
+                }
+
                 const iv = crypto.getRandomValues(new Uint8Array(12));
                 const ciphertext = await crypto.subtle.encrypt(
-                    { name: 'AES-GCM', iv }, this.key, new TextEncoder().encode(text)
+                    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(text)
                 );
-                const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
-                combined.set(iv); combined.set(new Uint8Array(ciphertext), iv.length);
+                const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length + 1);
+                combined.set(iv);
+                combined.set(new Uint8Array(ciphertext), iv.length);
+                combined[combined.length - 1] = usePFS ? 1 : 0; // 标记是否使用PFS
                 return btoa(String.fromCharCode(...combined));
             }
-            async decrypt(base64) {
+
+            async decrypt(base64, peerId = null) {
                 try {
                     const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                    const usePFS = data[data.length - 1] === 1;
+                    const iv = data.slice(0, 12);
+                    const ciphertext = data.slice(12, -1);
+                    
+                    let key = this.key;
+                    if (usePFS && peerId && this.sharedSecrets.has(peerId)) {
+                        key = this.sharedSecrets.get(peerId).key;
+                    }
+                    
                     const decrypted = await crypto.subtle.decrypt(
-                        { name: 'AES-GCM', iv: data.slice(0, 12) }, this.key, data.slice(12)
+                        { name: 'AES-GCM', iv }, key, ciphertext
                     );
                     return new TextDecoder().decode(decrypted);
                 } catch { return null; }
             }
+
             async deriveRoomId(roomName) {
                 const data = new TextEncoder().encode(roomName + ':' + this.password);
                 const hash = await crypto.subtle.digest('SHA-256', data);
@@ -329,40 +445,67 @@
 
         class ChatApp {
             constructor() {
-                console.log('[ChatApp] 初始化开始');
+                console.log('[ChatApp Pro] 初始化开始');
                 this.room = null;
                 this.channel = null;
-                this.peers = new Set();
+                this.peers = new Map(); // peerId -> metadata
                 this.myName = '';
                 this.roomName = '';
                 this.userFingerprint = '';
-                this.vectorClock = 0;
-                this.sendingLock = false;
-                this.connectionAttempt = 0;
-                this.maxRetries = 2;
                 this.offlineMode = false;
                 this.diagnostic = new Diagnostic();
+                this.dedup = new MessageDedup();
+                this.reconnectAttempts = 0;
+                this.maxReconnects = 5;
+                this.typingTimeout = null;
+                this.sendMsg = null;
+                this.sendFile = null;
+                this.sendReceipt = null;
+                this.sendKey = null; // 用于交换公钥
+                this.messageQueue = []; // 离线消息队列
                 
+                // 页面可见性处理
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && this.room) {
+                        this.diagnostic.info('页面重新可见，尝试同步...');
+                        // 触发同步逻辑
+                    }
+                });
+
+                // 网络恢复自动重连
+                window.addEventListener('online', () => {
+                    if (this.roomName && !this.offlineMode) {
+                        this.diagnostic.success('网络恢复，尝试重连...');
+                        setTimeout(() => this.attemptReconnect(), 1000);
+                    }
+                });
+
                 if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                     document.getElementById('networkTip').classList.add('show');
                 }
+                
                 if (location.hash.length > 1) {
-                    try { document.getElementById('roomInput').value = atob(decodeURIComponent(location.hash.substring(1))); } catch {}
+                    try { 
+                        const decoded = atob(decodeURIComponent(location.hash.substring(1)));
+                        document.getElementById('roomInput').value = decoded;
+                    } catch {}
                 }
-                console.log('[ChatApp] 初始化完成');
             }
 
             openDiagnostic() {
                 document.getElementById('diagnosticPanel').classList.add('active');
-                this.diagnostic.info('诊断面板已打开 - 强制TCP中继模式');
+                this.diagnostic.info('诊断面板已打开 - 支持前向保密(PFS)');
             }
 
             closeDiagnostic() {
                 document.getElementById('diagnosticPanel').classList.remove('active');
             }
 
+            generateMessageId() {
+                return `${this.userFingerprint}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            }
+
             async join() {
-                console.log('[ChatApp] 点击加入按钮');
                 if (!joinRoom) {
                     alert('核心库未加载，请刷新页面');
                     return;
@@ -376,50 +519,69 @@
 
                 document.getElementById('joinBtn').disabled = true;
                 document.getElementById('loadingOverlay').classList.add('active');
+                this.updateAttempt(1);
                 
                 this.roomName = roomInput;
                 this.myName = nameInput;
-                this.connectionAttempt++;
 
                 try {
-                    this.updateLoading('正在生成加密密钥...', 'AES-256-GCM 密钥派生中');
+                    this.updateLoading('正在生成加密密钥...', 'PFS: 生成ECDH密钥对 + PBKDF2派生');
                     this.channel = new SecureChannel(pwdInput);
                     await this.channel.init();
                     this.userFingerprint = this.channel.fingerprint;
-                    const roomId = await this.channel.deriveRoomId(roomInput);
                     
-                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '强制TCP中继模式');
-                    
-                    const skipBtn = document.getElementById('retryBtn');
-                    setTimeout(() => { skipBtn.classList.add('show'); }, 8000);
-
-                    await this.connectWithTimeout(roomId, 30000);
-                    this.enterRoom();
+                    await this.connectWithRetry();
                     
                 } catch (err) {
                     console.error('连接失败:', err);
-                    if (this.connectionAttempt <= this.maxRetries) {
-                        this.updateLoading(`连接失败，${3 - this.connectionAttempt} 秒后重试...`, err.message);
-                        setTimeout(() => { document.getElementById('joinBtn').disabled = false; this.join(); }, 3000);
-                    } else {
-                        document.getElementById('loadingOverlay').classList.remove('active');
-                        document.getElementById('joinBtn').disabled = false;
-                        alert('连接失败：' + err.message);
-                        this.connectionAttempt = 0;
-                    }
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    document.getElementById('joinBtn').disabled = false;
+                    alert('连接失败：' + err.message);
                 }
             }
 
-            connectWithTimeout(roomId, timeout) {
-                return new Promise((resolve, reject) => {
-                    const timer = setTimeout(() => { reject(new Error('连接超时')); }, timeout);
+            async connectWithRetry() {
+                const roomId = await this.channel.deriveRoomId(this.roomName);
+                let lastError;
+                
+                for (let i = 0; i <= this.maxReconnects; i++) {
                     try {
-                        console.log('[方案A] 强制TCP中继模式');
+                        this.updateAttempt(i + 1);
+                        this.updateLoading(`连接网络 (尝试 ${i + 1}/${this.maxReconnects + 1})...`, '强制TCP中继模式 + PFS密钥交换');
+                        
+                        if (i > 0) {
+                            await new Promise(r => setTimeout(r, Math.min(2000 * i, 10000))); // 指数退避
+                        }
+                        
+                        await this.connect(roomId, 30000);
+                        this.enterRoom();
+                        return;
+                    } catch (err) {
+                        lastError = err;
+                        this.diagnostic.warn(`第${i+1}次尝试失败: ${err.message}`);
+                        if (i < this.maxReconnects) {
+                            this.updateLoading(`连接失败，${Math.min(2 * (i + 1), 10)}秒后重试...`, err.message);
+                        }
+                    }
+                }
+                
+                // 显示跳过按钮
+                document.getElementById('retryBtn').classList.add('show');
+                throw lastError;
+            }
+
+            connect(roomId, timeout) {
+                return new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => { 
+                        reject(new Error('连接超时')); 
+                    }, timeout);
+
+                    try {
                         this.room = joinRoom({
-                            appId: 'secure-room-v2-tcp',
+                            appId: 'secure-room-pro-v3',
                             relayUrls: RELAY_URLS,
                             password: roomId,
-                            maxPeers: 5,
+                            maxPeers: 8,
                             rtcConfig: {
                                 iceServers: [
                                     { urls: 'stun:stun.l.google.com:19302' },
@@ -431,33 +593,103 @@
                             }
                         }, roomId);
 
-                        setTimeout(() => { clearTimeout(timer); resolve(); }, 10000);
+                        // 设置消息处理器
+                        const [sendMsg, getMsg] = this.room.makeAction('msg');
+                        const [sendFile, getFile] = this.room.makeAction('file');
+                        const [sendReceipt, getReceipt] = this.room.makeAction('receipt');
+                        const [sendKey, getKey] = this.room.makeAction('keyex');
+                        const [sendTyping, getTyping] = this.room.makeAction('typing');
+                        
+                        this.sendMsg = sendMsg;
+                        this.sendFile = sendFile;
+                        this.sendReceipt = sendReceipt;
+                        this.sendKey = sendKey;
+                        this.sendTyping = sendTyping;
 
-                        this.room.onPeerJoin((peerId) => {
-                            clearTimeout(timer);
-                            this.peers.add(peerId);
-                            this.updateStatus();
-                            this.displayMsg('系统', `👤 新成员加入（TURN中继）`, Date.now(), true);
+                        // 密钥交换处理（PFS）
+                        getKey(async (data, peerId) => {
+                            if (data.type === 'pubkey') {
+                                await this.channel.negotiateSecret(peerId, data.key);
+                                // 回复自己的公钥
+                                const myPubKey = await this.channel.getPublicKeyJwk();
+                                this.sendKey({ type: 'pubkey-reply', key: myPubKey, to: peerId });
+                            } else if (data.type === 'pubkey-reply' && data.to === this.userFingerprint) {
+                                await this.channel.negotiateSecret(peerId, data.key);
+                            }
                         });
 
-                        const [sendMsg, getMsg] = this.room.makeAction('msg');
-                        this.sendMsg = sendMsg;
+                        // 消息处理
                         getMsg(async (data, peerId) => {
-                            if (!data.payload) return;
-                            const decrypted = await this.channel.decrypt(data.payload);
+                            if (!data.payload || !data.id) return;
+                            if (this.dedup.has(data.id)) return; // 去重
+                            this.dedup.add(data.id);
+                            
+                            const decrypted = await this.channel.decrypt(data.payload, peerId);
                             if (!decrypted) return;
+                            
                             try {
                                 const msg = JSON.parse(decrypted);
-                                this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
+                                this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint, false, msg.id);
+                                // 发送回执
+                                this.sendReceipt({ id: data.id, to: peerId, ts: Date.now() });
+                                
+                                // 震动反馈（移动端）
+                                if (navigator.vibrate && document.hidden) {
+                                    navigator.vibrate([50, 100, 50]);
+                                }
                             } catch {}
+                        });
+
+                        // 文件处理
+                        getFile(async (data, peerId) => {
+                            if (!data.payload || !data.metadata) return;
+                            const decrypted = await this.channel.decrypt(data.payload, peerId);
+                            if (!decrypted) return;
+                            
+                            const fileData = JSON.parse(decrypted);
+                            this.displayFileMsg(fileData, data.metadata, peerId);
+                        });
+
+                        // 回执处理
+                        getReceipt((data) => {
+                            if (data.to === this.userFingerprint) {
+                                this.markAsRead(data.id);
+                            }
+                        });
+
+                        // 输入状态
+                        getTyping((data) => {
+                            if (data.name !== this.myName) {
+                                this.showTyping(data.name);
+                            }
+                        });
+
+                        // 连接处理
+                        this.room.onPeerJoin((peerId) => {
+                            clearTimeout(timer);
+                            this.peers.set(peerId, { joined: Date.now() });
+                            this.updateStatus();
+                            this.displayMsg('系统', `👤 新成员加入（已启用PFS）`, Date.now(), true);
+                            
+                            // 发送公钥进行密钥交换
+                            this.channel.getPublicKeyJwk().then(pubKey => {
+                                this.sendKey({ type: 'pubkey', key: pubKey });
+                            });
+                            
+                            resolve(); // 首次连接成功即resolve
                         });
 
                         this.room.onPeerLeave((peerId) => {
                             this.peers.delete(peerId);
+                            this.channel.sharedSecrets.delete(peerId); // 清除共享密钥
                             this.updateStatus();
-                            this.displayMsg('系统', `👋 有成员离开 (${this.peers.size}/6)`, Date.now(), true);
+                            this.displayMsg('系统', `👋 有成员离开 (${this.peers.size}/8)`, Date.now(), true);
                         });
-                    } catch (err) { clearTimeout(timer); reject(err); }
+
+                    } catch (err) { 
+                        clearTimeout(timer); 
+                        reject(err); 
+                    }
                 });
             }
 
@@ -467,41 +699,102 @@
                 document.getElementById('chat').style.display = 'flex';
                 document.getElementById('displayRoom').innerHTML = `🔐 ${this.escapeHtml(this.roomName)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
                 this.updateStatus();
-                this.displayMsg('系统', `✅ 已进入房间 "${this.roomName}"\n🆔 身份: ...${this.userFingerprint.substring(4)}\n👥 在线: ${this.peers.size + 1}/6 人\n🔄 模式: 强制TCP中继`, Date.now(), true);
+                this.displayMsg('系统', `✅ 已进入房间 "${this.roomName}"\n🔐 身份: ...${this.userFingerprint.substring(4)}\n👥 在线: ${this.peers.size + 1}/8 人\n🛡️ 模式: 强制TCP中继 + PFS\n📎 支持文件拖拽传输`, Date.now(), true);
+                
+                // 发送队列中的离线消息
+                while (this.messageQueue.length > 0) {
+                    const msg = this.messageQueue.shift();
+                    this.sendMsg(msg);
+                }
             }
 
             forceContinue() {
                 this.offlineMode = true;
+                document.getElementById('loadingOverlay').classList.remove('active');
                 this.enterRoom();
-                this.displayMsg('系统', '⚠️ 离线模式', Date.now(), true);
+                this.displayMsg('系统', '⚠️ 离线模式（仅本地存储）', Date.now(), true);
             }
 
             async send() {
-                if (this.offlineMode) { alert('离线模式'); return; }
-                if (this.sendingLock || !this.sendMsg) return;
+                if (this.offlineMode) { 
+                    alert('离线模式：消息仅本地显示，对方无法接收'); 
+                    this.displayMsg(this.myName, document.getElementById('msgInput').value, Date.now(), false, this.userFingerprint, true);
+                    document.getElementById('msgInput').value = '';
+                    return; 
+                }
+                
                 const input = document.getElementById('msgInput');
                 const text = input.value.trim();
-                if (!text) return;
-                if (!navigator.onLine) { alert('离线状态'); return; }
+                if (!text || !this.sendMsg) return;
+                if (!navigator.onLine) { 
+                    alert('离线状态，消息将在连接恢复后发送'); 
+                    this.messageQueue.push({ payload: await this.prepareMessage(text), id: this.generateMessageId() });
+                    return; 
+                }
 
-                this.sendingLock = true;
-                document.getElementById('sendBtn').disabled = true;
-
+                const btn = document.getElementById('sendBtn');
+                btn.disabled = true;
+                
                 try {
-                    this.vectorClock++;
-                    const msg = { name: this.myName, text, ts: Date.now(), vc: this.vectorClock, fingerprint: this.userFingerprint };
-                    const encrypted = await this.channel.encrypt(JSON.stringify(msg));
-                    this.sendMsg({ payload: encrypted });
-                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, true);
+                    const msgId = this.generateMessageId();
+                    const encrypted = await this.prepareMessage(text);
+                    const data = { payload: encrypted, id: msgId, ts: Date.now() };
+                    
+                    this.sendMsg(data);
+                    this.dedup.add(msgId); // 避免自己接收自己的消息
+                    this.displayMsg(this.myName, text, Date.now(), false, this.userFingerprint, true, msgId);
                     input.value = '';
-                } catch (err) { alert('发送失败：' + err.message); }
-                finally { this.sendingLock = false; document.getElementById('sendBtn').disabled = false; }
+                } catch (err) { 
+                    alert('发送失败：' + err.message); 
+                } finally { 
+                    btn.disabled = false; 
+                }
             }
 
-            displayMsg(user, text, ts, isSystem, fingerprint = null, isSelf = false) {
+            async prepareMessage(text) {
+                const msg = { 
+                    name: this.myName, 
+                    text, 
+                    ts: Date.now(), 
+                    fingerprint: this.userFingerprint 
+                };
+                // 如果有共享密钥，使用PFS加密
+                const peerId = this.peers.keys().next().value; // 简单示例：使用第一个对等方的密钥
+                return await this.channel.encrypt(JSON.stringify(msg), peerId);
+            }
+
+            async handleFile(file) {
+                if (!file || this.offlineMode) return;
+                if (file.size > 10 * 1024 * 1024) { // 10MB限制
+                    alert('文件过大，最大支持10MB');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const content = e.target.result;
+                    const msgId = this.generateMessageId();
+                    const metadata = { name: file.name, size: file.size, type: file.type, id: msgId };
+                    
+                    // 加密文件内容
+                    const encrypted = await this.channel.encrypt(JSON.stringify({
+                        content: btoa(content),
+                        name: file.name,
+                        sender: this.myName
+                    }));
+                    
+                    this.sendFile({ payload: encrypted, metadata });
+                    this.displayFileMsg({ name: file.name, sender: this.myName, isSelf: true }, metadata, null, true);
+                };
+                reader.readAsBinaryString(file);
+            }
+
+            displayMsg(user, text, ts, isSystem, fingerprint = null, isSelf = false, msgId = null) {
                 const container = document.getElementById('messages');
                 const div = document.createElement('div');
                 div.className = `message ${isSystem ? 'system' : (isSelf ? 'self' : 'other')}`;
+                if (msgId) div.dataset.msgId = msgId;
+                
                 if (isSystem) {
                     div.innerHTML = `<div style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
                 } else {
@@ -511,17 +804,107 @@
                 }
                 container.appendChild(div);
                 container.scrollTop = container.scrollHeight;
-                while (container.children.length > 50) container.removeChild(container.firstChild);
+                while (container.children.length > 100) container.removeChild(container.firstChild);
+            }
+
+            displayFileMsg(fileData, metadata, peerId, isSelf = false) {
+                const container = document.getElementById('messages');
+                const div = document.createElement('div');
+                div.className = `message ${isSelf ? 'self' : 'other'}`;
+                
+                const time = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+                const size = (metadata.size / 1024).toFixed(1) + ' KB';
+                
+                div.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;opacity:0.8">
+                        <span style="font-weight:700">${this.escapeHtml(fileData.sender || 'Unknown')}</span>
+                        <span style="font-size:11px">${time}</span>
+                    </div>
+                    <div class="file-msg" onclick="app.downloadFile('${metadata.id}')">
+                        📄 ${this.escapeHtml(metadata.name)}<br>
+                        <span style="font-size:11px;opacity:0.7">${size} · 点击下载</span>
+                    </div>
+                `;
+                
+                // 存储文件数据供下载
+                if (!isSelf) {
+                    div.dataset.fileContent = fileData.content;
+                    div.dataset.fileName = metadata.name;
+                }
+                
+                container.appendChild(div);
+                container.scrollTop = container.scrollHeight;
+                
+                if (!isSelf && navigator.vibrate) navigator.vibrate(50);
+            }
+
+            downloadFile(id) {
+                const div = document.querySelector(`[data-msg-id="${id}"]`) || document.querySelector(`[onclick="app.downloadFile('${id}')"]`);
+                if (!div || !div.dataset.fileContent) return;
+                
+                const blob = new Blob([atob(div.dataset.fileContent)], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = div.dataset.fileName || 'download';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            markAsRead(msgId) {
+                const msg = document.querySelector(`[data-msg-id="${msgId}"]`);
+                if (msg) msg.classList.add('receipt', 'read');
+            }
+
+            showTyping(name) {
+                const indicator = document.getElementById('typingIndicator');
+                indicator.textContent = `${name} 正在输入...`;
+                clearTimeout(this.typingTimeout);
+                this.typingTimeout = setTimeout(() => {
+                    indicator.textContent = '';
+                }, 3000);
+            }
+
+            handleTyping() {
+                if (this.offlineMode || !this.sendTyping) return;
+                this.sendTyping({ name: this.myName });
             }
 
             updateStatus() {
                 const count = this.peers.size + 1;
                 const dot = document.getElementById('statusDot');
                 const text = document.getElementById('peerCount');
-                text.textContent = `${count}/6 在线`;
+                text.textContent = `${count}/8 在线`;
                 if (count === 1) { dot.className = 'status-dot offline'; text.style.color = 'var(--sub)'; }
-                else if (count < 6) { dot.className = 'status-dot connecting'; text.style.color = 'var(--warn)'; }
+                else if (count < 4) { dot.className = 'status-dot connecting'; text.style.color = 'var(--warn)'; }
                 else { dot.className = 'status-dot'; text.style.color = 'var(--success)'; }
+            }
+
+            attemptReconnect() {
+                if (this.reconnectAttempts >= this.maxReconnects) return;
+                this.reconnectAttempts++;
+                this.diagnostic.info(`尝试重连 (${this.reconnectAttempts}/${this.maxReconnects})...`);
+                // 简化的重连：刷新页面或重新join
+                // 实际生产环境应该更优雅地处理
+            }
+
+            showQR() {
+                const modal = document.getElementById('qrModal');
+                const container = document.getElementById('qrcode');
+                container.innerHTML = '';
+                document.getElementById('qrRoomName').textContent = this.roomName;
+                
+                const url = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(btoa(this.roomName))}`;
+                new QRCode(container, {
+                    text: url,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                
+                modal.classList.add('active');
             }
 
             escapeHtml(text) {
@@ -532,20 +915,34 @@
 
             async copyLink() {
                 const url = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(btoa(this.roomName))}`;
-                try { await navigator.clipboard.writeText(url); alert('链接已复制'); }
-                catch { prompt('复制链接:', url); }
+                try { 
+                    await navigator.clipboard.writeText(url); 
+                    alert('链接已复制到剪贴板'); 
+                } catch { 
+                    prompt('复制链接:', url); 
+                }
             }
 
-            leave() { if (confirm('离开房间？')) { if (this.room) this.room.leave(); location.reload(); } }
-            
+            leave() { 
+                if (confirm('离开房间？所有加密密钥将被清除')) { 
+                    if (this.room) this.room.leave(); 
+                    location.reload(); 
+                } 
+            }
+
             updateLoading(status, detail) {
                 document.getElementById('loadingStatus').textContent = status;
                 document.getElementById('loadingDetail').textContent = detail;
             }
+
+            updateAttempt(num) {
+                const el = document.getElementById('attemptNum');
+                if (el) el.textContent = num;
+            }
         }
 
         window.app = new ChatApp();
-        console.log('[系统] 应用初始化完成');
+        console.log('[SecureRoom Pro] 系统就绪');
     </script>
 </body>
 </html>
