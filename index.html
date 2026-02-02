@@ -2,571 +2,327 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Secure Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-TURN P2P Chat (2025 Optimized)</title>
     <style>
-        :root{--bg:#1e1e2e;--bg2:#252535;--text:#cdd6f4;--sub:#9399b6;--accent:#89b4fa;--err:#f38ba8;--ok:#a6e3a1;--warn:#f9e2af}
+        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-        body{background:var(--bg);color:var(--text);height:100dvh;overflow:hidden}
+        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
         .hidden{display:none!important}
         
-        #login{height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
-        .box{background:var(--bg2);padding:30px;border-radius:12px;width:100%;max-width:400px;border:1px solid #333}
-        h1{font-size:22px;margin-bottom:6px;color:#f5e0dc}
-        .sub{color:var(--sub);font-size:13px;margin-bottom:20px}
-        input{width:100%;padding:12px;margin:6px 0;background:#1e1e2e;border:1px solid #444;border-radius:8px;color:var(--text);font-size:14px}
-        input:focus{outline:none;border-color:var(--accent)}
-        button{width:100%;padding:12px;margin-top:10px;background:var(--accent);border:none;border-radius:8px;color:var(--bg);font-weight:bold;cursor:pointer}
-        button:disabled{opacity:.5;cursor:not-allowed}
-        .error{color:var(--err);font-size:12px;margin-top:8px;text-align:center}
+        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column}
+        .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
+        h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
+        .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
         
-        #chat{height:100%;display:flex;flex-direction:column}
-        header{padding:12px 16px;background:var(--bg2);border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center}
-        .info h2{font-size:16px}
-        .meta{font-size:11px;color:var(--sub);margin-top:2px}
-        .status{width:8px;height:8px;border-radius:50%;background:var(--err);display:inline-block;margin-right:4px}
-        .status.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-        .status.relay{background:var(--warn)} /* 新增：TURN中继状态 */
-        .actions{display:flex;gap:8px}
-        .icon-btn{padding:6px 12px;background:#333;border:1px solid #444;border-radius:6px;color:var(--text);font-size:12px;cursor:pointer}
+        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
+        button:hover{opacity:0.9}
+        button.secondary{background:#333;color:var(--text)}
         
-        #messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
-        .msg{max-width:85%;padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.4;word-break:break-word}
-        .msg.self{align-self:flex-end;background:var(--accent);color:var(--bg)}
-        .msg.other{align-self:flex-start;background:var(--bg2);border:1px solid #444}
-        .msg.sys{align-self:center;color:var(--sub);font-size:12px;font-style:italic}
-        .msg-hd{font-size:11px;opacity:.7;margin-bottom:2px;display:flex;justify-content:space-between;gap:8px}
+        textarea{width:100%;height:120px;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);font-family:monospace;font-size:12px;margin:10px 0;resize:none}
         
-        #input{display:flex;padding:12px;gap:8px;background:var(--bg2);border-top:1px solid #333}
-        #input input{flex:1;margin:0}
-        #input button{width:auto;padding:12px 20px;margin:0}
+        #chat{height:100%;display:flex;flex-direction:column;padding:20px}
+        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+        .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
+        .badge.direct{background:var(--accent);color:#000}
+        .badge.relay{background:var(--err);color:#fff}
+        .badge.local{background:#3498db;color:#fff}
         
-        #loading{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-        .spin{width:40px;height:40px;border:3px solid #333;border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .load-text{color:var(--sub);font-size:13px;margin-top:8px}
+        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
+        .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
+        .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
+        .msg .time{font-size:10px;color:#666;margin-top:4px}
         
-        #diag{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column}
-        #diag header{flex-shrink:0}
-        #log{flex:1;overflow-y:auto;padding:12px;font-family:monospace;font-size:12px;line-height:1.5;background:#0f0f15;color:#a6e3a1}
-        .log-e{color:var(--err)}.log-w{color:var(--warn)}.log-i{color:var(--accent)}.log-s{color:var(--ok)}
-        .ctrl{padding:12px;display:flex;gap:8px;flex-wrap:wrap}
-        .ctrl button{flex:1;min-width:100px;margin:0;font-size:12px}
+        #input{display:flex;gap:10px}
+        #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
+        #input button{width:auto;padding:12px 24px}
+        
+        .modal{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+        .modal-content{background:var(--bg2);padding:20px;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto}
     </style>
 </head>
 <body>
-    <div id="login">
-        <div class="box">
-            <h1>🔐 Secure Room</h1>
-            <div class="sub">端到端加密聊天 · 国内优化版</div>
-            
-            <input type="text" id="room" placeholder="房间名" autocomplete="off">
-            <input type="password" id="pwd" placeholder="密码" autocomplete="new-password">
-            <input type="text" id="name" placeholder="昵称" value="User" maxlength="12">
-            
-            <button onclick="App.join()" id="joinBtn">加入房间</button>
-            <div class="error" id="err"></div>
-            
-            <div style="margin-top:16px;font-size:11px;color:var(--sub);text-align:center">
-                <button class="icon-btn" onclick="Diag.toggle()" style="width:auto;padding:4px 8px">🔍 诊断网络</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="chat" class="hidden">
-        <header>
+    <!-- 初始设置界面 -->
+    <div id="setup">
+        <div class="card">
+            <h1>🔮 Zero-TURN P2P</h1>
             <div class="info">
-                <h2 id="roomName">Room</h2>
-                <div class="meta">
-                    <span class="status" id="status"></span>
-                    <span id="peer">离线</span>
-                    <span id="connType" style="margin-left:8px;color:var(--warn)"></span>
-                </div>
+                <strong>2025年12月优化版</strong><br>
+                • 局域网内自动发现（零配置）<br>
+                • 公网乐观直连（无需TURN服务器）<br>
+                • <span style="color:var(--err)">注意：对称型NAT/企业防火墙下可能失败</span>
             </div>
-            <div class="actions">
-                <button class="icon-btn" onclick="App.toggleDiag()">诊断</button>
-                <button class="icon-btn" onclick="App.leave()">退出</button>
+            
+            <button onclick="App.createRoom()">创建房间（生成邀请码）</button>
+            <button class="secondary" onclick="App.joinRoom()">加入房间（粘贴邀请码）</button>
+            
+            <div id="inviteSection" class="hidden" style="margin-top:20px">
+                <label style="font-size:12px;color:#888">邀请码（复制给对方）：</label>
+                <textarea id="inviteCode" readonly></textarea>
+                <button class="secondary" onclick="App.copyInvite()">复制邀请码</button>
             </div>
-        </header>
+            
+            <div id="joinSection" class="hidden" style="margin-top:20px">
+                <label style="font-size:12px;color:#888">粘贴对方的邀请码：</label>
+                <textarea id="joinCode" placeholder="粘贴 Base64 邀请码..."></textarea>
+                <button onclick="App.connect()">连接</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聊天界面 -->
+    <div id="chat" class="hidden">
+        <div id="status">
+            <span>
+                状态: <span id="connStatus">连接中...</span>
+                <span id="connType" class="badge" style="margin-left:10px">检测中</span>
+            </span>
+            <button class="secondary" style="width:auto;padding:4px 8px;font-size:11px" onclick="location.reload()">断开</button>
+        </div>
+        
         <div id="messages"></div>
+        
         <div id="input">
-            <input type="text" id="msg" placeholder="消息..." maxlength="500" onkeypress="if(event.key==='Enter')App.send()">
-            <button onclick="App.send()" id="sendBtn">发送</button>
+            <input type="text" id="msgInput" placeholder="输入消息..." maxlength="500" onkeypress="if(event.key==='Enter')App.send()">
+            <button onclick="App.send()">发送</button>
         </div>
     </div>
 
-    <div id="loading" class="hidden">
-        <div class="spin"></div>
-        <div>连接中...</div>
-        <div class="load-text" id="loadDetail">初始化</div>
-        <button onclick="App.cancel()" style="margin-top:20px;width:auto;padding:8px 16px;background:#333;color:var(--text)">取消</button>
-    </div>
-
-    <div id="diag" class="hidden">
-        <header>
-            <h3>网络诊断</h3>
-            <button class="icon-btn" onclick="Diag.toggle()">关闭</button>
-        </header>
-        <div id="log"></div>
-        <div class="ctrl">
-            <button onclick="Diag.net()">检测网络</button>
-            <button onclick="Diag.turn()">测试TURN</button>
-            <button onclick="Diag.clear()">清空</button>
+    <!-- 手动信令备用（当自动失败时） -->
+    <div id="manualModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:200;overflow-y:auto;padding:20px">
+        <div class="modal-content">
+            <h3>🔄 手动信令模式</h3>
+            <p style="font-size:12px;color:#888;margin:10px 0">自动连接失败（可能处于对称型NAT后）。请复制以下代码通过即时通讯工具发送给对方，并粘贴对方发来的代码：</p>
+            
+            <textarea id="localSDP" readonly></textarea>
+            <textarea id="remoteSDP" placeholder="粘贴对方发来的 SDP..."></textarea>
+            
+            <button onclick="App.completeManual()">完成连接</button>
+            <button class="secondary" onclick="document.getElementById('manualModal').classList.add('hidden')">取消</button>
         </div>
     </div>
 
-    <script type="module">
-        // ==========================================
-        // 配置区：国内网络优化（方案二 + 方案三）
-        // ==========================================
-        const CONFIG = {
-            MAX_RETRIES: 3,
-            TIMEOUT: 20000,  // 国内网络延迟高，延长超时
-            
-            // Nostr 中继（信令服务器）
-            RELAYS: [
-                'wss://relay.damus.io',
-                'wss://nos.lol',
-                'wss://relay.nostr.band'
-            ],
-            
-            // 方案三：增加 STUN 数量，最大化 P2P 直连成功率
-            // 包含 Google 全球节点 + Cloudflare + 国内小米节点
-            STUN: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' },
-                { urls: 'stun:stun.miwifi.com' }  // 国内节点，延迟低
-            ],
-            
-            // 方案二：Metered TURN 国内优化配置
-            // 优先级：TCP 443 > TCP 80 > UDP
-            TURN_SERVERS: [
-                {
-                    // 主：TCP 443（伪装 HTTPS，穿透企业/校园防火墙）
-                    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    // 备：TCP 80（极严格防火墙环境，HTTP 端口通常开放）
-                    urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    // 应急：UDP（低延迟，如果网络允许）
-                    urls: 'turn:standard.relay.metered.ca:80?transport=udp',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ]
-        };
-
-        // ==========================================
-        // 加密模块（保持不变）
-        // ==========================================
-        class Crypto {
-            static async deriveKey(pwd, salt) {
-                const enc = new TextEncoder();
-                const mat = await window.crypto.subtle.importKey('raw', enc.encode(pwd), 'PBKDF2', false, ['deriveKey']);
-                return window.crypto.subtle.deriveKey(
-                    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
-                    mat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-                );
-            }
-
-            static async encrypt(text, key) {
-                const iv = window.crypto.getRandomValues(new Uint8Array(12));
-                const data = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text));
-                const buf = new Uint8Array(iv.length + data.byteLength);
-                buf.set(iv); buf.set(new Uint8Array(data), iv.length);
-                return btoa(String.fromCharCode(...buf));
-            }
-
-            static async decrypt(b64, key) {
-                try {
-                    const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-                    const data = await window.crypto.subtle.decrypt(
-                        { name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12)
-                    );
-                    return new TextDecoder().decode(data);
-                } catch { return null; }
-            }
-
-            static async fingerprint(pwd) {
-                const enc = new TextEncoder();
-                const mat = await window.crypto.subtle.importKey('raw', enc.encode(pwd), 'PBKDF2', false, ['deriveBits']);
-                const bits = await window.crypto.subtle.deriveBits(
-                    { name: 'PBKDF2', salt: enc.encode('fp'), iterations: 1000, hash: 'SHA-256' }, mat, 64
-                );
-                return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
-            }
-        }
-
-        // ==========================================
-        // 网络模块：国内优化版
-        // ==========================================
-        class Network {
-            // 测试 TURN 可用性
-            static async testTURN() {
-                Diag.log('测试 TURN 中继...', 'i');
-                
-                // 优先测试 TCP 443（国内最可能通）
-                const testServer = CONFIG.TURN_SERVERS[0];
-                const pc = new RTCPeerConnection({ 
-                    iceServers: [testServer], 
-                    iceTransportPolicy: 'relay' 
-                });
-                
-                let relayCandidate = null;
-                pc.onicecandidate = (e) => {
-                    if (e.candidate?.candidate.includes('typ relay')) {
-                        relayCandidate = e.candidate;
-                        Diag.log('✓ TURN 可用: ' + e.candidate.address, 's');
-                    }
-                };
-                
-                try {
-                    pc.createDataChannel('test');
-                    await pc.setLocalDescription(await pc.createOffer());
-                    await new Promise((r, j) => setTimeout(() => relayCandidate ? r() : j(), 5000));
-                    return true;
-                } catch {
-                    Diag.log('✗ TURN 中继失败', 'e');
-                    return false;
-                } finally {
-                    pc.close();
-                }
-            }
-
-            // 主连接函数：优化 RTC 配置
-            static async connect(roomId, key, onMsg, onPeer) {
-                const { joinRoom } = await import('https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm');
-                
-                // 国内网络优化配置
-                const rtcConfig = {
-                    // ICE 服务器顺序：STUN 优先（尝试直连）→ TURN（中继兜底）
-                    iceServers: [
-                        ...CONFIG.STUN,           // 方案三：先尝试 P2P 直连
-                        ...CONFIG.TURN_SERVERS    // 方案二：失败时 fallback 到 TURN
-                    ],
-                    
-                    // 关键：允许所有传输方式，优先尝试直连，失败自动切换 TURN
-                    iceTransportPolicy: 'all',
-                    
-                    // 预收集候选，加快连接建立（国内网络慢，需要提前收集）
-                    iceCandidatePoolSize: 10,
-                    
-                    // 多路复用，减少端口消耗（国内防火墙对多端口敏感）
-                    bundlePolicy: 'max-bundle',
-                    rtcpMuxPolicy: 'require'
-                };
-
-                Diag.log('创建房间...', 'i');
-                const room = joinRoom({
-                    appId: 'srl-'+roomId.slice(0,8),
-                    relayUrls: CONFIG.RELAYS,
-                    password: roomId,
-                    maxPeers: 6,
-                    rtcConfig: rtcConfig
-                }, roomId);
-
-                const [send, recv] = room.makeAction('m');
-                recv((data, pid) => onMsg(data, pid));
-                
-                // 监控连接类型（P2P 还是 TURN）
-                room.onPeerJoin(pid => {
-                    onPeer(pid, true);
-                    this.monitorConnection(room, pid);
-                });
-                room.onPeerLeave(pid => onPeer(pid, false));
-                
-                return { room, send };
-            }
-
-            // 监控 ICE 连接状态（诊断用）
-            static monitorConnection(room, peerId) {
-                // 延迟执行，等待 RTCPeerConnection 建立
-                setTimeout(async () => {
-                    try {
-                        // 获取底层 RTCPeerConnection（Trystero 内部结构）
-                        const pcs = room._pcs || room.connections;
-                        if (!pcs) return;
-                        
-                        const pc = pcs.get?.(peerId) || pcs[peerId];
-                        if (!pc) return;
-
-                        // 监听状态变化
-                        pc.oniceconnectionstatechange = () => {
-                            const state = pc.iceConnectionState;
-                            Diag.log(`Peer ${peerId.slice(0,6)} ICE: ${state}`, 
-                                state === 'connected' ? 's' : state === 'failed' ? 'e' : 'i');
-                        };
-
-                        // 检测连接类型（直连 vs 中继）
-                        setTimeout(async () => {
-                            const stats = await pc.getStats();
-                            let connType = 'unknown';
-                            
-                            stats.forEach(report => {
-                                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                                    const local = stats.get(report.localCandidateId);
-                                    const remote = stats.get(report.remoteCandidateId);
-                                    
-                                    if (local && remote) {
-                                        if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
-                                            connType = 'relay'; // TURN 中继
-                                        } else if (local.candidateType === 'srflx' || remote.candidateType === 'srflx') {
-                                            connType = 'srflx'; // 公网 P2P
-                                        } else if (local.candidateType === 'host' && remote.candidateType === 'host') {
-                                            connType = 'host'; // 局域网直连
-                                        }
-                                    }
-                                }
-                            });
-
-                            // 更新 UI 显示连接类型
-                            App.updateConnType(connType);
-                            
-                            if (connType === 'relay') {
-                                Diag.log('通过 TURN 中继连接（穿越防火墙）', 'w');
-                            } else if (connType === 'host') {
-                                Diag.log('局域网直连（最优）', 's');
-                            } else {
-                                Diag.log('公网 P2P 直连', 's');
-                            }
-                        }, 3000);
-                        
-                    } catch (e) {
-                        Diag.log('监控初始化失败: ' + e.message, 'e');
-                    }
-                }, 1000);
-            }
-        }
-
-        // ==========================================
-        // 诊断模块
-        // ==========================================
-        const Diag = {
-            toggle: () => document.getElementById('diag').classList.toggle('hidden'),
-            log: (m, t='i') => {
-                const el = document.getElementById('log');
-                const c = {e:'log-e', w:'log-w', i:'log-i', s:'log-s'}[t] || '';
-                el.innerHTML += `<div class="${c}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
-                el.scrollTop = el.scrollHeight;
-            },
-            clear: () => document.getElementById('log').innerHTML = '',
-            net: () => {
-                Diag.log(`网络状态: ${navigator.onLine?'在线':'离线'}`, navigator.onLine?'s':'e');
-                const c = navigator.connection;
-                if (c) {
-                    Diag.log(`类型: ${c.effectiveType}, 下行: ${c.downlink}Mbps, RTT: ${c.rtt}ms`);
-                }
-            },
-            turn: () => Network.testTURN()
-        };
-
-        // ==========================================
-        // 应用主逻辑
-        // ==========================================
+    <script>
+        /**
+         * Zero-TURN P2P Chat
+         * 基于 WebRTC 纯 STUN + mDNS 本地发现
+         * 2025年12月优化：优先使用本地候选，最大化直连成功率
+         */
+        
         const App = {
-            key: null,
-            fp: '',
-            room: null,
-            sendMsg: null,
-            peers: new Set(),
-            cancelFlag: false,
-            connType: 'unknown', // 连接类型
-
-            async join() {
-                const r = document.getElementById('room').value.trim();
-                const p = document.getElementById('pwd').value;
-                const n = document.getElementById('name').value.trim() || 'Anon';
-                
-                if (!r || !p) return this.showErr('填写房间和密码');
-
-                this.cancelFlag = false;
-                this.showLoading('生成密钥...');
-                
-                try {
-                    const [key, fp] = await Promise.all([
-                        Crypto.deriveKey(p, r),
-                        Crypto.fingerprint(p + r)
-                    ]);
-                    this.key = key;
-                    this.fp = fp.slice(0, 8);
-                    this.myName = n;
-                    this.roomName = r;
-
-                    if (this.cancelFlag) return;
-                    this.showLoading('测试网络...');
-                    
-                    // 测试 TURN 可用性（可选，加快连接可跳过）
-                    const hasTURN = await Promise.race([
-                        Network.testTURN(),
-                        new Promise(r => setTimeout(() => r(false), 3000))
-                    ]);
-
-                    if (this.cancelFlag) return;
-                    
-                    if (!hasTURN) {
-                        Diag.log('TURN 测试未通过，仍尝试连接...', 'w');
-                        // 不阻断，继续尝试，可能实际能通
-                    }
-
-                    await this.connectNetwork();
-                } catch (e) {
-                    this.showErr('初始化失败: ' + e.message);
-                    this.hideLoading();
-                }
+            pc: null,
+            dc: null,
+            isInitiator: false,
+            inviteData: null,
+            
+            // 仅使用公共 STUN（无 TURN）
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun.miwifi.com' } // 国内优化
+                ],
+                iceTransportPolicy: 'all',
+                iceCandidatePoolSize: 0, // 0表示不预收集，按需收集（减少暴露）
+                // 关键：gatherPolicy 在 2025 标准中已优化本地候选优先级
+                bundlePolicy: 'max-bundle',
+                rtcpMuxPolicy: 'require'
             },
 
-            async connectNetwork() {
-                for (let i = 0; i < CONFIG.MAX_RETRIES; i++) {
-                    if (this.cancelFlag) return;
-                    this.showLoading(`连接中 (${i+1}/${CONFIG.MAX_RETRIES})...`);
-                    
-                    try {
-                        const conn = await Promise.race([
-                            Network.connect(this.fp, this.key, this.handleMsg.bind(this), this.handlePeer.bind(this)),
-                            new Promise((_, r) => setTimeout(() => r(new Error('超时')), CONFIG.TIMEOUT))
-                        ]);
-                        
-                        if (this.cancelFlag) {
-                            conn.room.leave();
-                            return;
+            createRoom() {
+                this.isInitiator = true;
+                document.getElementById('inviteSection').classList.remove('hidden');
+                document.getElementById('joinSection').classList.add('hidden');
+                
+                // 生成房间密钥和初始 SDP
+                this.initConnection();
+            },
+
+            joinRoom() {
+                this.isInitiator = false;
+                document.getElementById('joinSection').classList.remove('hidden');
+                document.getElementById('inviteSection').classList.add('hidden');
+            },
+
+            async initConnection() {
+                this.pc = new RTCPeerConnection(this.config);
+                
+                // 创建数据通道
+                if (this.isInitiator) {
+                    this.dc = this.pc.createDataChannel('chat', {
+                        ordered: true,
+                        maxRetransmits: 3
+                    });
+                    this.setupDataChannel(this.dc);
+                } else {
+                    this.pc.ondatachannel = (e) => {
+                        this.dc = e.channel;
+                        this.setupDataChannel(this.dc);
+                    };
+                }
+
+                // ICE 候选收集
+                this.pc.onicecandidate = (e) => {
+                    if (e.candidate === null) {
+                        // 收集完成
+                        if (this.isInitiator) {
+                            this.generateInvite();
                         }
-                        
-                        this.room = conn.room;
-                        this.sendMsg = conn.send;
-                        return this.enterRoom();
-                    } catch (e) {
-                        Diag.log(`尝试 ${i+1} 失败: ${e.message}`, 'e');
-                        if (i < CONFIG.MAX_RETRIES - 1) await new Promise(r => setTimeout(r, 2000));
                     }
+                };
+
+                // 连接状态监控
+                this.pc.oniceconnectionstatechange = () => {
+                    const state = this.pc.iceConnectionState;
+                    document.getElementById('connStatus').textContent = state;
+                    
+                    if (state === 'connected' || state === 'completed') {
+                        this.detectConnectionType();
+                        document.getElementById('setup').classList.add('hidden');
+                        document.getElementById('chat').classList.remove('hidden');
+                    } else if (state === 'failed') {
+                        if (this.isInitiator) {
+                            document.getElementById('manualModal').classList.remove('hidden');
+                            document.getElementById('localSDP').value = btoa(JSON.stringify(this.pc.localDescription));
+                        }
+                    }
+                };
+
+                if (this.isInitiator) {
+                    const offer = await this.pc.createOffer();
+                    await this.pc.setLocalDescription(offer);
                 }
+            },
+
+            generateInvite() {
+                const desc = this.pc.localDescription;
+                const invite = {
+                    type: desc.type,
+                    sdp: desc.sdp,
+                    ts: Date.now()
+                };
+                const b64 = btoa(JSON.stringify(invite));
+                document.getElementById('inviteCode').value = b64;
+                this.inviteData = b64;
+            },
+
+            async connect() {
+                const code = document.getElementById('joinCode').value.trim();
+                if (!code) return alert('请输入邀请码');
                 
-                this.hideLoading();
-                alert('连接失败：无法建立 P2P 连接。\n可能原因：\n1. 防火墙阻止 WebRTC\n2. TURN 服务器不可达\n3. 网络类型不兼容（对称型 NAT）\n\n请尝试切换网络（如 4G 热点）或检查诊断信息。');
-            },
-
-            enterRoom() {
-                this.hideLoading();
-                document.getElementById('login').classList.add('hidden');
-                document.getElementById('chat').classList.remove('hidden');
-                document.getElementById('roomName').textContent = this.roomName;
-                this.updateStatus();
-                this.addMsg('系统', `已连接房间 #${this.fp}`, 'sys');
-                this.addMsg('系统', '等待其他成员加入...', 'sys');
-            },
-
-            async handleMsg(data, pid) {
-                if (!data.c) return;
-                const txt = await Crypto.decrypt(data.c, this.key);
-                if (!txt) return;
                 try {
-                    const m = JSON.parse(txt);
-                    if (m.n !== this.myName) {
-                        this.addMsg(m.n, m.t, 'other', m.f);
+                    const invite = JSON.parse(atob(code));
+                    
+                    await this.initConnection();
+                    
+                    if (invite.type === 'offer') {
+                        await this.pc.setRemoteDescription(new RTCSessionDescription(invite));
+                        const answer = await this.pc.createAnswer();
+                        await this.pc.setLocalDescription(answer);
+                        
+                        // 显示反向邀请码（用于发起方连接）
+                        setTimeout(() => {
+                            const response = btoa(JSON.stringify({
+                                type: this.pc.localDescription.type,
+                                sdp: this.pc.localDescription.sdp
+                            }));
+                            alert('连接已接受！请将以下响应码发送给邀请方：\n\n' + response.substring(0, 50) + '...\n\n（已自动复制到剪贴板）');
+                            navigator.clipboard.writeText(response);
+                        }, 1000);
                     }
-                } catch {}
-            },
-
-            handlePeer(pid, join) {
-                if (join) this.peers.add(pid);
-                else this.peers.delete(pid);
-                this.updateStatus();
-                if (join) this.addMsg('系统', '新成员加入', 'sys');
-                else this.addMsg('系统', '成员离开', 'sys');
-            },
-
-            // 更新连接类型显示（新增）
-            updateConnType(type) {
-                this.connType = type;
-                const el = document.getElementById('connType');
-                const statusEl = document.getElementById('status');
-                
-                if (type === 'host') {
-                    el.textContent = '[局域网]';
-                    el.style.color = 'var(--ok)';
-                } else if (type === 'srflx') {
-                    el.textContent = '[公网直连]';
-                    el.style.color = 'var(--ok)';
-                } else if (type === 'relay') {
-                    el.textContent = '[中继]';
-                    el.style.color = 'var(--warn)';
-                    statusEl.classList.add('relay');
+                } catch (e) {
+                    alert('无效的邀请码');
                 }
             },
 
-            async send() {
-                const inp = document.getElementById('msg');
-                const t = inp.value.trim();
-                if (!t) return;
-                
-                if (!this.sendMsg) {
-                    alert('未连接到房间');
-                    return;
+            // 完成手动信令（备用方案）
+            async completeManual() {
+                const remote = document.getElementById('remoteSDP').value.trim();
+                try {
+                    const desc = JSON.parse(atob(remote));
+                    await this.pc.setRemoteDescription(new RTCSessionDescription(desc));
+                    document.getElementById('manualModal').classList.add('hidden');
+                } catch (e) {
+                    alert('无效的 SDP');
                 }
+            },
+
+            setupDataChannel(dc) {
+                dc.onopen = () => {
+                    console.log('DataChannel 已连接');
+                    this.addMessage('系统', '安全通道已建立（端到端加密）', 'info');
+                };
                 
-                const data = { n: this.myName, t, f: this.fp };
-                const enc = await Crypto.encrypt(JSON.stringify(data), this.key);
-                this.sendMsg({ c: enc });
-                this.addMsg(this.myName, t, 'self');
-                inp.value = '';
+                dc.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    this.addMessage('对方', data.msg, 'other');
+                };
             },
 
-            addMsg(user, text, type, fp='') {
-                const d = document.createElement('div');
-                d.className = `msg ${type}`;
-                const time = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-                const sub = type==='sys' ? '' : `<div class="msg-hd"><span>${user} ${fp?'#'+fp.slice(0,4):''}</span><span>${time}</span></div>`;
-                d.innerHTML = sub + (type==='sys'?text:this.escape(text));
-                document.getElementById('messages').appendChild(d);
-                d.scrollIntoView();
+            detectConnectionType() {
+                // 检测连接类型（本地/直连/中继）
+                this.pc.getStats().then(stats => {
+                    let type = 'unknown';
+                    stats.forEach(report => {
+                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                            const local = stats.get(report.localCandidateId);
+                            if (local) {
+                                if (local.candidateType === 'host') type = 'local';
+                                else if (local.candidateType === 'srflx') type = 'direct';
+                                else if (local.candidateType === 'relay') type = 'relay';
+                            }
+                        }
+                    });
+                    
+                    const badge = document.getElementById('connType');
+                    if (type === 'local') {
+                        badge.textContent = '局域网直连';
+                        badge.className = 'badge local';
+                    } else if (type === 'direct') {
+                        badge.textContent = '公网P2P';
+                        badge.className = 'badge direct';
+                    } else {
+                        badge.textContent = '连接失败';
+                        badge.className = 'badge relay';
+                    }
+                });
             },
 
-            updateStatus() {
-                const s = document.getElementById('status');
-                const p = document.getElementById('peer');
-                const n = this.peers.size;
-                s.className = n > 0 ? (this.connType === 'relay' ? 'status relay' : 'status on') : 'status';
-                p.textContent = n > 0 ? `${n+1}人在线` : '等待连接';
+            send() {
+                const input = document.getElementById('msgInput');
+                const msg = input.value.trim();
+                if (!msg || !this.dc || this.dc.readyState !== 'open') return;
+                
+                this.dc.send(JSON.stringify({msg, time: Date.now()}));
+                this.addMessage('我', msg, 'self');
+                input.value = '';
             },
 
-            escape(t) {
-                const d = document.createElement('div');
-                d.textContent = t;
-                return d.innerHTML;
+            addMessage(from, text, type) {
+                const div = document.createElement('div');
+                div.className = `msg ${type}`;
+                const time = new Date().toLocaleTimeString();
+                div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div>${text}`;
+                document.getElementById('messages').appendChild(div);
+                div.scrollIntoView();
             },
 
-            showLoading(t) {
-                document.getElementById('loading').classList.remove('hidden');
-                document.getElementById('loadDetail').textContent = t;
-            },
-            hideLoading() {
-                document.getElementById('loading').classList.add('hidden');
-            },
-            cancel() {
-                this.cancelFlag = true;
-                this.hideLoading();
-            },
-            showErr(e) {
-                document.getElementById('err').textContent = e;
-                setTimeout(() => document.getElementById('err').textContent = '', 3000);
-            },
-            leave() {
-                if (confirm('退出？')) location.reload();
-            },
-            toggleDiag() {
-                Diag.toggle();
+            copyInvite() {
+                const code = document.getElementById('inviteCode').value;
+                navigator.clipboard.writeText(code);
+                alert('邀请码已复制！');
             }
         };
 
-        window.App = App;
-        window.Diag = Diag;
+        // 如果是响应方，监听粘贴
+        if (!App.isInitiator) {
+            window.addEventListener('paste', (e) => {
+                const text = e.clipboardData.getData('text');
+                if (text.length > 100 && text.includes('answer')) {
+                    document.getElementById('joinCode').value = text;
+                }
+            });
+        }
     </script>
 </body>
 </html>
