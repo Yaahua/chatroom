@@ -806,4 +806,61 @@
                     div.innerHTML = `
                         <div class="msg-header">
                             <span class="msg-user">${this.escapeHtml(user)}${fpDisplay}</span>
-                            <sp
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${this.escapeHtml(text)}</div>
+                    `;
+                }
+                
+                container.appendChild(div);
+                
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom) {
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }
+                
+                while (container.children.length > 100) {
+                    container.removeChild(container.firstChild);
+                }
+            }
+
+            updatePeerCount() {
+                const count = this.peers.size + 1;
+                const el = document.getElementById('peerCount');
+                el.textContent = `${count}/6 在线`;
+                
+                if (count >= 5) el.className = 'peer-count';
+                else if (count >= 3) el.className = 'peer-count warning';
+                else el.className = 'peer-count error';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            async copyLink() {
+                const hash = encodeURIComponent(btoa(this.roomName));
+                const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+                try {
+                    await navigator.clipboard.writeText(url);
+                    alert(`✅ 链接已复制\n\n密码请另外分享`);
+                } catch (err) {
+                    prompt('请手动复制：', url);
+                }
+            }
+
+            leave() {
+                if (confirm('确定要离开吗？历史消息将丢失。')) {
+                    if (this.room) this.room.leave();
+                    location.reload();
+                }
+            }
+        }
+
+        const app = new ChatApp();
+        window.app = app;
+    </script>
+</body>
+</html>
