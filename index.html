@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Zero-TURN P2P 多人聊天室</title>
+    <title>P2P 多人聊天室 (TURN Enhanced)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
     <style>
         :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502;--info:#3498db}
@@ -43,8 +43,62 @@
         
         .code-display{font-size:28px;font-weight:bold;color:var(--accent);letter-spacing:6px;text-align:center;padding:15px;background:rgba(0,208,132,0.1);border-radius:8px;margin:15px 0;border:2px dashed var(--accent);font-family:monospace;word-break:break-all}
         
-        /* 聊天室布局 */
-        #chat{min-height:100dvh;display:flex;flex-direction:column;padding:20px;padding-bottom:env(safe-area-inset-bottom, 20px);max-width:1200px;margin:0 auto}
+        /* 最近房间卡片 */
+        .recent-room {
+            background: rgba(0,208,132,0.1);
+            border: 1px solid rgba(0,208,132,0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .recent-room-label {
+            font-size: 12px;
+            color: var(--accent);
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .recent-room-code {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            font-family: monospace;
+            letter-spacing: 4px;
+            margin: 10px 0;
+        }
+        .recent-room-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .recent-room-actions button {
+            margin: 0;
+            padding: 10px;
+            font-size: 13px;
+        }
+        .copy-btn {
+            background: rgba(255,255,255,0.1) !important;
+            color: var(--text) !important;
+            border: 1px solid #444;
+        }
+        
+        /* 聊天室布局 - 修改为固定高度防止整体滚动 */
+        #chat{
+            height:100dvh; /* 改为固定高度 */
+            overflow:hidden; /* 防止整体滚动 */
+            display:flex;
+            flex-direction:column;
+            padding:20px;
+            padding-top:env(safe-area-inset-top, 20px);
+            max-width:1200px;
+            margin:0 auto;
+            position:relative;
+        }
         
         /* 顶部状态栏 */
         #header{
@@ -79,9 +133,18 @@
         
         /* 消息区域 */
         #messages{
-            flex:1;overflow-y:auto;padding:15px;background:#000;
-            border-radius:12px;margin-bottom:15px;border:1px solid #333;
-            -webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:12px;
+            flex:1;
+            overflow-y:auto;
+            padding:15px;
+            padding-bottom:100px; /* 为底部固定输入框留足够空间 */
+            background:#000;
+            border-radius:12px;
+            margin-bottom:15px;
+            border:1px solid #333;
+            -webkit-overflow-scrolling:touch;
+            display:flex;
+            flex-direction:column;
+            gap:12px;
         }
         
         .msg{max-width:85%;animation:fadeIn 0.3s ease}
@@ -108,11 +171,22 @@
         .msg.join .msg-content{background:rgba(52,152,219,0.1);border-color:rgba(52,152,219,0.3);color:var(--info)}
         .msg.leave .msg-content{background:rgba(255,71,87,0.1);border-color:rgba(255,71,87,0.3);color:var(--err)}
         
-        /* 输入区域 */
+        /* 输入区域 - 修改为固定在底部 */
         #input{
-            display:none;flex-shrink:0;background:var(--bg2);
-            padding:12px;border-radius:12px;border:1px solid #333;
-            gap:10px;align-items:center;
+            position:fixed;
+            bottom:0;
+            left:0;
+            right:0;
+            background:var(--bg2);
+            padding:12px 20px;
+            padding-bottom:calc(12px + env(safe-area-inset-bottom, 20px));
+            border-top:1px solid #333;
+            display:none;
+            z-index:100;
+            gap:10px;
+            align-items:center;
+            max-width:1200px;
+            margin:0 auto;
         }
         
         #input input{
@@ -140,28 +214,39 @@
         
         .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:100px;overflow-y:auto;-webkit-overflow-scrolling:touch}
         
-        /* 系统消息样式 */
-        .sys-notice{
-            text-align:center;padding:8px;margin:8px 0;
-            background:rgba(255,255,255,0.05);border-radius:8px;
-            font-size:12px;color:#888;border:1px dashed #333;
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: var(--accent);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            z-index: 2000;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
         }
-        
-        /* 回复引用样式 */
-        .reply-to{
-            font-size:11px;color:#666;border-left:2px solid var(--accent);
-            padding-left:8px;margin-bottom:6px;opacity:0.8;
-        }
+        .toast.show { opacity: 1; }
         
         @media (max-width:600px){
             .msg{max-width:90%}
             #userList{max-width:150px}
             .code-display{font-size:22px;letter-spacing:4px}
+            #chat{padding:10px;padding-top:env(safe-area-inset-top, 10px)}
+            #input{padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom, 20px))}
+            #messages{padding:10px;padding-bottom:90px}
+            .recent-room-code{font-size:20px}
         }
     </style>
 </head>
 <body>
-    <!-- 用户名设置弹窗 -->
+    <div id="toast" class="toast"></div>
+
     <div id="userSetup">
         <div class="card" style="max-width:400px">
             <div class="user-avatar" id="avatarPreview">?</div>
@@ -175,15 +260,14 @@
         </div>
     </div>
 
-    <!-- 房间设置 -->
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN 多人聊天</h1>
+            <h1>🔮 P2P Mesh 聊天</h1>
             <div class="info">
-                <strong>去中心化多人加密聊天</strong><br>
+                <strong>支持防火墙穿透的多人加密聊天</strong><br>
                 • 支持最多 8 人同时在线（Mesh 网络）<br>
-                • 消息端到端加密，服务器不存储记录<br>
-                • 显示精确时间戳和消息序号
+                • 集成 TURN 服务器，支持复杂网络环境<br>
+                • 消息端到端加密，服务器不存储记录
             </div>
             
             <div id="userInfo" style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px;background:#000;border-radius:8px;border:1px solid #333">
@@ -192,6 +276,16 @@
                     <div style="font-size:12px;color:#888">当前身份</div>
                     <div style="font-weight:bold;color:var(--accent)" id="displayUsername">未设置</div>
                     <div style="font-size:10px;color:#666;font-family:monospace" id="displayUserId">-</div>
+                </div>
+            </div>
+            
+            <div id="recentRoomPanel" class="recent-room hidden">
+                <div class="recent-room-label">🏠 最近加入的房间</div>
+                <div class="recent-room-code" id="recentRoomCode">-</div>
+                <div style="font-size:12px;color:#666;margin-bottom:10px">退出时间: <span id="recentRoomTime">-</span></div>
+                <div class="recent-room-actions">
+                    <button onclick="App.rejoinRoom()" style="flex:1;background:var(--accent);color:#000">重新进入</button>
+                    <button onclick="App.copyRoomCode()" class="copy-btn" style="flex:1">复制房间码</button>
                 </div>
             </div>
             
@@ -221,7 +315,6 @@
         </div>
     </div>
 
-    <!-- 聊天界面 -->
     <div id="chat" class="hidden">
         <div id="header">
             <div id="roomInfo">
@@ -237,12 +330,12 @@
                     <span id="myChipName">我</span>
                 </div>
             </div>
-            <button onclick="App.leaveRoom()" class="danger" style="width:auto;padding:8px 16px;font-size:12px;margin:0">退出</button>
+            <button onclick="App.confirmLeave()" class="danger" style="width:auto;padding:8px 16px;font-size:12px;margin:0">退出</button>
         </div>
         
         <div id="messages"></div>
         
-        <div id="input" style="display:none">
+        <div id="input">
             <input type="text" id="msgInput" placeholder="发送消息给所有人..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')App.send()">
             <button onclick="App.send()">发送</button>
         </div>
@@ -250,6 +343,33 @@
 
     <script type="module">
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+        
+        // LRU Cache for message deduplication
+        class LRUCache {
+            constructor(maxSize = 1000) {
+                this.maxSize = maxSize;
+                this.cache = new Map();
+            }
+            
+            has(key) {
+                return this.cache.has(key);
+            }
+            
+            add(key) {
+                if (this.cache.has(key)) {
+                    this.cache.delete(key);
+                }
+                this.cache.set(key, true);
+                if (this.cache.size > this.maxSize) {
+                    const firstKey = this.cache.keys().next().value;
+                    this.cache.delete(firstKey);
+                }
+            }
+            
+            clear() {
+                this.cache.clear();
+            }
+        }
         
         // 生成 UUID
         const generateUUID = () => {
@@ -278,15 +398,17 @@
             // 房间信息
             roomCode: null,
             isHost: false,
-            joined: false,
             
             // 连接管理
             client: null,
-            peers: new Map(), // userId -> {pc, dc, username, userId, connected}
+            peers: new Map(),
             
             // 消息序列号
             messageSeq: 0,
-            receivedMessages: new Set(), // 去重用的消息ID集合
+            receivedMessages: new LRUCache(1000),
+            
+            // 连接建立标志
+            connectionEstablished: false,
             
             log(msg, isError = false) {
                 console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
@@ -299,6 +421,13 @@
                     logEl.appendChild(div);
                     logEl.scrollTop = logEl.scrollHeight;
                 }
+            },
+            
+            showToast(msg) {
+                const toast = document.getElementById('toast');
+                toast.textContent = msg;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
             },
 
             // 设置用户名
@@ -328,7 +457,7 @@
                 // 关闭弹窗
                 document.getElementById('userSetup').classList.add('hidden');
                 
-                // 保存到 sessionStorage（刷新后保留）
+                // 保存到 sessionStorage
                 sessionStorage.setItem('p2p_username', name);
                 sessionStorage.setItem('p2p_userid', this.userId);
                 sessionStorage.setItem('p2p_color', this.avatarColor);
@@ -348,9 +477,10 @@
                     document.getElementById('usernameInput').value = savedName;
                     document.getElementById('avatarPreview').textContent = savedName.charAt(0).toUpperCase();
                     document.getElementById('avatarPreview').style.background = this.avatarColor;
-                    
-                    // 自动填充但不关闭弹窗，让用户确认
                 }
+                
+                // 检查是否有最近的房间
+                this.checkRecentRoom();
                 
                 document.getElementById('usernameInput').focus();
                 document.getElementById('usernameInput').addEventListener('input', (e) => {
@@ -360,6 +490,57 @@
                         document.getElementById('avatarPreview').style.background = getAvatarColor(val);
                     }
                 });
+                
+                if ('visualViewport' in window) {
+                    window.visualViewport.addEventListener('resize', () => {
+                        if (document.activeElement?.id === 'msgInput') {
+                            setTimeout(() => this.scrollToBottom(), 100);
+                        }
+                    });
+                }
+            },
+            
+            checkRecentRoom() {
+                const recentRoom = sessionStorage.getItem('p2p_last_room');
+                const recentTime = sessionStorage.getItem('p2p_last_room_time');
+                
+                if (recentRoom && recentTime) {
+                    const timeDiff = Date.now() - parseInt(recentTime);
+                    if (timeDiff < 30 * 60 * 1000) {
+                        document.getElementById('recentRoomCode').textContent = recentRoom;
+                        document.getElementById('recentRoomTime').textContent = new Date(parseInt(recentTime)).toLocaleTimeString('zh-CN');
+                        document.getElementById('recentRoomPanel').classList.remove('hidden');
+                    } else {
+                        sessionStorage.removeItem('p2p_last_room');
+                        sessionStorage.removeItem('p2p_last_room_time');
+                    }
+                }
+            },
+            
+            copyRoomCode() {
+                const code = sessionStorage.getItem('p2p_last_room');
+                if (code) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        this.showToast('房间码已复制');
+                    }).catch(() => {
+                        const input = document.createElement('input');
+                        input.value = code;
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(input);
+                        this.showToast('房间码已复制');
+                    });
+                }
+            },
+            
+            rejoinRoom() {
+                const code = sessionStorage.getItem('p2p_last_room');
+                if (code) {
+                    document.getElementById('joinCode').value = code;
+                    this.showJoin();
+                    setTimeout(() => this.joinRoom(), 100);
+                }
             },
 
             generateCode() {
@@ -389,7 +570,6 @@
                     await this.connectMQTT();
                     this.log('MQTT已连接，等待成员加入...');
                     
-                    // 显示房间码
                     document.getElementById('createLoading').classList.add('hidden');
                     document.getElementById('roomCodeDisplay').classList.remove('hidden');
                     document.getElementById('roomCodeDisplay').textContent = this.roomCode;
@@ -414,6 +594,7 @@
                 document.getElementById('joinPanel').classList.remove('hidden');
                 document.getElementById('joinBtn').classList.add('hidden');
                 document.getElementById('createBtn').classList.add('hidden');
+                document.getElementById('recentRoomPanel')?.classList.add('hidden');
                 setTimeout(() => document.getElementById('joinCode').focus(), 100);
             },
 
@@ -433,7 +614,6 @@
                     this.log('正在加入房间...');
                     this.switchToChat();
                     
-                    // 广播加入消息
                     this.publish('presence', {
                         username: this.username,
                         userId: this.userId,
@@ -448,14 +628,32 @@
             },
 
             switchToChat() {
+                sessionStorage.setItem('p2p_last_room', this.roomCode);
+                sessionStorage.setItem('p2p_last_room_time', Date.now().toString());
+                
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('chat').classList.remove('hidden');
                 document.getElementById('roomTitle').textContent = `房间: ${this.roomCode}`;
                 document.getElementById('connectionStatus').textContent = this.isHost ? '等待成员加入...' : '正在连接...';
-                document.getElementById('input').style.display = 'flex';
                 
-                // 更新在线人数（自己）
+                const inputEl = document.getElementById('input');
+                inputEl.style.display = 'flex';
+                
+                setTimeout(() => {
+                    this.scrollToBottom();
+                    if (!this.isHost) {
+                        document.getElementById('msgInput').focus();
+                    }
+                }, 100);
+                
                 this.updateOnlineCount();
+                this.connectionEstablished = true;
+            },
+
+            confirmLeave() {
+                if (confirm('确定要退出聊天室吗？\n退出后将断开所有连接，但会保留房间码以便重新进入。')) {
+                    this.leaveRoom();
+                }
             },
 
             async connectMQTT() {
@@ -479,7 +677,6 @@
                         clearTimeout(timeout);
                         this.log('MQTT连接成功');
                         
-                        // 订阅房间所有消息类型
                         const topics = [
                             `p2p-multi/${this.roomCode}/presence`,
                             `p2p-multi/${this.roomCode}/signal`,
@@ -498,7 +695,6 @@
                     this.client.on('message', (topic, message) => {
                         try {
                             const data = JSON.parse(message.toString());
-                            // 忽略自己的消息（通过userId判断）
                             if (data.userId === this.userId) return;
                             
                             if (topic.includes('presence')) {
@@ -517,7 +713,6 @@
                 });
             },
 
-            // 处理用户上下线
             async handlePresence(data) {
                 const {username, userId, avatarColor, action} = data;
                 
@@ -525,17 +720,10 @@
                     this.log(`${username} 加入房间`);
                     this.addSystemMessage(`${username} 加入了聊天室`, 'join');
                     
-                    // 如果是我，且我不是房主，向房主发送连接请求
-                    if (!this.isHost && !this.peers.has(userId)) {
-                        // 延迟一下，避免所有人同时发请求造成冲突
-                        setTimeout(() => {
-                            this.initiateConnection(userId, username, avatarColor);
-                        }, Math.random() * 1000);
-                    }
+                    const amPolite = this.userId < userId;
                     
-                    // 如果我是房主，主动向新成员发起连接
-                    if (this.isHost) {
-                        this.initiateConnection(userId, username, avatarColor);
+                    if (!this.peers.has(userId)) {
+                        this.initiateConnection(userId, username, avatarColor, amPolite);
                     }
                     
                 } else if (action === 'leave') {
@@ -545,17 +733,47 @@
                 }
             },
 
-            // 初始化连接（发起方）
-            async initiateConnection(targetUserId, targetName, targetColor) {
-                if (this.peers.has(targetUserId)) return;
+            // --- 核心修改：集成 OpenRelay TURN 服务器配置 ---
+            async initiateConnection(targetUserId, targetName, targetColor, polite = false) {
+                if (this.peers.has(targetUserId)) {
+                    const existing = this.peers.get(targetUserId);
+                    if (existing.pc && (existing.pc.connectionState === 'connected' || existing.pc.connectionState === 'connecting')) {
+                        this.log(`与 ${targetName} 的连接已存在，跳过`);
+                        return;
+                    }
+                    this.removePeer(targetUserId);
+                }
                 
-                this.log(`正在连接 ${targetName}...`);
+                this.log(`正在连接 ${targetName} (polite: ${polite})...`);
                 
+                // === TURN 配置开始 ===
+                const iceServers = [
+                    // 1. Google STUN (备用，快速响应)
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    
+                    // 2. OpenRelay STUN (公共免费)
+                    { urls: "stun:stun.relay.metered.ca:80" },
+                    
+                    // 3. OpenRelay TURN UDP (优先尝试，速度快)
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    
+                    // 4. OpenRelay TURN TCP (穿透防火墙)
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ];
+                // === TURN 配置结束 ===
+
                 const pc = new RTCPeerConnection({
-                    iceServers: [
-                        {urls: 'stun:stun.l.google.com:19302'},
-                        {urls: 'stun:stun1.l.google.com:19302'}
-                    ]
+                    iceServers: iceServers,
+                    iceTransportPolicy: 'all', // 允许所有类型
+                    bundlePolicy: 'max-bundle'
                 });
                 
                 const peer = {
@@ -565,35 +783,27 @@
                     avatarColor: targetColor,
                     dataChannel: null,
                     connected: false,
-                    iceCandidates: []
+                    polite: polite,
+                    makingOffer: false,
+                    ignoreOffer: false
                 };
                 
                 this.peers.set(targetUserId, peer);
                 
-                // 创建数据通道
-                const dc = pc.createDataChannel('chat', {ordered: true});
-                this.setupDataChannel(dc, peer);
+                if (!polite) {
+                    const dc = pc.createDataChannel('chat', {ordered: true});
+                    this.setupDataChannel(dc, peer);
+                } else {
+                    pc.ondatachannel = (e) => {
+                        this.log(`${targetName} 创建了数据通道`);
+                        this.setupDataChannel(e.channel, peer);
+                    };
+                }
                 
-                // 创建Offer
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                
-                // 等待ICE收集
-                await this.waitForICE(pc);
-                
-                // 发送Offer（通过MQTT）
-                this.publish('signal', {
-                    targetUserId: targetUserId,
-                    type: 'offer',
-                    sdp: pc.localDescription,
-                    fromUserId: this.userId,
-                    fromName: this.username,
-                    fromColor: this.avatarColor
-                });
-                
-                // ICE处理
+                const iceCandidates = [];
                 pc.onicecandidate = (e) => {
                     if (e.candidate) {
+                        iceCandidates.push(e.candidate);
                         this.publish('signal', {
                             targetUserId: targetUserId,
                             type: 'ice',
@@ -603,108 +813,107 @@
                     }
                 };
                 
+                pc.onicegatheringstatechange = () => {
+                    this.log(`ICE 收集状态: ${pc.iceGatheringState}`);
+                };
+                
                 pc.onconnectionstatechange = () => {
                     this.log(`${targetName} 连接状态: ${pc.connectionState}`);
                     if (pc.connectionState === 'connected') {
                         peer.connected = true;
                         this.updateOnlineCount();
                         this.updateUserList();
-                    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                        this.showToast(`${targetName} 已连接`);
+                    } else if (pc.connectionState === 'disconnected') {
+                        setTimeout(() => {
+                            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                                this.removePeer(targetUserId);
+                            }
+                        }, 5000);
+                    } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                         this.removePeer(targetUserId);
                     }
                 };
+                
+                if (!polite) {
+                    try {
+                        peer.makingOffer = true;
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        await this.waitForICEGathering(pc);
+                        
+                        this.publish('signal', {
+                            targetUserId: targetUserId,
+                            type: 'offer',
+                            sdp: pc.localDescription,
+                            fromUserId: this.userId,
+                            fromName: this.username,
+                            fromColor: this.avatarColor
+                        });
+                    } catch(e) {
+                        this.log(`创建 offer 失败: ${e.message}`, true);
+                    } finally {
+                        peer.makingOffer = false;
+                    }
+                }
             },
 
-            // 处理信令消息（接收方）
             async handleSignal(data) {
                 const {targetUserId, type, fromUserId, fromName, fromColor} = data;
                 
-                // 只处理发给我的消息
                 if (targetUserId !== this.userId) return;
                 
+                let peer = this.peers.get(fromUserId);
+                
                 if (type === 'offer') {
-                    // 收到Offer，创建Answer
-                    this.log(`收到 ${fromName} 的连接请求`);
+                    if (!peer) {
+                        const amPolite = this.userId < fromUserId;
+                        await this.initiateConnection(fromUserId, fromName, fromColor, amPolite);
+                        peer = this.peers.get(fromUserId);
+                    }
                     
-                    const pc = new RTCPeerConnection({
-                        iceServers: [{urls: 'stun:stun.l.google.com:19302'}]
-                    });
+                    if (!peer) return;
                     
-                    const peer = {
-                        pc: pc,
-                        userId: fromUserId,
-                        username: fromName,
-                        avatarColor: fromColor,
-                        dataChannel: null,
-                        connected: false,
-                        iceCandidates: []
-                    };
+                    const readyForOffer = !peer.makingOffer && (peer.pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
+                    peer.ignoreOffer = !readyForOffer && !peer.polite;
                     
-                    this.peers.set(fromUserId, peer);
+                    if (peer.ignoreOffer) return;
                     
-                    pc.ondatachannel = (e) => {
-                        this.setupDataChannel(e.channel, peer);
-                    };
+                    peer.isSettingRemoteAnswerPending = true;
                     
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    
-                    await this.waitForICE(pc);
-                    
-                    this.publish('signal', {
-                        targetUserId: fromUserId,
-                        type: 'answer',
-                        sdp: pc.localDescription,
-                        fromUserId: this.userId,
-                        fromName: this.username,
-                        fromColor: this.avatarColor
-                    });
-                    
-                    pc.onicecandidate = (e) => {
-                        if (e.candidate) {
-                            this.publish('signal', {
-                                targetUserId: fromUserId,
-                                type: 'ice',
-                                candidate: e.candidate,
-                                fromUserId: this.userId
-                            });
-                        }
-                    };
-                    
-                    pc.onconnectionstatechange = () => {
-                        if (pc.connectionState === 'connected') {
-                            peer.connected = true;
-                            this.updateOnlineCount();
-                            this.updateUserList();
-                            this.addSystemMessage(`与 ${fromName} 建立直接连接`, 'info');
-                        }
-                    };
-                    
-                    // 处理缓冲的ICE
-                    if (peer.iceCandidates.length > 0) {
-                        for (const cand of peer.iceCandidates) {
-                            await pc.addIceCandidate(new RTCIceCandidate(cand));
-                        }
-                        peer.iceCandidates = [];
+                    try {
+                        await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        const answer = await peer.pc.createAnswer();
+                        await peer.pc.setLocalDescription(answer);
+                        await this.waitForICEGathering(peer.pc);
+                        
+                        this.publish('signal', {
+                            targetUserId: fromUserId,
+                            type: 'answer',
+                            sdp: peer.pc.localDescription,
+                            fromUserId: this.userId,
+                            fromName: this.username,
+                            fromColor: this.avatarColor
+                        });
+                    } catch(e) {
+                        this.log(`处理 offer 失败: ${e.message}`, true);
+                    } finally {
+                        peer.isSettingRemoteAnswerPending = false;
                     }
                     
                 } else if (type === 'answer') {
-                    const peer = this.peers.get(fromUserId);
-                    if (peer) {
+                    if (!peer) return;
+                    try {
                         await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                        this.addSystemMessage(`${peer.username} 接受了连接`, 'info');
+                    } catch(e) {
+                        this.log(`设置 remote 失败: ${e.message}`, true);
                     }
-                    
                 } else if (type === 'ice') {
-                    const peer = this.peers.get(fromUserId);
-                    if (peer) {
-                        if (peer.pc.remoteDescription) {
-                            await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        } else {
-                            peer.iceCandidates.push(data.candidate);
-                        }
+                    if (!peer) return;
+                    try {
+                        await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    } catch(e) {
+                        if (!peer.ignoreOffer) this.log(`添加 ICE 失败: ${e.message}`, true);
                     }
                 }
             },
@@ -730,26 +939,33 @@
                 
                 dc.onclose = () => {
                     this.log(`${peer.username} 的数据通道已关闭`);
-                    this.removePeer(peer.userId);
+                    peer.connected = false;
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                };
+                
+                dc.onerror = (err) => {
+                    this.log(`数据通道错误: ${err.message}`, true);
                 };
             },
 
-            waitForICE(pc) {
+            waitForICEGathering(pc) {
                 return new Promise((resolve) => {
                     if (pc.iceGatheringState === 'complete') {
                         resolve();
-                    } else {
-                        const check = setInterval(() => {
-                            if (pc.iceGatheringState === 'complete') {
-                                clearInterval(check);
-                                resolve();
-                            }
-                        }, 200);
-                        setTimeout(() => {
-                            clearInterval(check);
-                            resolve();
-                        }, 3000);
+                        return;
                     }
+                    const checkState = () => {
+                        if (pc.iceGatheringState === 'complete') {
+                            pc.removeEventListener('icegatheringstatechange', checkState);
+                            resolve();
+                        }
+                    };
+                    pc.addEventListener('icegatheringstatechange', checkState);
+                    setTimeout(() => {
+                        pc.removeEventListener('icegatheringstatechange', checkState);
+                        resolve();
+                    }, 3000);
                 });
             },
 
@@ -764,7 +980,6 @@
                 }
             },
 
-            // 发送消息（广播给所有 peers）
             send() {
                 const input = document.getElementById('msgInput');
                 const content = input.value.trim();
@@ -783,8 +998,8 @@
                     type: 'chat'
                 };
                 
-                // 发送给所有已连接的 peers
                 let sentCount = 0;
+                
                 this.peers.forEach((peer, uid) => {
                     if (peer.dataChannel && peer.dataChannel.readyState === 'open') {
                         try {
@@ -796,28 +1011,20 @@
                     }
                 });
                 
-                if (sentCount > 0 || this.peers.size === 0) {
-                    // 显示自己的消息
-                    this.displayMessage(message, true);
-                    input.value = '';
-                    
-                    if (this.peers.size === 0) {
-                        this.addSystemMessage('暂无其他人在线，消息已缓存（实验性功能）', 'warn');
-                    }
-                } else {
-                    alert('暂无可用的连接，请等待其他用户上线');
+                this.displayMessage(message, true);
+                input.value = '';
+                
+                if (this.peers.size > 0 && sentCount === 0) {
+                    this.showToast('消息暂存，等待连接恢复...');
                 }
             },
 
             displayMessage(msg, isSelf = false) {
-                // 去重检查
                 if (this.receivedMessages.has(msg.id)) return;
                 this.receivedMessages.add(msg.id);
                 
                 const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
                 });
                 
                 const div = document.createElement('div');
@@ -841,40 +1048,36 @@
             addSystemMessage(text, type = 'info') {
                 const div = document.createElement('div');
                 div.className = `msg system ${type}`;
-                
                 const time = new Date().toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    hour: '2-digit', minute: '2-digit'
                 });
-                
                 div.innerHTML = `
-                    <div class="msg-header">
-                        <span class="msg-time">${time}</span>
-                    </div>
+                    <div class="msg-header"><span class="msg-time">${time}</span></div>
                     <div class="msg-content">${text}</div>
                 `;
-                
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
             },
 
             updateOnlineCount() {
-                const count = this.peers.size + 1; // +1 是自己
-                document.getElementById('onlineCount').textContent = `${count}人在线`;
-                document.getElementById('connectionStatus').textContent = 
-                    this.peers.size > 0 ? `已连接 ${this.peers.size} 个节点` : '等待其他成员...';
+                const connectedCount = Array.from(this.peers.values()).filter(p => p.connected).length;
+                const totalCount = connectedCount + 1;
+                document.getElementById('onlineCount').textContent = `${totalCount}人在线`;
+                let statusText = '等待其他成员...';
+                if (connectedCount > 0) {
+                    statusText = `已连接 ${connectedCount} 个节点`;
+                }
+                document.getElementById('connectionStatus').textContent = statusText;
             },
 
             updateUserList() {
                 const list = document.getElementById('userList');
-                // 保留自己
                 list.innerHTML = `
                     <div class="user-chip me">
                         <span class="dot"></span>
                         <span>${this.username}</span>
                     </div>
                 `;
-                
                 this.peers.forEach((peer) => {
                     if (peer.connected) {
                         const chip = document.createElement('div');
@@ -891,6 +1094,7 @@
             removePeer(userId) {
                 const peer = this.peers.get(userId);
                 if (peer) {
+                    if (peer.dataChannel) peer.dataChannel.close();
                     if (peer.pc) peer.pc.close();
                     this.peers.delete(userId);
                     this.updateOnlineCount();
@@ -899,31 +1103,47 @@
             },
 
             leaveRoom() {
-                // 广播离开消息
-                this.publish('presence', {
-                    username: this.username,
-                    userId: this.userId,
-                    action: 'leave'
-                });
+                if (this.client && this.client.connected) {
+                    this.publish('presence', {
+                        username: this.username,
+                        userId: this.userId,
+                        action: 'leave'
+                    });
+                }
                 
-                // 关闭所有连接
                 this.peers.forEach((peer) => {
                     if (peer.dataChannel) peer.dataChannel.close();
                     if (peer.pc) peer.pc.close();
                 });
                 this.peers.clear();
                 
-                // 断开MQTT
                 if (this.client) {
                     this.client.end();
+                    this.client = null;
                 }
                 
-                // 清理
-                sessionStorage.removeItem('p2p_username');
-                sessionStorage.removeItem('p2p_userid');
-                sessionStorage.removeItem('p2p_color');
+                document.getElementById('messages').innerHTML = '';
+                this.receivedMessages.clear();
+                this.messageSeq = 0;
+                this.connectionEstablished = false;
                 
-                location.reload();
+                document.getElementById('chat').classList.add('hidden');
+                document.getElementById('input').style.display = 'none';
+                document.getElementById('setup').classList.remove('hidden');
+                document.getElementById('createPanel').classList.add('hidden');
+                document.getElementById('joinPanel').classList.add('hidden');
+                document.getElementById('createBtn').classList.remove('hidden');
+                document.getElementById('joinBtn').classList.remove('hidden');
+                document.getElementById('createBtn').disabled = false;
+                document.getElementById('joinBtn').disabled = false;
+                
+                this.checkRecentRoom();
+                document.getElementById('roomCodeDisplay').classList.add('hidden');
+                document.getElementById('createLoading').classList.remove('hidden');
+                document.getElementById('createHint').textContent = '';
+                document.getElementById('connectBtn').classList.remove('hidden');
+                document.getElementById('joinLoading').classList.add('hidden');
+                document.getElementById('joinCode').value = '';
             },
 
             escapeHtml(text) {
@@ -941,9 +1161,18 @@
         window.App = App;
         App.init();
         
-        // 页面关闭前清理
         window.addEventListener('beforeunload', () => {
-            if (App.joined) {
+            if (App.connectionEstablished) {
+                if (navigator.sendBeacon && App.client) {
+                    const data = JSON.stringify({
+                        username: App.username,
+                        userId: App.userId,
+                        action: 'leave',
+                        timestamp: Date.now()
+                    });
+                    const blob = new Blob([data], {type: 'application/json'});
+                    navigator.sendBeacon(`https://httpbin.org/post`, blob);
+                }
                 App.publish('presence', {username: App.username, userId: App.userId, action: 'leave'});
             }
         });
