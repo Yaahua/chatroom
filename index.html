@@ -3,76 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P Chat (短码版)</title>
-    <script src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
+    <title>Zero-TURN P2P (P2PT版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/p2pt@1.5.0/dist/p2pt.min.js"></script>
     <style>
-        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502;--info:#3498db}
+        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
         body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
         .hidden{display:none!important}
         
-        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column}
+        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
         .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
         h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
         .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
         
         button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
-        button:hover{opacity:0.9;transform:translateY(-1px)}
-        button.secondary{background:#333;color:var(--text)}
-        button.small{width:auto;padding:8px 16px;font-size:12px}
-        button:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+        button:hover{opacity:0.9}
+        button:disabled{opacity:0.5;cursor:not-allowed}
+        
+        .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
         
         #chat{height:100%;display:flex;flex-direction:column;padding:20px}
         #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
         .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
         .badge.direct{background:var(--accent);color:#000}
-        .badge.failed{background:var(--err);color:#fff}
-        .badge.waiting{background:var(--warn);color:#000}
         
         #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
         .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
         .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
-        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%;padding:5px}
-        .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
+        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
         
         #input{display:flex;gap:10px}
         #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
-        #input button{width:auto;padding:12px 24px}
+        #input button{width:auto;padding:12px 24px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer}
         
-        .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
-        .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn)}
+        .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:20px 0}
         .spinner{width:20px;height:20px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         
-        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px}
+        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px;margin:10px 0}
     </style>
 </head>
 <body>
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN P2P (短码版)</h1>
+            <h1>🔮 Zero-TURN P2P (P2PT版)</h1>
             <div class="info">
-                <strong>自动信令版本</strong><br>
-                • 无需复制粘贴长串邀请码<br>
-                • 输入6位短码即可自动连接<br>
-                • 使用免费信令服务（Scaledrone）<br>
-                <span style="color:var(--warn)">提示：短码有效期5分钟，过期需重新创建</span>
+                <strong>基于公共BT网络的信令</strong><br>
+                • 无需注册，无需API Key<br>
+                • 使用WebTorrent公共Tracker<br>
+                • 自动穿透NAT，支持跨网段<br>
+                <span style="color:var(--warn)">提示：首次连接可能需要10-20秒寻找节点</span>
             </div>
             
             <button onclick="App.createRoom()" id="createBtn">创建房间</button>
-            <button class="secondary" onclick="App.showJoin()" id="joinBtn">加入房间</button>
+            <button onclick="App.showJoin()" id="joinBtn" style="background:#333;color:var(--text)">加入房间</button>
             
-            <div id="createPanel" class="hidden" style="margin-top:20px">
+            <div id="createPanel" class="hidden">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <span>正在创建房间...</span>
+                    <span>正在连接全球Tracker...</span>
                 </div>
+                <div class="code-display" id="roomCodeDisplay" style="display:none"></div>
+                <div style="font-size:11px;color:#666;text-align:center;margin-top:10px" id="createHint"></div>
             </div>
             
             <div id="joinPanel" class="hidden" style="margin-top:20px">
                 <label style="font-size:12px;color:#888">输入6位房间码：</label>
-                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" style="margin-top:10px">
-                <button onclick="App.joinRoom()" id="connectBtn" style="margin-top:10px">连接</button>
+                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6">
+                <button onclick="App.joinRoom()" id="connectBtn">连接</button>
             </div>
         </div>
     </div>
@@ -80,42 +78,36 @@
     <div id="chat" class="hidden">
         <div id="status">
             <span>
-                房间: <span id="roomCode" style="color:var(--accent);font-weight:bold">-</span>
-                <span id="connType" class="badge waiting" style="margin-left:10px">等待连接</span>
+                房间: <span id="roomId" style="color:var(--accent);font-weight:bold">-</span>
+                <span id="connBadge" class="badge" style="margin-left:10px">连接中...</span>
             </span>
-            <button class="secondary small" onclick="App.disconnect()">断开</button>
+            <button onclick="location.reload()" style="background:#333;color:var(--text);padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-size:12px">退出</button>
         </div>
         
         <div id="messages"></div>
         
-        <div id="input" style="display:none">
+        <div id="input">
             <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')App.send()">
             <button onclick="App.send()">发送</button>
         </div>
     </div>
 
     <script>
-        // Scaledrone 免费频道ID（每日限额10,000事件，20并发）
-        // 如需私有，请前往 https://scaledrone.com 注册获取自己的ID
-        const SCALEDRONE_ID = 'OoG0iE4ZtT2E3K5i'; 
-        
         const App = {
-            pc: null,
-            dc: null,
-            drone: null,
-            room: null,
+            p2pt: null,
+            peers: [],
+            roomCode: null,
             isInitiator: false,
-            shortCode: null,
             
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ],
-                iceCandidatePoolSize: 10
-            },
+            // 公共WebTorrent Tracker列表（长期有效）
+            trackers: [
+                'wss://tracker.openwebtorrent.com',
+                'wss://tracker.files.fm:7073/announce',
+                'wss://spacetradersapi-chatbox.fly.dev:443/announce',
+                'wss://tracker.webtorrent.dev'
+            ],
 
-            generateShortCode() {
+            generateCode() {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
                 let result = '';
                 for (let i = 0; i < 6; i++) {
@@ -124,19 +116,15 @@
                 return result;
             },
 
-            async createRoom() {
+            createRoom() {
                 this.isInitiator = true;
-                this.shortCode = this.generateShortCode();
+                this.roomCode = this.generateCode();
                 
                 document.getElementById('createBtn').classList.add('hidden');
                 document.getElementById('joinBtn').classList.add('hidden');
                 document.getElementById('createPanel').classList.remove('hidden');
                 
-                // 初始化WebRTC
-                await this.initConnection();
-                
-                // 连接信令服务器
-                this.connectSignaling();
+                this.initP2PT();
             },
 
             showJoin() {
@@ -146,171 +134,116 @@
                 document.getElementById('joinCode').focus();
             },
 
-            async joinRoom() {
+            joinRoom() {
                 const code = document.getElementById('joinCode').value.trim().toUpperCase();
                 if (code.length !== 6) return alert('请输入6位房间码');
                 
                 this.isInitiator = false;
-                this.shortCode = code;
+                this.roomCode = code;
                 
                 document.getElementById('connectBtn').disabled = true;
                 document.getElementById('connectBtn').textContent = '连接中...';
                 
-                await this.initConnection();
-                this.connectSignaling();
+                this.initP2PT();
             },
 
-            connectSignaling() {
-                this.drone = new ScaleDrone(SCALEDRONE_ID);
+            initP2PT() {
+                // 使用房间码作为种子标识
+                const identifier = 'p2p-chat-' + this.roomCode;
                 
-                this.drone.on('open', (error) => {
-                    if (error) {
-                        this.addMessage('系统', '信令服务器连接失败: ' + error.message, 'error');
-                        return;
-                    }
-                    
-                    this.room = this.drone.subscribe('p2p-room-' + this.shortCode);
-                    
-                    this.room.on('open', (error) => {
-                        if (error) {
-                            this.addMessage('系统', '房间订阅失败', 'error');
-                            return;
-                        }
-                        
-                        document.getElementById('setup').classList.add('hidden');
-                        document.getElementById('chat').classList.remove('hidden');
-                        document.getElementById('roomCode').textContent = this.shortCode;
-                        
-                        if (this.isInitiator) {
-                            this.addMessage('系统', `房间 ${this.shortCode} 已创建，等待对方加入...`, 'system');
-                            // 创建者等待加入请求
-                            this.room.on('data', (data, member) => {
-                                this.handleSignalingData(data);
-                            });
-                        } else {
-                            this.addMessage('系统', `正在加入房间 ${this.shortCode}...`, 'system');
-                            // 加入者发送加入请求
-                            this.publish('join-request', {});
-                            this.room.on('data', (data, member) => {
-                                this.handleSignalingData(data);
-                            });
-                        }
-                    });
-                });
-            },
-
-            async initConnection() {
-                this.pc = new RTCPeerConnection(this.config);
-                
-                if (this.isInitiator) {
-                    this.dc = this.pc.createDataChannel('chat', {ordered: true});
-                    this.setupDataChannel(this.dc);
-                } else {
-                    this.pc.ondatachannel = (e) => {
-                        this.dc = e.channel;
-                        this.setupDataChannel(this.dc);
-                    };
-                }
-
-                // 收集ICE候选
-                this.pc.onicecandidate = (e) => {
-                    if (e.candidate) {
-                        this.publish('ice-candidate', {candidate: e.candidate});
-                    }
-                };
-
-                this.pc.oniceconnectionstatechange = () => {
-                    this.handleConnectionStateChange();
-                };
-
-                if (this.isInitiator) {
-                    const offer = await this.pc.createOffer();
-                    await this.pc.setLocalDescription(offer);
-                }
-            },
-
-            async handleSignalingData(data) {
                 try {
-                    if (data.type === 'join-request' && this.isInitiator) {
-                        // 有人加入，发送offer
-                        this.publish('offer', {sdp: this.pc.localDescription});
-                    }
-                    else if (data.type === 'offer' && !this.isInitiator) {
-                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                        const answer = await this.pc.createAnswer();
-                        await this.pc.setLocalDescription(answer);
-                        this.publish('answer', {sdp: answer});
-                    }
-                    else if (data.type === 'answer' && this.isInitiator) {
-                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    }
-                    else if (data.type === 'ice-candidate') {
-                        await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                    }
-                } catch (e) {
-                    console.error('信令处理错误:', e);
-                }
-            },
-
-            publish(type, data) {
-                if (this.drone && this.room) {
-                    this.drone.publish({
-                        room: 'p2p-room-' + this.shortCode,
-                        message: {type, ...data}
+                    this.p2pt = new P2PT(this.trackers, identifier);
+                    
+                    this.p2pt.on('trackerconnect', (tracker, stats) => {
+                        console.log('Connected to tracker:', tracker, 'peers:', stats.connected);
+                        if (this.isInitiator) {
+                            document.getElementById('createHint').textContent = '等待对方加入... (已连接 ' + stats.connected + ' 个节点)';
+                        }
                     });
-                }
-            },
-
-            handleConnectionStateChange() {
-                const state = this.pc.iceConnectionState;
-                const badge = document.getElementById('connType');
-                document.getElementById('connType').textContent = state;
-                
-                if (state === 'connected' || state === 'completed') {
-                    badge.className = 'badge direct';
-                    badge.textContent = '已连接';
-                    document.getElementById('input').style.display = 'flex';
-                    this.addMessage('系统', '✅ P2P连接成功！可以开始聊天了', 'system');
-                    // 5秒后断开信令（保护隐私）
-                    setTimeout(() => {
-                        if (this.drone) this.drone.close();
-                    }, 5000);
-                } else if (state === 'failed') {
-                    badge.className = 'badge failed';
-                    this.addMessage('系统', '❌ 连接失败，请检查网络或重新创建房间', 'error');
-                }
-            },
-
-            setupDataChannel(dc) {
-                dc.onopen = () => {
-                    console.log('DataChannel 已打开');
-                };
-                
-                dc.onmessage = (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        this.addMessage('对方', data.msg, 'other');
-                    } catch(err) {
-                        this.addMessage('对方', e.data, 'other');
+                    
+                    this.p2pt.on('peerconnect', (peer) => {
+                        console.log('New peer connected:', peer);
+                        this.peers.push(peer);
+                        this.onConnect();
+                    });
+                    
+                    this.p2pt.on('peerclose', (peer) => {
+                        console.log('Peer disconnected:', peer);
+                        this.peers = this.peers.filter(p => p !== peer);
+                        this.addMessage('系统', '对方已断开', 'system');
+                    });
+                    
+                    this.p2pt.on('msg', (peer, msg) => {
+                        console.log('Received:', msg);
+                        if (msg.type === 'chat') {
+                            this.addMessage('对方', msg.data, 'other');
+                        } else if (msg.type === 'join' && this.isInitiator) {
+                            // 有人加入，发送确认
+                            this.p2pt.send(peer, JSON.stringify({type: 'welcome'}));
+                        }
+                    });
+                    
+                    // 启动连接
+                    this.p2pt.start();
+                    
+                    if (this.isInitiator) {
+                        setTimeout(() => {
+                            document.querySelector('.loading').style.display = 'none';
+                            document.getElementById('roomCodeDisplay').style.display = 'block';
+                            document.getElementById('roomCodeDisplay').textContent = this.roomCode;
+                            document.getElementById('createHint').textContent = '将房间码发给对方，等待连接...';
+                        }, 1000);
+                    } else {
+                        setTimeout(() => {
+                            if (this.peers.length === 0) {
+                                alert('未找到房间，请检查房间码或让对方重新创建');
+                                location.reload();
+                            }
+                        }, 15000);
                     }
-                };
+                    
+                } catch (e) {
+                    console.error('P2PT初始化失败:', e);
+                    alert('初始化失败，请刷新重试');
+                }
+            },
 
-                dc.onclose = () => {
-                    this.addMessage('系统', '数据通道已关闭', 'system');
-                };
+            onConnect() {
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('chat').classList.remove('hidden');
+                document.getElementById('roomId').textContent = this.roomCode;
+                document.getElementById('connBadge').textContent = '已连接';
+                document.getElementById('connBadge').className = 'badge direct';
+                
+                this.addMessage('系统', '✅ 连接成功！可以开始聊天了', 'system');
+                
+                if (!this.isInitiator) {
+                    // 加入者发送加入消息
+                    setTimeout(() => {
+                        if (this.peers.length > 0) {
+                            this.p2pt.send(this.peers[0], JSON.stringify({type: 'join'}));
+                        }
+                    }, 500);
+                }
             },
 
             send() {
                 const input = document.getElementById('msgInput');
                 const msg = input.value.trim();
-                if (!msg || !this.dc || this.dc.readyState !== 'open') {
-                    if (this.dc?.readyState !== 'open') {
-                        this.addMessage('系统', '尚未连接，无法发送', 'error');
-                    }
+                if (!msg || this.peers.length === 0) {
+                    alert('未连接或消息为空');
                     return;
                 }
                 
-                this.dc.send(JSON.stringify({msg, time: Date.now()}));
+                // 发送给所有对等节点
+                this.peers.forEach(peer => {
+                    this.p2pt.send(peer, JSON.stringify({
+                        type: 'chat',
+                        data: msg,
+                        time: Date.now()
+                    }));
+                });
+                
                 this.addMessage('我', msg, 'self');
                 input.value = '';
             },
@@ -322,15 +255,6 @@
                 div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
                 document.getElementById('messages').appendChild(div);
                 div.scrollIntoView({behavior: 'smooth'});
-            },
-
-            disconnect() {
-                if (confirm('确定要断开连接吗？')) {
-                    if (this.dc) this.dc.close();
-                    if (this.pc) this.pc.close();
-                    if (this.drone) this.drone.close();
-                    location.reload();
-                }
             }
         };
     </script>
