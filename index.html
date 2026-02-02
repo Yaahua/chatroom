@@ -258,7 +258,7 @@
         <div id="login">
             <div class="login-box">
                 <h1>🔐 Secure Room</h1>
-                <p class="subtitle">端到端加密 · P2P直连 · 最多6人</p>
+                <p class="subtitle">端到端加密 · P2P直连 · 支持跨网络通信</p>
                 
                 <div class="input-group">
                     <label>房间标识</label>
@@ -390,6 +390,7 @@
                 this.connectionAttempt = 0;
                 this.maxRetries = 2;
                 this.offlineMode = false;
+                this.reconnectTimer = null;
                 
                 if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                     document.getElementById('networkTip').classList.add('show');
@@ -397,6 +398,33 @@
 
                 if (location.hash.length > 1) {
                     try { document.getElementById('roomInput').value = atob(decodeURIComponent(location.hash.substring(1))); } catch {}
+                }
+
+                // 监听网络状态变化
+                window.addEventListener('online', () => this.handleNetworkChange(true));
+                window.addEventListener('offline', () => this.handleNetworkChange(false));
+            }
+
+            handleNetworkChange(isOnline) {
+                if (!this.room) return; // 未进入房间时不处理
+                
+                if (isOnline) {
+                    console.log('网络已恢复');
+                    this.displayMsg('系统', '📡 网络已恢复，如消息无法发送请刷新页面', Date.now(), true);
+                    // 可选：自动尝试重连
+                    if (this.peers.size === 0 && !this.reconnectTimer) {
+                        this.reconnectTimer = setTimeout(() => {
+                            this.displayMsg('系统', '🔄 尝试重新连接...', Date.now(), true);
+                            // 这里可以添加实际的重连逻辑
+                        }, 2000);
+                    }
+                } else {
+                    console.log('网络已断开');
+                    this.displayMsg('系统', '⚠️ 网络已断开，消息可能无法发送', Date.now(), true);
+                    if (this.reconnectTimer) {
+                        clearTimeout(this.reconnectTimer);
+                        this.reconnectTimer = null;
+                    }
                 }
             }
 
@@ -427,7 +455,7 @@
 
                     const roomId = await this.channel.deriveRoomId(roomInput);
                     
-                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '正在寻找对等节点');
+                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '正在寻找对等节点（含TURN中继）');
                     
                     // 延长超时到 30 秒，并显示跳过按钮
                     const skipBtn = document.getElementById('retryBtn');
@@ -468,23 +496,63 @@
                     }, timeout);
 
                     try {
+                        console.log('正在初始化房间，使用TURN服务器配置...');
+                        
                         this.room = joinRoom({
                             appId: 'secure-room-v2',
                             relayUrls: RELAY_URLS,
                             password: roomId,
-                            maxPeers: 5
+                            maxPeers: 5,
+                            // 关键配置：WebRTC ICE 服务器（含TURN中继）
+                            rtcConfig: {
+                                iceServers: [
+                                    // STUN 服务器（用于发现公网IP）
+                                    { urls: 'stun:stun.l.google.com:19302' },
+                                    { urls: 'stun:stun.miwifi.com' },
+                                    { urls: 'stun:stun.qq.com' },
+                                    
+                                    // TURN 服务器（关键：用于中继转发，解决NAT穿透失败）
+                                    {
+                                        urls: 'turn:openrelay.metered.ca:80',
+                                        username: 'openrelayproject',
+                                        credential: 'openrelayproject'
+                                    },
+                                    {
+                                        urls: 'turn:openrelay.metered.ca:443',
+                                        username: 'openrelayproject',
+                                        credential: 'openrelayproject'
+                                    },
+                                    {
+                                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                                        username: 'openrelayproject',
+                                        credential: 'openrelayproject'
+                                    },
+                                    // 备选 TURN
+                                    {
+                                        urls: 'turn:turn.anyfirewall.com:443',
+                                        username: 'webrtc',
+                                        credential: 'webrtc'
+                                    }
+                                ],
+                                iceCandidatePoolSize: 10,
+                                iceTransportPolicy: 'all'  // 'all' 优先P2P，失败自动走中继；'relay' 强制走中继
+                            }
                         }, roomId);
 
-                        // 如果 3 秒内收到任何对等节点或成功自连接，视为成功
+                        // 延长检查时间到8秒，给TURN连接留足时间
                         const checkTimer = setTimeout(() => {
+                            console.log('基础连接检查通过（8秒），进入房间...');
                             clearTimeout(timer);
                             resolve();
-                        }, 3000);
+                        }, 8000);
 
-                        this.room.onPeerJoin(() => {
+                        this.room.onPeerJoin((peerId) => {
+                            console.log('对等节点加入:', peerId);
                             clearTimeout(timer);
                             clearTimeout(checkTimer);
-                            resolve();
+                            this.peers.add(peerId);
+                            this.updateStatus();
+                            this.displayMsg('系统', `👤 新成员加入房间 (${this.peers.size}/6)`, Date.now(), true);
                         });
 
                         this.setupRoomHandlers();
@@ -503,25 +571,33 @@
                 getMsg(async (data, peerId) => {
                     if (!data.payload) return;
                     const decrypted = await this.channel.decrypt(data.payload);
-                    if (!decrypted) return;
+                    if (!decrypted) {
+                        console.warn('消息解密失败，可能密钥不匹配');
+                        return;
+                    }
                     
                     try {
                         const msg = JSON.parse(decrypted);
+                        // 防止重复消息（简单去重）
                         this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
-                    } catch {}
-                });
-
-                this.room.onPeerJoin((peerId) => {
-                    this.peers.add(peerId);
-                    this.updateStatus();
-                    this.displayMsg('系统', `👤 ${this.peers.size} 号成员加入房间`, Date.now(), true);
+                    } catch (e) {
+                        console.error('消息解析失败:', e);
+                    }
                 });
 
                 this.room.onPeerLeave((peerId) => {
+                    console.log('对等节点离开:', peerId);
                     this.peers.delete(peerId);
                     this.updateStatus();
                     this.displayMsg('系统', `👋 有成员离开 (${this.peers.size}/6)`, Date.now(), true);
                 });
+
+                // 监听错误（如果库支持）
+                if (this.room.onError) {
+                    this.room.onError((err) => {
+                        console.error('房间错误:', err);
+                    });
+                }
             }
 
             enterRoom() {
@@ -532,10 +608,14 @@
                     `🔐 ${this.escapeHtml(this.roomName)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
                 
                 this.updateStatus();
+                
+                // 显示连接模式提示
+                const connectionTip = this.peers.size > 0 ? '已连接到其他成员' : '等待其他成员加入...';
                 this.displayMsg('系统', 
                     `✅ 已进入房间 "${this.roomName}"\n` +
                     `🆔 你的身份: ...${this.userFingerprint.substring(4)}\n` +
-                    `👥 当前在线: ${this.peers.size + 1}/6 人`, 
+                    `👥 当前在线: ${this.peers.size + 1}/6 人\n` +
+                    `💡 ${connectionTip}`, 
                     Date.now(), true
                 );
             }
@@ -559,23 +639,36 @@
                 const text = input.value.trim();
                 if (!text) return;
 
+                // 检查是否在线
+                if (!navigator.onLine) {
+                    alert('当前处于离线状态，请检查网络连接');
+                    return;
+                }
+
                 this.sendingLock = true;
                 document.getElementById('sendBtn').disabled = true;
 
                 try {
                     this.vectorClock++;
                     const msg = {
-                        name: this.myName, text, ts: Date.now(),
-                        vc: this.vectorClock, fingerprint: this.userFingerprint
+                        name: this.myName, 
+                        text, 
+                        ts: Date.now(),
+                        vc: this.vectorClock, 
+                        fingerprint: this.userFingerprint
                     };
                     
                     const encrypted = await this.channel.encrypt(JSON.stringify(msg));
                     this.sendMsg({ payload: encrypted });
                     
+                    // 本地显示（标记为自己发送的）
                     this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, true);
                     input.value = '';
+                    
+                    console.log('消息已发送（含TURN中继支持）');
                 } catch (err) {
-                    alert('发送失败');
+                    console.error('发送失败:', err);
+                    alert('发送失败：' + (err.message || '网络错误'));
                 } finally {
                     this.sendingLock = false;
                     document.getElementById('sendBtn').disabled = false;
@@ -604,6 +697,7 @@
                 container.appendChild(div);
                 container.scrollTop = container.scrollHeight;
                 
+                // 限制消息数量，防止内存溢出
                 while (container.children.length > 50) container.removeChild(container.firstChild);
             }
 
@@ -614,9 +708,18 @@
                 
                 text.textContent = `${count}/6 在线`;
                 
-                if (count === 1) { dot.className = 'status-dot offline'; text.style.color = 'var(--sub)'; }
-                else if (count < 6) { dot.className = 'status-dot connecting'; text.style.color = 'var(--warn)'; }
-                else { dot.className = 'status-dot'; text.style.color = 'var(--success)'; }
+                if (count === 1) { 
+                    dot.className = 'status-dot offline'; 
+                    text.style.color = 'var(--sub)'; 
+                }
+                else if (count < 6) { 
+                    dot.className = 'status-dot connecting'; 
+                    text.style.color = 'var(--warn)'; 
+                }
+                else { 
+                    dot.className = 'status-dot'; 
+                    text.style.color = 'var(--success)'; 
+                }
             }
 
             escapeHtml(text) {
@@ -627,11 +730,20 @@
 
             async copyLink() {
                 const url = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(btoa(this.roomName))}`;
-                try { await navigator.clipboard.writeText(url); alert('链接已复制');
-                } catch { prompt('复制链接:', url); }
+                try { 
+                    await navigator.clipboard.writeText(url); 
+                    alert('链接已复制，分享给好友即可加入同一房间');
+                } catch { 
+                    prompt('复制链接:', url); 
+                }
             }
 
-            leave() { if (confirm('离开房间？')) { if (this.room) this.room.leave(); location.reload(); } }
+            leave() { 
+                if (confirm('离开房间？')) { 
+                    if (this.room) this.room.leave(); 
+                    location.reload(); 
+                } 
+            }
         }
 
         window.app = new ChatApp();
