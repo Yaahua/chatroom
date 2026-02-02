@@ -1,4 +1,4 @@
-# 🎙️ 哈吉米德的聊天室
+# 🎙️ 哈吉米德聊天室
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://yaahua.github.io/chatroom/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
