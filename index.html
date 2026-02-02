@@ -3,332 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P Chat (Short Code)</title>
+    <title>Zero-TURN P2P Chat (短码版)</title>
+    <script src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
     <style>
-        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
+        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502;--info:#3498db}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px}
-        
-        .card{background:var(--bg2);padding:40px;border-radius:16px;max-width:420px;width:100%;border:1px solid #333;text-align:center}
-        h1{font-size:28px;margin-bottom:10px;color:var(--accent)}
-        p{color:#888;font-size:14px;margin-bottom:30px;line-height:1.5}
-        
-        .code-display{font-size:48px;font-weight:bold;color:var(--accent);letter-spacing:8px;margin:20px 0;font-family:monospace;background:rgba(0,208,132,0.1);padding:20px;border-radius:8px;border:2px dashed var(--accent)}
-        .status{margin:20px 0;font-size:14px;color:#aaa}
-        
-        input{width:100%;padding:16px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);font-size:24px;text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase;margin-bottom:15px}
-        input:focus{outline:none;border-color:var(--accent)}
-        
-        button{width:100%;padding:16px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:16px;margin-top:10px}
-        button:hover{opacity:0.9}
-        button:disabled{opacity:0.5;cursor:not-allowed;background:#555;color:#888}
-        button.secondary{background:#333;color:var(--text)}
-        
-        #chat{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;padding:20px}
-        #messages{flex:1;overflow-y:auto;padding:15px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
-        .msg{margin:8px 0;padding:12px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
-        .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
-        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
-        .msg .time{font-size:10px;color:#666;margin-top:4px}
-        
-        #input{display:flex;gap:10px}
-        #input input{flex:1;font-size:14px;text-align:left;letter-spacing:normal;text-transform:none}
-        #input button{width:auto;padding:12px 24px}
-        
+        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
         .hidden{display:none!important}
         
-        /* 加载动画 */
-        .loader{display:inline-block;width:20px;height:20px;border:3px solid rgba(0,208,132,0.3);border-radius:50%;border-top-color:var(--accent);animation:spin 1s ease-in-out infinite}
+        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column}
+        .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
+        h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
+        .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
+        
+        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
+        button:hover{opacity:0.9;transform:translateY(-1px)}
+        button.secondary{background:#333;color:var(--text)}
+        button.small{width:auto;padding:8px 16px;font-size:12px}
+        button:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+        
+        #chat{height:100%;display:flex;flex-direction:column;padding:20px}
+        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+        .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
+        .badge.direct{background:var(--accent);color:#000}
+        .badge.failed{background:var(--err);color:#fff}
+        .badge.waiting{background:var(--warn);color:#000}
+        
+        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
+        .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
+        .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
+        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%;padding:5px}
+        .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
+        
+        #input{display:flex;gap:10px}
+        #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
+        #input button{width:auto;padding:12px 24px}
+        
+        .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
+        .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn)}
+        .spinner{width:20px;height:20px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         
-        .error{color:var(--err);font-size:14px;margin-top:10px}
+        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px}
     </style>
 </head>
 <body>
-
-<!-- 主页 -->
-<div id="home" class="card">
-    <h1>📡 P2P 直连</h1>
-    <p>无需服务器，端到端加密聊天<br>只需 6 位短码即可连接</p>
-    
-    <button onclick="App.createRoom()" id="createBtn">创建房间</button>
-    
-    <div style="margin:20px 0;height:1px;background:#333"></div>
-    
-    <input type="text" id="joinInput" placeholder="输入6位短码" maxlength="6">
-    <button class="secondary" onclick="App.joinRoom()">加入房间</button>
-</div>
-
-<!-- 等待页（创建者） -->
-<div id="waiting" class="card hidden">
-    <h1>⏳ 等待连接</h1>
-    <p>请让对方输入以下短码：</p>
-    <div class="code-display" id="roomCode">------</div>
-    <div class="status">
-        <span class="loader"></span> 等待对方加入...
-    </div>
-    <button class="secondary" onclick="location.reload()">取消</button>
-</div>
-
-<!-- 聊天页 -->
-<div id="chat">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span style="font-size:12px;color:#888">短码: <b id="displayCode" style="color:var(--accent)">----</b></span>
-        <span id="connStatus" style="font-size:12px;color:var(--warn)">连接中...</span>
-        <button class="secondary" style="width:auto;padding:8px 16px;font-size:12px" onclick="location.reload()">断开</button>
-    </div>
-    
-    <div id="messages"></div>
-    
-    <div id="input">
-        <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000">
-        <button onclick="App.send()">发送</button>
-    </div>
-</div>
-
-<script>
-/**
- * 配置：使用 Firebase Realtime Database 作为免费信令服务器
- * 注意：这是公开的测试数据库，仅供演示。实际使用请替换为您自己的 Firebase URL
- * 获取方式：https://firebase.google.com/ → 创建项目 → Realtime Database → 复制链接
- */
-const CONFIG = {
-    signalServer: 'https://p2p-chat-signal-default-rtdb.firebaseio.com', // 示例地址，建议替换
-    iceServers: [
-        {urls: 'stun:stun.l.google.com:19302'},
-        {urls: 'stun:stun1.l.google.com:19302'}
-    ]
-};
-
-const App = {
-    pc: null,
-    dc: null,
-    isInitiator: false,
-    code: null,
-    pollTimer: null,
-    
-    generateCode() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        return Array(6).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-    },
-    
-    // 信令服务器操作
-    async signal(method, data = null) {
-        const url = `${CONFIG.signalServer}/${this.code}.json`;
-        if (method === 'GET') {
-            const res = await fetch(url);
-            return res.json();
-        } else if (method === 'PUT') {
-            await fetch(url, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-        } else if (method === 'DELETE') {
-            await fetch(url, {method: 'DELETE'});
-        }
-    },
-    
-    async createRoom() {
-        this.isInitiator = true;
-        this.code = this.generateCode();
-        
-        // 检查短码是否被占用
-        const existing = await this.signal('GET');
-        if (existing) {
-            // 如果被占用，重新生成
-            return this.createRoom();
-        }
-        
-        document.getElementById('home').classList.add('hidden');
-        document.getElementById('waiting').classList.remove('hidden');
-        document.getElementById('roomCode').textContent = this.code;
-        
-        // 初始化连接
-        await this.initConnection();
-        
-        // 创建 Offer
-        const offer = await this.pc.createOffer();
-        await this.pc.setLocalDescription(offer);
-        
-        // 等待 ICE 收集完成（收集所有网络候选）
-        await this.waitForIceComplete();
-        
-        // 上传到信令服务器（5分钟后自动过期）
-        await this.signal('PUT', {
-            offer: this.pc.localDescription,
-            timestamp: Date.now()
-        });
-        
-        // 开始轮询等待 Answer
-        this.pollForAnswer();
-    },
-    
-    async joinRoom() {
-        const code = document.getElementById('joinInput').value.trim().toUpperCase();
-        if (!code || code.length !== 6) return alert('请输入6位短码');
-        
-        this.isInitiator = false;
-        this.code = code;
-        
-        // 获取 Offer
-        const signal = await this.signal('GET');
-        if (!signal || !signal.offer) {
-            return alert('房间不存在或已过期');
-        }
-        
-        document.getElementById('home').classList.add('hidden');
-        document.getElementById('chat').style.display = 'flex';
-        document.getElementById('displayCode').textContent = code;
-        
-        await this.initConnection();
-        
-        // 设置远端描述
-        await this.pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
-        
-        // 创建 Answer
-        const answer = await this.pc.createAnswer();
-        await this.pc.setLocalDescription(answer);
-        
-        await this.waitForIceComplete();
-        
-        // 上传 Answer
-        await this.signal('PUT', {
-            ...signal,
-            answer: this.pc.localDescription
-        });
-        
-        this.addMessage('系统', '已发送响应，等待连接...', 'system');
-    },
-    
-    async initConnection() {
-        this.pc = new RTCPeerConnection({iceServers: CONFIG.iceServers});
-        
-        if (this.isInitiator) {
-            this.dc = this.pc.createDataChannel('chat', {ordered: true});
-            this.setupDataChannel(this.dc);
-        } else {
-            this.pc.ondatachannel = (e) => {
-                this.dc = e.channel;
-                this.setupDataChannel(this.dc);
-            };
-        }
-        
-        this.pc.oniceconnectionstatechange = () => {
-            const state = this.pc.iceConnectionState;
-            const statusEl = document.getElementById('connStatus');
+    <div id="setup">
+        <div class="card">
+            <h1>🔮 Zero-TURN P2P (短码版)</h1>
+            <div class="info">
+                <strong>自动信令版本</strong><br>
+                • 无需复制粘贴长串邀请码<br>
+                • 输入6位短码即可自动连接<br>
+                • 使用免费信令服务（Scaledrone）<br>
+                <span style="color:var(--warn)">提示：短码有效期5分钟，过期需重新创建</span>
+            </div>
             
-            if (state === 'connected' || state === 'completed') {
-                statusEl.textContent = '已连接';
-                statusEl.style.color = 'var(--accent)';
+            <button onclick="App.createRoom()" id="createBtn">创建房间</button>
+            <button class="secondary" onclick="App.showJoin()" id="joinBtn">加入房间</button>
+            
+            <div id="createPanel" class="hidden" style="margin-top:20px">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>正在创建房间...</span>
+                </div>
+            </div>
+            
+            <div id="joinPanel" class="hidden" style="margin-top:20px">
+                <label style="font-size:12px;color:#888">输入6位房间码：</label>
+                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" style="margin-top:10px">
+                <button onclick="App.joinRoom()" id="connectBtn" style="margin-top:10px">连接</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat" class="hidden">
+        <div id="status">
+            <span>
+                房间: <span id="roomCode" style="color:var(--accent);font-weight:bold">-</span>
+                <span id="connType" class="badge waiting" style="margin-left:10px">等待连接</span>
+            </span>
+            <button class="secondary small" onclick="App.disconnect()">断开</button>
+        </div>
+        
+        <div id="messages"></div>
+        
+        <div id="input" style="display:none">
+            <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')App.send()">
+            <button onclick="App.send()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // Scaledrone 免费频道ID（每日限额10,000事件，20并发）
+        // 如需私有，请前往 https://scaledrone.com 注册获取自己的ID
+        const SCALEDRONE_ID = 'OoG0iE4ZtT2E3K5i'; 
+        
+        const App = {
+            pc: null,
+            dc: null,
+            drone: null,
+            room: null,
+            isInitiator: false,
+            shortCode: null,
+            
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ],
+                iceCandidatePoolSize: 10
+            },
+
+            generateShortCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let result = '';
+                for (let i = 0; i < 6; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            },
+
+            async createRoom() {
+                this.isInitiator = true;
+                this.shortCode = this.generateShortCode();
+                
+                document.getElementById('createBtn').classList.add('hidden');
+                document.getElementById('joinBtn').classList.add('hidden');
+                document.getElementById('createPanel').classList.remove('hidden');
+                
+                // 初始化WebRTC
+                await this.initConnection();
+                
+                // 连接信令服务器
+                this.connectSignaling();
+            },
+
+            showJoin() {
+                document.getElementById('joinPanel').classList.remove('hidden');
+                document.getElementById('joinBtn').classList.add('hidden');
+                document.getElementById('createBtn').classList.add('hidden');
+                document.getElementById('joinCode').focus();
+            },
+
+            async joinRoom() {
+                const code = document.getElementById('joinCode').value.trim().toUpperCase();
+                if (code.length !== 6) return alert('请输入6位房间码');
+                
+                this.isInitiator = false;
+                this.shortCode = code;
+                
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('connectBtn').textContent = '连接中...';
+                
+                await this.initConnection();
+                this.connectSignaling();
+            },
+
+            connectSignaling() {
+                this.drone = new ScaleDrone(SCALEDRONE_ID);
+                
+                this.drone.on('open', (error) => {
+                    if (error) {
+                        this.addMessage('系统', '信令服务器连接失败: ' + error.message, 'error');
+                        return;
+                    }
+                    
+                    this.room = this.drone.subscribe('p2p-room-' + this.shortCode);
+                    
+                    this.room.on('open', (error) => {
+                        if (error) {
+                            this.addMessage('系统', '房间订阅失败', 'error');
+                            return;
+                        }
+                        
+                        document.getElementById('setup').classList.add('hidden');
+                        document.getElementById('chat').classList.remove('hidden');
+                        document.getElementById('roomCode').textContent = this.shortCode;
+                        
+                        if (this.isInitiator) {
+                            this.addMessage('系统', `房间 ${this.shortCode} 已创建，等待对方加入...`, 'system');
+                            // 创建者等待加入请求
+                            this.room.on('data', (data, member) => {
+                                this.handleSignalingData(data);
+                            });
+                        } else {
+                            this.addMessage('系统', `正在加入房间 ${this.shortCode}...`, 'system');
+                            // 加入者发送加入请求
+                            this.publish('join-request', {});
+                            this.room.on('data', (data, member) => {
+                                this.handleSignalingData(data);
+                            });
+                        }
+                    });
+                });
+            },
+
+            async initConnection() {
+                this.pc = new RTCPeerConnection(this.config);
+                
                 if (this.isInitiator) {
-                    document.getElementById('waiting').classList.add('hidden');
-                    document.getElementById('chat').style.display = 'flex';
-                    document.getElementById('displayCode').textContent = this.code;
+                    this.dc = this.pc.createDataChannel('chat', {ordered: true});
+                    this.setupDataChannel(this.dc);
+                } else {
+                    this.pc.ondatachannel = (e) => {
+                        this.dc = e.channel;
+                        this.setupDataChannel(this.dc);
+                    };
                 }
-                this.addMessage('系统', '✅ 连接成功！开始聊天吧', 'system');
-                // 连接成功后清理信令数据（保护隐私）
-                setTimeout(() => this.signal('DELETE'), 2000);
-            } else if (state === 'failed') {
-                statusEl.textContent = '连接失败';
-                statusEl.style.color = 'var(--err)';
-                this.addMessage('系统', '❌ 连接失败，请检查网络或重试', 'error');
-            } else if (state === 'checking') {
-                statusEl.textContent = '连接中...';
+
+                // 收集ICE候选
+                this.pc.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        this.publish('ice-candidate', {candidate: e.candidate});
+                    }
+                };
+
+                this.pc.oniceconnectionstatechange = () => {
+                    this.handleConnectionStateChange();
+                };
+
+                if (this.isInitiator) {
+                    const offer = await this.pc.createOffer();
+                    await this.pc.setLocalDescription(offer);
+                }
+            },
+
+            async handleSignalingData(data) {
+                try {
+                    if (data.type === 'join-request' && this.isInitiator) {
+                        // 有人加入，发送offer
+                        this.publish('offer', {sdp: this.pc.localDescription});
+                    }
+                    else if (data.type === 'offer' && !this.isInitiator) {
+                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        const answer = await this.pc.createAnswer();
+                        await this.pc.setLocalDescription(answer);
+                        this.publish('answer', {sdp: answer});
+                    }
+                    else if (data.type === 'answer' && this.isInitiator) {
+                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    }
+                    else if (data.type === 'ice-candidate') {
+                        await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    }
+                } catch (e) {
+                    console.error('信令处理错误:', e);
+                }
+            },
+
+            publish(type, data) {
+                if (this.drone && this.room) {
+                    this.drone.publish({
+                        room: 'p2p-room-' + this.shortCode,
+                        message: {type, ...data}
+                    });
+                }
+            },
+
+            handleConnectionStateChange() {
+                const state = this.pc.iceConnectionState;
+                const badge = document.getElementById('connType');
+                document.getElementById('connType').textContent = state;
+                
+                if (state === 'connected' || state === 'completed') {
+                    badge.className = 'badge direct';
+                    badge.textContent = '已连接';
+                    document.getElementById('input').style.display = 'flex';
+                    this.addMessage('系统', '✅ P2P连接成功！可以开始聊天了', 'system');
+                    // 5秒后断开信令（保护隐私）
+                    setTimeout(() => {
+                        if (this.drone) this.drone.close();
+                    }, 5000);
+                } else if (state === 'failed') {
+                    badge.className = 'badge failed';
+                    this.addMessage('系统', '❌ 连接失败，请检查网络或重新创建房间', 'error');
+                }
+            },
+
+            setupDataChannel(dc) {
+                dc.onopen = () => {
+                    console.log('DataChannel 已打开');
+                };
+                
+                dc.onmessage = (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        this.addMessage('对方', data.msg, 'other');
+                    } catch(err) {
+                        this.addMessage('对方', e.data, 'other');
+                    }
+                };
+
+                dc.onclose = () => {
+                    this.addMessage('系统', '数据通道已关闭', 'system');
+                };
+            },
+
+            send() {
+                const input = document.getElementById('msgInput');
+                const msg = input.value.trim();
+                if (!msg || !this.dc || this.dc.readyState !== 'open') {
+                    if (this.dc?.readyState !== 'open') {
+                        this.addMessage('系统', '尚未连接，无法发送', 'error');
+                    }
+                    return;
+                }
+                
+                this.dc.send(JSON.stringify({msg, time: Date.now()}));
+                this.addMessage('我', msg, 'self');
+                input.value = '';
+            },
+
+            addMessage(from, text, type) {
+                const div = document.createElement('div');
+                div.className = `msg ${type}`;
+                const time = new Date().toLocaleTimeString();
+                div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
+                document.getElementById('messages').appendChild(div);
+                div.scrollIntoView({behavior: 'smooth'});
+            },
+
+            disconnect() {
+                if (confirm('确定要断开连接吗？')) {
+                    if (this.dc) this.dc.close();
+                    if (this.pc) this.pc.close();
+                    if (this.drone) this.drone.close();
+                    location.reload();
+                }
             }
         };
-    },
-    
-    setupDataChannel(dc) {
-        dc.onopen = () => console.log('DataChannel 已连接');
-        dc.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                this.addMessage('对方', data.msg, 'other');
-            } catch(e) {
-                this.addMessage('对方', e.data, 'other');
-            }
-        };
-        dc.onclose = () => this.addMessage('系统', '对方已断开连接', 'system');
-    },
-    
-    async waitForIceComplete() {
-        if (this.pc.iceGatheringState === 'complete') return;
-        
-        return new Promise(resolve => {
-            const check = setInterval(() => {
-                if (this.pc.iceGatheringState === 'complete') {
-                    clearInterval(check);
-                    resolve();
-                }
-            }, 200);
-            // 超时保护（5秒）
-            setTimeout(() => { clearInterval(check); resolve(); }, 5000);
-        });
-    },
-    
-    async pollForAnswer() {
-        this.pollTimer = setInterval(async () => {
-            const signal = await this.signal('GET');
-            if (signal && signal.answer) {
-                clearInterval(this.pollTimer);
-                await this.pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
-            }
-        }, 1500);
-        
-        // 5分钟超时清理
-        setTimeout(() => {
-            clearInterval(this.pollTimer);
-            if (this.pc && this.pc.iceConnectionState !== 'connected') {
-                this.addMessage('系统', '连接超时，房间已关闭', 'error');
-                this.signal('DELETE');
-            }
-        }, 5 * 60 * 1000);
-    },
-    
-    send() {
-        const input = document.getElementById('msgInput');
-        const msg = input.value.trim();
-        if (!msg || !this.dc || this.dc.readyState !== 'open') {
-            if (this.dc?.readyState !== 'open') {
-                alert('尚未连接，无法发送');
-            }
-            return;
-        }
-        
-        this.dc.send(JSON.stringify({msg, time: Date.now()}));
-        this.addMessage('我', msg, 'self');
-        input.value = '';
-    },
-    
-    addMessage(from, text, type) {
-        const div = document.createElement('div');
-        div.className = `msg ${type}`;
-        const time = new Date().toLocaleTimeString();
-        div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
-        const container = document.getElementById('messages');
-        container.appendChild(div);
-        div.scrollIntoView({behavior: 'smooth'});
-    }
-};
-
-// 清理旧数据（可选：加载时清理5分钟前的房间）
-window.addEventListener('load', async () => {
-    // 简单的清理逻辑（演示用，实际应在服务端设置规则）
-    try {
-        const res = await fetch(`${CONFIG.signalServer}.json?shallow=true`);
-        const keys = await res.json();
-        if (keys) {
-            Object.keys(keys).forEach(async key => {
-                const data = await fetch(`${CONFIG.signalServer}/${key}.json`).then(r => r.json());
-                if (data && Date.now() - data.timestamp > 10 * 60 * 1000) { // 10分钟过期
-                    await fetch(`${CONFIG.signalServer}/${key}.json`, {method: 'DELETE'});
-                }
-            });
-        }
-    } catch(e) {}
-});
-</script>
-
+    </script>
 </body>
 </html>
