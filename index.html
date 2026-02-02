@@ -285,16 +285,30 @@
             gap: 16px;
             flex: 1;
             min-width: 0;
+            position: relative;
         }
         
         #roomTitle{
             font-size: 18px;
             font-weight: 700;
             color: var(--text);
-            letter-spacing: -0.3px;
+            letter-spacing: 1px;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow: visible;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin: -4px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            position: relative;
+        }
+        
+        #roomTitle:hover {
+            background: var(--hover-bg);
+        }
+        
+        #roomTitle:active {
+            transform: scale(0.95);
         }
         
         #onlineCount{
@@ -306,6 +320,7 @@
             font-weight: 600;
             border: 1px solid var(--glass-border);
             white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .theme-toggle{
@@ -395,6 +410,7 @@
         .msg{
             max-width: 80%;
             animation: messageIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
         
         @keyframes messageIn{
@@ -410,6 +426,7 @@
             font-size: 12px;
             color: var(--text-secondary);
             padding: 0 4px;
+            position: relative;
         }
         
         .msg-author{
@@ -421,6 +438,90 @@
             font-size: 11px;
             opacity: 0.7;
             font-family: "SF Mono", monospace;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* 已读状态样式 */
+        .msg-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+        
+        .msg-status.read {
+            color: var(--accent);
+            opacity: 1;
+        }
+        
+        .msg.self .msg-status {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .msg.self .msg-status.read {
+            color: white;
+            opacity: 1;
+        }
+        
+        .msg-status svg {
+            width: 14px;
+            height: 14px;
+        }
+        
+        /* 已读详情提示 */
+        .read-details {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 12px;
+            white-space: nowrap;
+            box-shadow: 0 8px 24px var(--shadow);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(5px) scale(0.95);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            pointer-events: none;
+            min-width: 120px;
+        }
+        
+        .msg-header:hover .read-details {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        
+        .read-details-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 4px;
+        }
+        
+        .read-details-name {
+            color: var(--text-secondary);
+            padding: 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .read-details-name::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--accent);
         }
         
         .msg-content{
@@ -491,7 +592,7 @@
             align-items: center;
             gap: 12px;
             padding: 12px 16px;
-            min-width: 120px;
+            min-width: 140px;
             max-width: 280px;
             cursor: pointer;
             position: relative;
@@ -608,10 +709,10 @@
             width: 100%;
             max-width: 900px;
             padding: 16px 24px;
-            padding-bottom: calc(16px + env(safe-area-inset-bottom, 20px));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom, 20px));
             border-top: 1px solid var(--glass-border);
             display: none;
-            z-index: 100;
+            z-index: 999;
             gap: 12px;
             align-items: center;
             background: var(--bg-secondary);
@@ -991,17 +1092,48 @@
             .msg { max-width: 90%; }
             .msg-content { padding: 12px 16px; border-radius: 18px; }
             .msg-image { max-width: 200px; max-height: 200px; }
-            #header { margin: 8px; padding: 12px 16px; border-radius: 16px; gap: 8px; }
-            #input { padding: 12px 16px; }
+            #header { margin: 8px; padding: 12px 16px; border-radius: 16px; gap: 8px; flex-wrap: nowrap; }
+            #input { padding: 12px 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 34px)) !important; }
             .code-display { font-size: 26px; letter-spacing: 4px; }
             #userList { max-width: 120px; }
-            #roomTitle { font-size: 16px; }
+            #roomTitle { font-size: 16px; max-width: 100px; letter-spacing: 0.5px; }
             .theme-toggle { width: 36px !important; height: 36px !important; }
             .theme-toggle svg { width: 18px; height: 18px; }
             .record-timer { font-size: 36px; }
             .record-wave-container { width: 160px; height: 160px; }
+            
+            /* 移动端触摸优化 */
+            button, .input-btn {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .send-btn {
+                padding: 10px 18px !important;
+            }
+            
+            /* 确保底部安全区域 */
+            @supports (padding-bottom: env(safe-area-inset-bottom)) {
+                #input {
+                    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+                }
+            }
+        }
+        
+        /* 触摸设备优化 */
+        .touch-device button,
+        .touch-device .input-btn {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        .voice-record-btn {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
     </style>
+<base target="_blank">
 </head>
 <body>
     <div id="toast" class="toast"></div>
@@ -1088,14 +1220,14 @@
 
     <div id="chat" class="hidden">
         <div id="header" class="glass-strong">
-            <div id="roomInfo" style="overflow:hidden">
-                <div style="min-width:0">
-                    <div id="roomTitle" style="font-weight:700">房间</div>
+            <div id="roomInfo">
+                <div style="min-width:0; flex:1; overflow:visible;">
+                    <div id="roomTitle" onclick="window.chatApp?.copyCurrentRoomCode()" title="点击复制房间号">房间</div>
                     <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;font-weight:500;display:flex;align-items:center" id="connectionStatus">
                         <span class="conn-status connecting"></span>初始化
                     </div>
                 </div>
-                <div id="onlineCount">1人</div>
+                <div id="onlineCount" style="flex-shrink:0;">1人</div>
             </div>
             
             <button class="theme-toggle" onclick="window.chatApp?.toggleTheme()" title="切换主题">
@@ -1155,6 +1287,91 @@
     <script type="module">
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
+        // ==================== 配置常量 ====================
+        const CONFIG = {
+            MQTT_URL: 'wss://broker.hivemq.com:8884/mqtt',
+            ICE_SERVERS: [
+                { urls: "stun:stun.relay.metered.ca:80" },
+                { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+                { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
+            ],
+            MAX_PEERS: 7,
+            MAX_MESSAGE_SIZE: 16384, // 16KB
+            CHUNK_SIZE: 16384,
+            MAX_VOICE_DURATION: 60,
+            READ_RECEIPT_DELAY: 500,
+            ROOM_EXPIRY: 30 * 60 * 1000 // 30分钟
+        };
+
+        // ==================== 工具类 ====================
+        class Utils {
+            static generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+            }
+
+            static getAvatarColor(name) {
+                const colors = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#ff2d55', '#5ac8fa'];
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                return colors[Math.abs(hash) % colors.length];
+            }
+
+            static generateRoomCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            }
+
+            static formatTime(date) {
+                return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            static escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            static async compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            let { width, height } = img;
+                            if (width > maxWidth || height > maxHeight) {
+                                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                                width *= ratio;
+                                height *= ratio;
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#f5f5f7';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        };
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            static getDataSize(base64) {
+                const bytes = Math.ceil(base64.length * 0.75);
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+        }
+
+        // ==================== LRU缓存 ====================
         class LRUCache {
             constructor(maxSize = 1000) {
                 this.maxSize = maxSize;
@@ -1172,44 +1389,7 @@
             clear() { this.cache.clear(); }
         }
 
-        const ImageProcessor = {
-            async compress(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            let { width, height } = img;
-                            if (width > maxWidth || height > maxHeight) {
-                                const ratio = Math.min(maxWidth / width, maxHeight / height);
-                                width *= ratio;
-                                height *= ratio;
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg');
-                            ctx.fillRect(0, 0, width, height);
-                            ctx.drawImage(img, 0, 0, width, height);
-                            resolve(canvas.toDataURL('image/jpeg', quality));
-                        };
-                        img.onerror = reject;
-                        img.src = e.target.result;
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            },
-            getSizeHint(base64) {
-                const bytes = Math.ceil(base64.length * 0.75);
-                if (bytes < 1024) return bytes + ' B';
-                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-            }
-        };
-
-        // 语音管理器：处理录制、分片传输、播放
+        // ==================== 语音管理器 ====================
         class VoiceManager {
             constructor(chatApp) {
                 this.app = chatApp;
@@ -1217,25 +1397,18 @@
                 this.audioChunks = [];
                 this.recordStartTime = 0;
                 this.recordTimer = null;
-                this.maxDuration = 60; // 60秒限制
-                this.chunkSize = 16384; // 16KB分片
-                
-                // 接收中的语音缓冲
-                this.receivingBuffers = new Map(); // voiceId -> {chunks:[], meta:null, received:0}
-                
-                // 播放状态
-                this.currentPlaying = null; // {voiceId, audioEl}
+                this.receivingBuffers = new Map();
+                this.currentPlaying = null;
                 this.audioContext = null;
+                this.voiceBlobs = new Map(); // 存储语音blob供播放
             }
 
-            // 初始化音频上下文（用于波形动画）
             initAudioContext() {
                 if (!this.audioContext) {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 }
             }
 
-            // 开始录制
             async startRecording() {
                 try {
                     this.initAudioContext();
@@ -1261,14 +1434,11 @@
 
                     this.recorder.onstop = () => {
                         this.finalizeRecording();
-                        // 停止所有轨道
                         stream.getTracks().forEach(track => track.stop());
                     };
 
-                    this.recorder.start(100); // 每100ms收集一次数据，实现流式分片发送
+                    this.recorder.start(100);
                     this.recordStartTime = Date.now();
-                    
-                    // 启动计时器
                     this.startRecordTimer();
                     
                     return true;
@@ -1282,7 +1452,7 @@
             startRecordTimer() {
                 const updateTimer = () => {
                     const elapsed = Math.floor((Date.now() - this.recordStartTime) / 1000);
-                    const remaining = this.maxDuration - elapsed;
+                    const remaining = CONFIG.MAX_VOICE_DURATION - elapsed;
                     
                     if (remaining <= 0) {
                         this.stopRecording();
@@ -1294,7 +1464,6 @@
                     const timerEl = document.getElementById('recordTimer');
                     if (timerEl) timerEl.textContent = `${mins}:${secs}`;
                     
-                    // 更新波形动画（模拟）
                     this.updateWaveAnimation();
                 };
                 
@@ -1332,125 +1501,110 @@
                 }
 
                 const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                
-                // 如果小于16KB，直接发送，否则分片
-                if (blob.size <= this.chunkSize) {
-                    await this.sendVoiceBlob(blob, duration, false);
-                } else {
-                    await this.sendVoiceBlob(blob, duration, true);
-                }
+                await this.sendVoiceBlob(blob, duration);
             }
 
-            async sendVoiceBlob(blob, duration, needChunking) {
+            async sendVoiceBlob(blob, duration) {
                 const voiceId = `voice_${this.app.user.id}_${Date.now()}`;
                 const arrayBuffer = await blob.arrayBuffer();
                 
-                if (!needChunking) {
-                    // 小文件直接发送（仍是二进制，但一次性）
-                    const message = {
-                        id: `${this.app.user.id}_${Date.now()}`,
-                        userId: this.app.user.id,
-                        username: this.app.user.name,
-                        avatarColor: this.app.user.color,
-                        type: 'voice',
-                        voiceId: voiceId,
-                        duration: duration,
-                        data: arrayBuffer, // ArrayBuffer
-                        isChunked: false,
-                        timestamp: new Date().toISOString()
-                    };
-                    this.app.broadcastVoice(message);
-                    this.app.displayVoiceMessage(message, true);
-                } else {
-                    // 大文件分片发送
-                    const totalChunks = Math.ceil(arrayBuffer.byteLength / this.chunkSize);
-                    
-                    // 1. 发送元信息（JSON）
-                    const meta = {
-                        id: `${this.app.user.id}_${Date.now()}`,
-                        userId: this.app.user.id,
-                        username: this.app.user.name,
-                        avatarColor: this.app.user.color,
-                        type: 'voice_meta',
-                        voiceId: voiceId,
-                        duration: duration,
-                        totalChunks: totalChunks,
-                        totalSize: arrayBuffer.byteLength,
-                        timestamp: new Date().toISOString()
-                    };
-                    this.app.broadcastMessage(meta);
-                    
-                    // 2. 分片发送二进制数据
-                    for (let i = 0; i < totalChunks; i++) {
-                        const start = i * this.chunkSize;
-                        const end = Math.min(start + this.chunkSize, arrayBuffer.byteLength);
-                        const chunk = arrayBuffer.slice(start, end);
-                        
-                        // 创建分片消息头（包含voiceId和index信息在前几个字节）
-                        const header = new TextEncoder().encode(`${voiceId}|${i}|`);
-                        const combined = new Uint8Array(header.length + chunk.byteLength);
-                        combined.set(header, 0);
-                        combined.set(new Uint8Array(chunk), header.length);
-                        
-                        this.app.broadcastRaw(combined.buffer);
-                    }
-                    
-                    // 3. 发送结束标记（JSON）
-                    setTimeout(() => {
-                        this.app.broadcastMessage({
-                            type: 'voice_end',
-                            voiceId: voiceId,
-                            timestamp: new Date().toISOString()
-                        });
-                    }, 100);
-                    
-                    // 本地立即显示（使用原始blob）
-                    this.app.displayVoiceMessage({
-                        ...meta,
-                        type: 'voice',
-                        blob: blob,
-                        local: true
-                    }, true);
+                // 始终使用分片传输确保可靠性
+                const totalChunks = Math.ceil(arrayBuffer.byteLength / CONFIG.CHUNK_SIZE) || 1;
+                
+                // 1. 发送元信息
+                const meta = {
+                    id: `${this.app.user.id}_${Date.now()}`,
+                    userId: this.app.user.id,
+                    username: this.app.user.name,
+                    avatarColor: this.app.user.color,
+                    type: 'voice_meta',
+                    voiceId: voiceId,
+                    duration: duration,
+                    totalChunks: totalChunks,
+                    totalSize: arrayBuffer.byteLength,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const sent = this.app.broadcastMessage(meta);
+                if (sent === 0) {
+                    this.app.showToast('发送失败：无连接');
+                    return;
                 }
+                
+                // 2. 分片发送
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * CONFIG.CHUNK_SIZE;
+                    const end = Math.min(start + CONFIG.CHUNK_SIZE, arrayBuffer.byteLength);
+                    const chunk = arrayBuffer.slice(start, end);
+                    
+                    const header = new TextEncoder().encode(`${voiceId}|${i}|`);
+                    const combined = new Uint8Array(header.length + chunk.byteLength);
+                    combined.set(header, 0);
+                    combined.set(new Uint8Array(chunk), header.length);
+                    
+                    this.app.broadcastRaw(combined.buffer);
+                    
+                    if (i < totalChunks - 1) await new Promise(r => setTimeout(r, 10));
+                }
+                
+                // 3. 发送结束标记
+                setTimeout(() => {
+                    this.app.broadcastMessage({
+                        type: 'voice_end',
+                        voiceId: voiceId,
+                        timestamp: new Date().toISOString()
+                    });
+                }, 100);
+                
+                // 本地显示
+                this.app.displayVoiceMessage({ ...meta, type: 'voice', blob, local: true }, true);
+                this.app.initMessageStatus(voiceId, true);
             }
 
-            // 接收分片
             handleChunk(peerId, arrayBuffer) {
                 try {
-                    // 解析头部 text|index|
                     const uint8 = new Uint8Array(arrayBuffer);
-                    const decoder = new TextDecoder();
-                    let headerEnd = 0;
-                    for (let i = 0; i < uint8.length; i++) {
-                        if (uint8[i] === 0) { // 寻找null终止符或简单解析
-                            headerEnd = i;
-                            break;
+                    const headerLen = Math.min(200, uint8.length);
+                    let firstPipe = -1, secondPipe = -1;
+                    
+                    for (let i = 0; i < headerLen; i++) {
+                        if (uint8[i] === 124) { // '|'
+                            if (firstPipe === -1) firstPipe = i;
+                            else if (secondPipe === -1) {
+                                secondPipe = i;
+                                break;
+                            }
                         }
-                        if (i > 100) break; // 安全限制
                     }
                     
-                    const header = decoder.decode(uint8.slice(0, Math.min(100, uint8.length)));
-                    const match = header.match(/^([^|]+)\|(\d+)\|/);
-                    if (!match) return;
+                    if (firstPipe === -1 || secondPipe === -1) return;
                     
-                    const voiceId = match[1];
-                    const index = parseInt(match[2]);
-                    const dataStart = match[0].length;
-                    const chunkData = uint8.slice(dataStart);
+                    const decoder = new TextDecoder();
+                    const voiceId = decoder.decode(uint8.slice(0, firstPipe));
+                    const index = parseInt(decoder.decode(uint8.slice(firstPipe + 1, secondPipe)));
+                    const chunkData = uint8.slice(secondPipe + 1);
+                    
+                    if (isNaN(index)) return;
                     
                     if (!this.receivingBuffers.has(voiceId)) {
-                        this.receivingBuffers.set(voiceId, { chunks: [], received: 0, meta: null });
+                        this.receivingBuffers.set(voiceId, {
+                            chunks: [],
+                            received: 0,
+                            meta: null,
+                            timeout: setTimeout(() => this.receivingBuffers.delete(voiceId), 30000)
+                        });
                     }
                     
                     const buffer = this.receivingBuffers.get(voiceId);
-                    
-                    // 确保数组足够大
                     while (buffer.chunks.length <= index) buffer.chunks.push(null);
-                    buffer.chunks[index] = chunkData;
-                    buffer.received++;
                     
-                    // 检查是否收到所有分片
+                    if (buffer.chunks[index] === null) {
+                        buffer.chunks[index] = chunkData;
+                        buffer.received++;
+                    }
+                    
                     if (buffer.meta && buffer.received >= buffer.meta.totalChunks) {
+                        clearTimeout(buffer.timeout);
                         this.assembleVoice(voiceId);
                     }
                 } catch (e) {
@@ -1460,19 +1614,21 @@
 
             handleVoiceMeta(peerId, data) {
                 if (!this.receivingBuffers.has(data.voiceId)) {
-                    this.receivingBuffers.set(data.voiceId, { chunks: [], received: 0, meta: data });
+                    this.receivingBuffers.set(data.voiceId, {
+                        chunks: [],
+                        received: 0,
+                        meta: data,
+                        timeout: setTimeout(() => this.receivingBuffers.delete(data.voiceId), 30000)
+                    });
                 } else {
                     const buffer = this.receivingBuffers.get(data.voiceId);
                     buffer.meta = data;
-                    // 可能已经收完分片
-                    if (buffer.received >= data.totalChunks) {
-                        this.assembleVoice(data.voiceId);
-                    }
+                    if (buffer.received >= data.totalChunks) this.assembleVoice(data.voiceId);
                 }
             }
 
             handleVoiceEnd(peerId, data) {
-                // 可以在这里处理结束逻辑，目前依靠数量判断
+                // 依靠数量判断，可扩展结束逻辑
             }
 
             assembleVoice(voiceId) {
@@ -1480,7 +1636,6 @@
                 if (!buffer || !buffer.meta) return;
                 
                 try {
-                    // 合并所有分片
                     let totalLength = 0;
                     buffer.chunks.forEach(c => totalLength += c ? c.length : 0);
                     
@@ -1494,12 +1649,7 @@
                     });
                     
                     const blob = new Blob([combined], { type: 'audio/webm' });
-                    const message = {
-                        ...buffer.meta,
-                        type: 'voice',
-                        blob: blob,
-                        data: combined.buffer // 用于直接播放
-                    };
+                    const message = { ...buffer.meta, type: 'voice', blob, data: combined.buffer };
                     
                     this.app.displayVoiceMessage(message, false);
                     this.receivingBuffers.delete(voiceId);
@@ -1508,56 +1658,210 @@
                 }
             }
 
-            // 播放控制
-            async playVoice(voiceId, blobOrUrl) {
-                // 停止当前播放
+            async playVoice(voiceId, blobOrData) {
                 if (this.currentPlaying) {
                     this.currentPlaying.audio.pause();
                     this.currentPlaying.audio.currentTime = 0;
-                    this.updateVoicePlayingUI(this.currentPlaying.voiceId, false);
+                    this.updateUIState(this.currentPlaying.voiceId, false);
                     if (this.currentPlaying.voiceId === voiceId) {
                         this.currentPlaying = null;
                         return;
                     }
                 }
                 
-                const url = blobOrUrl instanceof Blob ? URL.createObjectURL(blobOrUrl) : blobOrUrl;
+                let blob = blobOrData;
+                if (blobOrData instanceof ArrayBuffer) {
+                    blob = new Blob([blobOrData], { type: 'audio/webm' });
+                }
+                
+                const url = blob instanceof Blob ? URL.createObjectURL(blob) : blob;
                 const audio = new Audio(url);
                 
                 audio.onended = () => {
-                    this.updateVoicePlayingUI(voiceId, false);
+                    this.updateUIState(voiceId, false);
                     this.currentPlaying = null;
-                    if (blobOrUrl instanceof Blob) URL.revokeObjectURL(url);
+                    if (blob instanceof Blob) URL.revokeObjectURL(url);
                 };
                 
-                audio.onpause = () => {
-                    this.updateVoicePlayingUI(voiceId, false);
-                };
+                audio.onpause = () => this.updateUIState(voiceId, false);
+                audio.onplay = () => this.updateUIState(voiceId, true);
                 
                 try {
                     await audio.play();
                     this.currentPlaying = { voiceId, audio };
-                    this.updateVoicePlayingUI(voiceId, true);
                 } catch (e) {
                     console.error('播放失败:', e);
                     this.app.showToast('播放失败');
                 }
             }
 
-            updateVoicePlayingUI(voiceId, isPlaying) {
-                const elements = document.querySelectorAll(`[data-voice-id="${voiceId}"]`);
-                elements.forEach(el => {
-                    if (isPlaying) el.classList.add('playing');
-                    else el.classList.remove('playing');
+            updateUIState(voiceId, isPlaying) {
+                document.querySelectorAll(`[data-voice-id="${voiceId}"]`).forEach(el => {
+                    el.classList.toggle('playing', isPlaying);
+                    el.classList.remove('unread');
                 });
-                
-                // 移除未读红点
-                if (isPlaying) {
-                    elements.forEach(el => el.classList.remove('unread'));
-                }
+            }
+
+            storeVoiceBlob(voiceId, blob) {
+                this.voiceBlobs.set(voiceId, blob);
+            }
+
+            getVoiceBlob(voiceId) {
+                return this.voiceBlobs.get(voiceId);
             }
         }
 
+        // ==================== 已读回执管理器 ====================
+        class ReadReceiptManager {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.messageStatus = new Map(); // msgId -> { delivered, readBy:Set, readNames:Set, timestamp }
+                this.pendingReceipts = new Set();
+                this.sendTimer = null;
+                this.observer = null;
+                this.initObserver();
+            }
+
+            initObserver() {
+                if (!('IntersectionObserver' in window)) return;
+                
+                this.observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const msgEl = entry.target;
+                            const msgId = msgEl.dataset.msgId;
+                            const senderId = msgEl.dataset.senderId;
+                            
+                            if (msgId && senderId && senderId !== this.app.user.id) {
+                                this.markAsRead(msgId);
+                            }
+                        }
+                    });
+                }, {
+                    root: document.getElementById('messages'),
+                    threshold: 0.6
+                });
+            }
+
+            observe(element) {
+                if (this.observer) this.observer.observe(element);
+            }
+
+            initMessage(msgId, isSelf) {
+                if (!isSelf) return;
+                this.messageStatus.set(msgId, {
+                    delivered: false,
+                    readBy: new Set(),
+                    readNames: new Set(),
+                    timestamp: Date.now()
+                });
+                
+                // 检查送达状态
+                this.checkDelivery(msgId);
+            }
+
+            checkDelivery(msgId) {
+                const check = setInterval(() => {
+                    const status = this.messageStatus.get(msgId);
+                    if (!status) return clearInterval(check);
+                    
+                    const connected = Array.from(this.app.peers.values()).filter(p => p.connected).length;
+                    if (connected > 0 && !status.delivered) {
+                        status.delivered = true;
+                        this.updateUI(msgId);
+                        clearInterval(check);
+                    }
+                    
+                    if (Date.now() - status.timestamp > 30000) clearInterval(check);
+                }, 1000);
+            }
+
+            markAsRead(msgId) {
+                if (this.pendingReceipts.has(msgId)) return;
+                this.pendingReceipts.add(msgId);
+                
+                clearTimeout(this.sendTimer);
+                this.sendTimer = setTimeout(() => this.sendBatch(), CONFIG.READ_RECEIPT_DELAY);
+            }
+
+            sendBatch() {
+                if (this.pendingReceipts.size === 0) return;
+                
+                const receipts = Array.from(this.pendingReceipts);
+                this.pendingReceipts.clear();
+                
+                this.app.broadcastMessage({
+                    type: 'read_receipt',
+                    messageIds: receipts,
+                    readerId: this.app.user.id,
+                    readerName: this.app.user.name,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            handleReceipt(data) {
+                const { messageIds, readerId, readerName } = data;
+                if (readerId === this.app.user.id) return;
+                
+                messageIds.forEach(msgId => {
+                    const status = this.messageStatus.get(msgId);
+                    if (status) {
+                        status.readBy.add(readerId);
+                        status.readNames.add(readerName);
+                        this.updateUI(msgId);
+                    }
+                });
+            }
+
+            updateUI(msgId) {
+                const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
+                if (!msgEl) return;
+                
+                const statusEl = msgEl.querySelector('.msg-status');
+                if (!statusEl) return;
+                
+                const status = this.messageStatus.get(msgId);
+                const readCount = status.readBy.size;
+                
+                if (readCount > 0) {
+                    const names = Array.from(status.readNames);
+                    statusEl.classList.add('read');
+                    statusEl.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <path d="M18 6L7 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 6L11 17l-2-2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6"/>
+                        </svg>
+                        ${readCount > 1 ? readCount : ''}
+                    `;
+                    
+                    // 添加详情提示
+                    const timeEl = msgEl.querySelector('.msg-time');
+                    if (timeEl && !timeEl.querySelector('.read-details')) {
+                        const details = document.createElement('div');
+                        details.className = 'read-details';
+                        details.innerHTML = `
+                            <div class="read-details-title">已读人员</div>
+                            ${names.map(name => `<div class="read-details-name">${name}</div>`).join('')}
+                        `;
+                        timeEl.appendChild(details);
+                    }
+                } else if (status.delivered) {
+                    statusEl.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    `;
+                }
+            }
+
+            clear() {
+                this.messageStatus.clear();
+                this.pendingReceipts.clear();
+                if (this.observer) this.observer.disconnect();
+            }
+        }
+
+        // ==================== 主应用类 ====================
         class ChatApplication {
             constructor() {
                 this.user = { name: null, id: null, color: null };
@@ -1567,30 +1871,15 @@
                 this.messages = { seq: 0, cache: new LRUCache(1000) };
                 this.connection = { established: false };
                 this.theme = localStorage.getItem('theme') || 'light';
-                
-                // 语音管理器
-                this.voiceManager = new VoiceManager(this);
-                
-                // 输入模式：text/voice
                 this.inputMode = 'text';
                 this.isRecording = false;
                 this.recordCancelZone = false;
                 
+                // 模块实例
+                this.voiceManager = new VoiceManager(this);
+                this.readReceiptManager = new ReadReceiptManager(this);
+                
                 this.init();
-            }
-
-            generateUUID() {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-                    const r = Math.random() * 16 | 0;
-                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-                });
-            }
-
-            getAvatarColor(name) {
-                const colors = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#ff2d55', '#5ac8fa'];
-                let hash = 0;
-                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-                return colors[Math.abs(hash) % colors.length];
             }
 
             init() {
@@ -1603,8 +1892,12 @@
                 if (savedName && savedId) {
                     this.user.name = savedName;
                     this.user.id = savedId;
-                    this.user.color = savedColor || this.getAvatarColor(savedName);
+                    this.user.color = savedColor || Utils.getAvatarColor(savedName);
                     this.updateUserDisplay();
+                }
+
+                if ('ontouchstart' in window) {
+                    document.body.classList.add('touch-device');
                 }
 
                 this.checkRecentRoom();
@@ -1615,13 +1908,9 @@
             initWaveBars() {
                 const container = document.getElementById('recordWave');
                 if (container) {
-                    container.innerHTML = '';
-                    for (let i = 0; i < 20; i++) {
-                        const bar = document.createElement('div');
-                        bar.className = 'record-wave-bar';
-                        bar.style.height = '10px';
-                        container.appendChild(bar);
-                    }
+                    container.innerHTML = Array(20).fill(0).map(() => 
+                        '<div class="record-wave-bar" style="height:10px"></div>'
+                    ).join('');
                 }
             }
 
@@ -1631,7 +1920,7 @@
                     const val = e.target.value.trim();
                     const avatar = document.getElementById('avatarPreview');
                     avatar.textContent = val ? val.charAt(0).toUpperCase() : '?';
-                    if (val) avatar.style.background = this.getAvatarColor(val);
+                    if (val) avatar.style.background = Utils.getAvatarColor(val);
                 });
 
                 if ('visualViewport' in window) {
@@ -1654,13 +1943,13 @@
                     }
                 });
                 
-                // 防止录音时的默认行为（如滚动）
                 const recordBtn = document.getElementById('recordBtn');
                 if (recordBtn) {
                     recordBtn.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
                 }
             }
 
+            // ==================== UI 方法 ====================
             toggleInputMode() {
                 const textWrapper = document.getElementById('textInputWrapper');
                 const voiceWrapper = document.getElementById('voiceInputWrapper');
@@ -1681,11 +1970,8 @@
                 }
             }
 
-            // 录音控制
             async startRecord(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                
                 if (this.isRecording) return;
                 
                 const success = await this.voiceManager.startRecording();
@@ -1694,54 +1980,33 @@
                 this.isRecording = true;
                 this.recordCancelZone = false;
                 
-                // 显示遮罩
-                const overlay = document.getElementById('recordOverlay');
-                overlay.classList.add('show');
-                
-                // 更新按钮状态
-                const btn = document.getElementById('recordBtn');
-                btn.classList.add('recording');
+                document.getElementById('recordOverlay').classList.add('show');
+                document.getElementById('recordBtn').classList.add('recording');
                 document.getElementById('recordBtnText').textContent = '松开结束';
             }
 
             stopRecord(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                
                 if (!this.isRecording) return;
                 
                 this.isRecording = false;
-                
-                // 隐藏遮罩
-                const overlay = document.getElementById('recordOverlay');
-                overlay.classList.remove('show');
-                
-                // 更新按钮状态
-                const btn = document.getElementById('recordBtn');
-                btn.classList.remove('recording');
+                document.getElementById('recordOverlay').classList.remove('show');
+                document.getElementById('recordBtn').classList.remove('recording');
                 document.getElementById('recordBtnText').textContent = '按住说话';
                 
-                // 停止录制（传入是否取消）
                 this.voiceManager.stopRecording(this.recordCancelZone);
-                
-                if (this.recordCancelZone) {
-                    this.showToast('已取消');
-                }
+                if (this.recordCancelZone) this.showToast('已取消');
             }
 
             handleRecordMove(e) {
                 if (!this.isRecording) return;
-                
                 e.preventDefault();
-                const touch = e.touches ? e.touches[0] : e;
-                const overlay = document.getElementById('recordOverlay');
-                const cancelZone = document.getElementById('cancelZone');
                 
-                // 计算是否在上滑取消区域（屏幕下方20%区域）
+                const touch = e.touches ? e.touches[0] : e;
                 const screenHeight = window.innerHeight;
                 const y = touch.clientY;
+                const cancelZone = document.getElementById('cancelZone');
                 
-                // 如果手指移动到屏幕上半部分，显示取消区域
                 if (y < screenHeight * 0.5) {
                     this.recordCancelZone = true;
                     cancelZone.classList.add('danger');
@@ -1754,7 +2019,6 @@
             }
 
             cancelRecord() {
-                // 点击遮罩层取消
                 if (this.isRecording) {
                     this.recordCancelZone = true;
                     this.stopRecord({ preventDefault: () => {}, stopPropagation: () => {} });
@@ -1770,12 +2034,14 @@
 
             updateUserDisplay() {
                 document.getElementById('displayUsername').textContent = this.user.name;
-                document.getElementById('displayAvatar').textContent = this.user.name.charAt(0).toUpperCase();
-                document.getElementById('displayAvatar').style.background = this.user.color;
+                const avatar = document.getElementById('displayAvatar');
+                avatar.textContent = this.user.name.charAt(0).toUpperCase();
+                avatar.style.background = this.user.color;
                 document.getElementById('myChipName').textContent = this.user.name;
                 document.getElementById('usernameInput').value = this.user.name;
-                document.getElementById('avatarPreview').textContent = this.user.name.charAt(0).toUpperCase();
-                document.getElementById('avatarPreview').style.background = this.user.color;
+                const preview = document.getElementById('avatarPreview');
+                preview.textContent = this.user.name.charAt(0).toUpperCase();
+                preview.style.background = this.user.color;
             }
 
             setUsername() {
@@ -1785,8 +2051,8 @@
                 if (name.length > 12) return alert('昵称过长');
 
                 this.user.name = name;
-                this.user.id = this.generateUUID();
-                this.user.color = this.getAvatarColor(name);
+                this.user.id = Utils.generateUUID();
+                this.user.color = Utils.getAvatarColor(name);
 
                 sessionStorage.setItem('p2p_username', this.user.name);
                 sessionStorage.setItem('p2p_userid', this.user.id);
@@ -1796,11 +2062,7 @@
                 document.getElementById('userSetup').classList.add('hidden');
             }
 
-            generateCode() {
-                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-            }
-
+            // ==================== 房间管理 ====================
             async createRoom() {
                 if (!this.user.name) {
                     document.getElementById('userSetup').classList.remove('hidden');
@@ -1808,7 +2070,7 @@
                 }
                 
                 this.room.isHost = true;
-                this.room.code = this.generateCode();
+                this.room.code = Utils.generateRoomCode();
                 
                 document.getElementById('createBtn').classList.add('hidden');
                 document.getElementById('joinBtn').classList.add('hidden');
@@ -1877,12 +2139,94 @@
                 this.connection.established = true;
             }
 
+            copyCurrentRoomCode() {
+                if (this.room.code) {
+                    navigator.clipboard.writeText(this.room.code).then(() => {
+                        this.showToast(`已复制房间号: ${this.room.code}`);
+                    }).catch(() => {
+                        const input = document.createElement('input');
+                        input.value = this.room.code;
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(input);
+                        this.showToast(`已复制房间号: ${this.room.code}`);
+                    });
+                }
+            }
+
+            confirmLeave() {
+                if (confirm('确定退出？房间代码将保留在首页')) this.leaveRoom();
+            }
+
+            leaveRoom() {
+                if (this.mqtt.client?.connected) {
+                    this.publish('presence', { action: 'leave', username: this.user.name });
+                }
+                
+                this.peers.forEach((peer) => {
+                    peer.dataChannel?.close();
+                    peer.pc?.close();
+                });
+                this.peers.clear();
+                
+                this.mqtt.client?.end();
+                this.mqtt.client = null;
+                
+                document.getElementById('messages').innerHTML = '';
+                this.messages.cache.clear();
+                this.messages.seq = 0;
+                this.connection.established = false;
+                this.readReceiptManager.clear();
+                this.voiceManager.voiceBlobs.clear();
+                
+                document.getElementById('chat').classList.add('hidden');
+                document.getElementById('input').style.display = 'none';
+                document.getElementById('setup').classList.remove('hidden');
+                document.getElementById('createPanel').classList.add('hidden');
+                document.getElementById('joinPanel').classList.add('hidden');
+                document.getElementById('createBtn').classList.remove('hidden');
+                document.getElementById('joinBtn').classList.remove('hidden');
+                
+                this.checkRecentRoom();
+            }
+
+            checkRecentRoom() {
+                const room = sessionStorage.getItem('p2p_last_room');
+                const time = sessionStorage.getItem('p2p_last_room_time');
+                if (room && time && (Date.now() - parseInt(time)) < CONFIG.ROOM_EXPIRY) {
+                    document.getElementById('recentRoomCode').textContent = room;
+                    document.getElementById('recentRoomTime').textContent = new Date(parseInt(time)).toLocaleTimeString('zh-CN');
+                    document.getElementById('recentRoomPanel').classList.remove('hidden');
+                } else {
+                    sessionStorage.removeItem('p2p_last_room');
+                    sessionStorage.removeItem('p2p_last_room_time');
+                    document.getElementById('recentRoomPanel').classList.add('hidden');
+                }
+            }
+
+            copyRoomCode() {
+                const code = sessionStorage.getItem('p2p_last_room');
+                if (code) {
+                    navigator.clipboard.writeText(code).then(() => this.showToast('已复制')).catch(() => this.showToast('复制失败'));
+                }
+            }
+
+            rejoinRoom() {
+                const code = sessionStorage.getItem('p2p_last_room');
+                if (code) {
+                    document.getElementById('joinCode').value = code;
+                    this.showJoin();
+                    setTimeout(() => this.joinRoom(), 100);
+                }
+            }
+
+            // ==================== 连接管理 ====================
             async connectMQTT() {
                 return new Promise((resolve, reject) => {
-                    const url = 'wss://broker.hivemq.com:8884/mqtt';
-                    const clientId = `hajimide-${this.user.id?.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
+                    const clientId = `hajimide-${this.user.id.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
                     
-                    this.mqtt.client = mqtt.connect(url, {
+                    this.mqtt.client = mqtt.connect(CONFIG.MQTT_URL, {
                         clientId,
                         clean: true,
                         connectTimeout: 15000,
@@ -1945,13 +2289,14 @@
                     this.removePeer(targetId);
                 }
 
-                const iceServers = [
-                    { urls: "stun:stun.relay.metered.ca:80" },
-                    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-                    { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
-                ];
-
-                const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
+                const pc = new RTCPeerConnection({ 
+                    iceServers: CONFIG.ICE_SERVERS, 
+                    iceCandidatePoolSize: 10,
+                    iceTransportPolicy: 'all',
+                    bundlePolicy: 'balanced',
+                    rtcpMuxPolicy: 'require'
+                });
+                
                 const peer = {
                     pc, userId: targetId, username: targetName, avatarColor: targetColor,
                     dataChannel: null, connected: false, polite,
@@ -1962,10 +2307,17 @@
                 this.peers.set(targetId, peer);
 
                 if (!polite) {
-                    const dc = pc.createDataChannel('chat', { ordered: true, maxRetransmits: 3 });
+                    const dc = pc.createDataChannel('chat', { 
+                        ordered: true, 
+                        maxRetransmits: 3
+                    });
+                    dc.binaryType = 'arraybuffer';
                     this.setupDataChannel(dc, peer);
                 } else {
-                    pc.ondatachannel = (e) => this.setupDataChannel(e.channel, peer);
+                    pc.ondatachannel = (e) => {
+                        e.channel.binaryType = 'arraybuffer';
+                        this.setupDataChannel(e.channel, peer);
+                    };
                 }
 
                 pc.onicecandidate = (e) => {
@@ -2043,20 +2395,29 @@
                     
                     while (peer.pendingMessages?.length > 0) {
                         const msg = peer.pendingMessages.shift();
-                        try { dc.send(JSON.stringify(msg)); } catch(e) { peer.pendingMessages.unshift(msg); break; }
+                        try { 
+                            if (msg instanceof ArrayBuffer || msg instanceof Uint8Array) {
+                                dc.send(msg);
+                            } else {
+                                dc.send(JSON.stringify(msg)); 
+                            }
+                        } catch(e) { 
+                            peer.pendingMessages.unshift(msg); 
+                            break; 
+                        }
                     }
                 };
                 
                 dc.onmessage = (e) => {
-                    if (e.data instanceof ArrayBuffer || e.data instanceof Uint8Array) {
-                        // 二进制语音分片
+                    if (e.data instanceof ArrayBuffer) {
                         this.voiceManager.handleChunk(peer.userId, e.data);
-                    } else {
-                        // JSON文本消息
+                    } else if (typeof e.data === 'string') {
                         try {
                             const data = JSON.parse(e.data);
                             this.handleDataChannelMessage(data, peer);
-                        } catch(err) {}
+                        } catch(err) {
+                            console.error('Failed to parse message:', err);
+                        }
                     }
                 };
                 
@@ -2065,6 +2426,8 @@
                     this.updateOnlineCount();
                     this.updateUserList();
                 };
+                
+                dc.onerror = (err) => console.error('DataChannel error:', err);
             }
 
             handleDataChannelMessage(data, peer) {
@@ -2074,6 +2437,8 @@
                     this.voiceManager.handleVoiceEnd(peer.userId, data);
                 } else if (data.type === 'chat' || data.type === 'image') {
                     this.displayMessage(data, false);
+                } else if (data.type === 'read_receipt') {
+                    this.readReceiptManager.handleReceipt(data);
                 }
             }
 
@@ -2116,7 +2481,6 @@
                 }
             }
 
-            // 广播消息（文本/图片）
             broadcastMessage(message) {
                 let sent = 0;
                 this.peers.forEach((peer) => {
@@ -2133,52 +2497,26 @@
                 return sent;
             }
 
-            // 广播二进制数据（语音分片）
             broadcastRaw(arrayBuffer) {
                 this.peers.forEach((peer) => {
                     if (peer.dataChannel?.readyState === 'open') {
-                        try { 
-                            peer.dataChannel.send(arrayBuffer); 
-                        } catch(e) {}
+                        try { peer.dataChannel.send(arrayBuffer); } catch(e) {}
                     }
                 });
             }
 
-            // 广播语音（小文件一次性发送）
-            broadcastVoice(message) {
-                // 小文件直接通过DataChannel发送，但注意DataChannel现在支持binary
-                // 对于小语音，我们仍用JSON包装，但data是ArrayBuffer
-                // 注意：JSON.stringify会丢掉ArrayBuffer，所以小文件实际也应该分片或转blob url？
-                // 修正：小文件直接走分片逻辑更统一，或者单独处理
-                // 这里简单处理：小文件转为Uint8Array，然后发送
-                const buffer = message.data;
-                delete message.data; // 从json中移除buffer
-                
-                // 先发meta
-                this.broadcastMessage({
-                    ...message,
-                    type: 'voice_meta',
-                    totalChunks: 1,
-                    totalSize: buffer.byteLength
-                });
-                
-                // 再发数据（带简单头部）
-                const header = new TextEncoder().encode(`${message.voiceId}|0|`);
-                const combined = new Uint8Array(header.length + buffer.byteLength);
-                combined.set(header, 0);
-                combined.set(new Uint8Array(buffer), header.length);
-                this.broadcastRaw(combined.buffer);
-                
-                // 发结束
-                setTimeout(() => {
-                    this.broadcastMessage({ type: 'voice_end', voiceId: message.voiceId });
-                }, 50);
+            removePeer(userId) {
+                const peer = this.peers.get(userId);
+                if (peer) {
+                    peer.dataChannel?.close();
+                    peer.pc?.close();
+                    this.peers.delete(userId);
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                }
             }
 
-            handleBroadcast(data) {
-                // 处理MQTT广播（备用通道，主要用于信号）
-            }
-
+            // ==================== 消息处理 ====================
             triggerImageSelect() {
                 const fileInput = document.getElementById('fileInput');
                 if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
@@ -2196,9 +2534,9 @@
                 
                 this.showToast('处理中...');
                 try {
-                    const compressed = await ImageProcessor.compress(file);
+                    const compressed = await Utils.compressImage(file);
                     if (compressed.length > 500 * 1024) return this.showToast('图片仍过大');
-                    this.sendImage(compressed, ImageProcessor.getSizeHint(compressed));
+                    this.sendImage(compressed, Utils.getDataSize(compressed));
                 } catch (err) {
                     this.showToast('处理失败');
                 } finally {
@@ -2216,6 +2554,7 @@
                 };
                 this.broadcastMessage(message);
                 this.displayMessage(message, true);
+                this.initMessageStatus(message.id, true);
             }
 
             send() {
@@ -2232,54 +2571,86 @@
                 
                 this.broadcastMessage(message);
                 this.displayMessage(message, true);
+                this.initMessageStatus(message.id, true);
                 input.value = '';
             }
 
+            initMessageStatus(msgId, isSelf) {
+                this.readReceiptManager.initMessage(msgId, isSelf);
+            }
+
             displayMessage(msg, isSelf = false) {
-                if (this.messages.cache.has(msg.id)) return;
+                if (this.messages.cache.has(msg.id)) {
+                    if (isSelf) this.readReceiptManager.updateUI(msg.id);
+                    return;
+                }
                 this.messages.cache.add(msg.id);
                 
-                const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const time = Utils.formatTime(msg.timestamp);
                 const div = document.createElement('div');
                 div.className = `msg ${isSelf ? 'self' : ''}`;
+                div.dataset.msgId = msg.id;
+                div.dataset.senderId = msg.userId;
+                
+                let statusHtml = '';
+                if (isSelf) {
+                    statusHtml = `<span class="msg-status">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:0.3">
+                            <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>`;
+                }
                 
                 const content = msg.type === 'image' 
                     ? `<img src="${msg.content}" class="msg-image" onclick="window.chatApp?.openImageModal('${msg.content}')" loading="lazy">
                        ${msg.sizeHint ? `<div class="image-progress">${msg.sizeHint}</div>` : ''}`
-                    : `<div class="msg-content">${this.escapeHtml(msg.content)}</div>`;
+                    : `<div class="msg-content">${Utils.escapeHtml(msg.content)}</div>`;
                 
                 div.innerHTML = `
                     <div class="msg-header">
                         <span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || 'var(--text)')}">${isSelf ? '我' : msg.username}</span>
-                        <span class="msg-time">${time}</span>
+                        <span class="msg-time">${time}${statusHtml}</span>
                     </div>
                     ${content}
                 `;
                 
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
+                
+                if (!isSelf) this.readReceiptManager.observe(div);
+                if (isSelf) this.initMessageStatus(msg.id, true);
             }
 
-            // 显示语音消息
             displayVoiceMessage(msg, isSelf = false) {
                 if (!msg.local && this.messages.cache.has(msg.voiceId)) return;
                 this.messages.cache.add(msg.voiceId);
                 
-                const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const time = Utils.formatTime(msg.timestamp);
                 const div = document.createElement('div');
                 div.className = `msg ${isSelf ? 'self' : ''}`;
+                div.dataset.msgId = msg.voiceId;
+                div.dataset.senderId = msg.userId;
                 
                 const duration = msg.duration || 0;
-                const waveBars = Array(20).fill(0).map(() => 4 + Math.random() * 12).join('% ');
+                
+                let statusHtml = '';
+                if (isSelf) {
+                    statusHtml = `<span class="msg-status" style="margin-left:8px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:0.3">
+                            <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>`;
+                }
                 
                 div.innerHTML = `
                     <div class="msg-header">
                         <span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || 'var(--text)')}">${isSelf ? '我' : msg.username}</span>
-                        <span class="msg-time">${time}</span>
+                        <span class="msg-time">${time}${statusHtml}</span>
                     </div>
                     <div class="msg-content msg-voice unread" 
                          data-voice-id="${msg.voiceId}" 
-                         onclick="window.chatApp?.voiceManager.playVoice('${msg.voiceId}', window.chatApp?.getVoiceBlob('${msg.voiceId}') || '${msg.voiceId}')"
+                         data-sender-id="${msg.userId}"
+                         onclick="window.chatApp?.handleVoiceClick('${msg.voiceId}', this)"
                          style="background: ${isSelf ? 'var(--accent)' : 'var(--voice-bg)'}; color: ${isSelf ? 'white' : 'var(--text)'}; border: none;">
                         <div class="voice-icon" style="background: ${isSelf ? 'rgba(255,255,255,0.3)' : 'var(--accent)'}">
                             ▶
@@ -2294,18 +2665,29 @@
                     </div>
                 `;
                 
-                // 保存blob以便播放
-                if (msg.blob) {
-                    if (!this.voiceBlobs) this.voiceBlobs = new Map();
-                    this.voiceBlobs.set(msg.voiceId, msg.blob);
-                }
+                if (msg.blob) this.voiceManager.storeVoiceBlob(msg.voiceId, msg.blob);
                 
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
+                
+                if (!isSelf) this.readReceiptManager.observe(div);
+                if (isSelf) this.initMessageStatus(msg.voiceId, true);
             }
 
-            getVoiceBlob(voiceId) {
-                return this.voiceBlobs?.get(voiceId);
+            handleVoiceClick(voiceId, element) {
+                const blob = this.voiceManager.getVoiceBlob(voiceId);
+                if (blob) {
+                    this.voiceManager.playVoice(voiceId, blob);
+                }
+                
+                if (element.classList.contains('unread')) {
+                    element.classList.remove('unread');
+                    const senderId = element.dataset.senderId;
+                    if (senderId && senderId !== this.user.id) {
+                        this.readReceiptManager.markAsRead(voiceId);
+                        this.readReceiptManager.sendBatch(); // 立即发送
+                    }
+                }
             }
 
             openImageModal(src) {
@@ -2363,81 +2745,11 @@
                 });
             }
 
-            removePeer(userId) {
-                const peer = this.peers.get(userId);
-                if (peer) {
-                    peer.dataChannel?.close();
-                    peer.pc?.close();
-                    this.peers.delete(userId);
-                    this.updateOnlineCount();
-                    this.updateUserList();
-                }
+            handleBroadcast(data) {
+                // 备用广播通道
             }
 
-            confirmLeave() {
-                if (confirm('确定退出？房间代码将保留在首页')) this.leaveRoom();
-            }
-
-            leaveRoom() {
-                if (this.mqtt.client?.connected) {
-                    this.publish('presence', { action: 'leave', username: this.user.name });
-                }
-                
-                this.peers.forEach((peer) => {
-                    peer.dataChannel?.close();
-                    peer.pc?.close();
-                });
-                this.peers.clear();
-                
-                this.mqtt.client?.end();
-                this.mqtt.client = null;
-                
-                document.getElementById('messages').innerHTML = '';
-                this.messages.cache.clear();
-                this.messages.seq = 0;
-                this.connection.established = false;
-                
-                document.getElementById('chat').classList.add('hidden');
-                document.getElementById('input').style.display = 'none';
-                document.getElementById('setup').classList.remove('hidden');
-                document.getElementById('createPanel').classList.add('hidden');
-                document.getElementById('joinPanel').classList.add('hidden');
-                document.getElementById('createBtn').classList.remove('hidden');
-                document.getElementById('joinBtn').classList.remove('hidden');
-                
-                this.checkRecentRoom();
-            }
-
-            checkRecentRoom() {
-                const room = sessionStorage.getItem('p2p_last_room');
-                const time = sessionStorage.getItem('p2p_last_room_time');
-                if (room && time && (Date.now() - parseInt(time)) < 30 * 60 * 1000) {
-                    document.getElementById('recentRoomCode').textContent = room;
-                    document.getElementById('recentRoomTime').textContent = new Date(parseInt(time)).toLocaleTimeString('zh-CN');
-                    document.getElementById('recentRoomPanel').classList.remove('hidden');
-                } else {
-                    sessionStorage.removeItem('p2p_last_room');
-                    sessionStorage.removeItem('p2p_last_room_time');
-                    document.getElementById('recentRoomPanel').classList.add('hidden');
-                }
-            }
-
-            copyRoomCode() {
-                const code = sessionStorage.getItem('p2p_last_room');
-                if (code) {
-                    navigator.clipboard.writeText(code).then(() => this.showToast('已复制')).catch(() => this.showToast('复制失败'));
-                }
-            }
-
-            rejoinRoom() {
-                const code = sessionStorage.getItem('p2p_last_room');
-                if (code) {
-                    document.getElementById('joinCode').value = code;
-                    this.showJoin();
-                    setTimeout(() => this.joinRoom(), 100);
-                }
-            }
-
+            // ==================== 工具方法 ====================
             showToast(msg) {
                 const toast = document.getElementById('toast');
                 toast.textContent = msg;
@@ -2458,18 +2770,13 @@
                 }
             }
 
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
             scrollToBottom() {
                 const messages = document.getElementById('messages');
                 messages.scrollTop = messages.scrollHeight;
             }
         }
 
+        // 初始化应用
         window.chatApp = new ChatApplication();
     </script>
 </body>
