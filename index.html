@@ -3,577 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P Chat (Persistent)</title>
+    <title>Zero-TURN P2P Chat (Short Code)</title>
     <style>
-        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502;--info:#3498db}
+        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
-        .hidden{display:none!important}
+        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px}
         
-        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column}
-        .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
-        h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
-        .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
+        .card{background:var(--bg2);padding:40px;border-radius:16px;max-width:420px;width:100%;border:1px solid #333;text-align:center}
+        h1{font-size:28px;margin-bottom:10px;color:var(--accent)}
+        p{color:#888;font-size:14px;margin-bottom:30px;line-height:1.5}
         
-        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
-        button:hover{opacity:0.9;transform:translateY(-1px)}
+        .code-display{font-size:48px;font-weight:bold;color:var(--accent);letter-spacing:8px;margin:20px 0;font-family:monospace;background:rgba(0,208,132,0.1);padding:20px;border-radius:8px;border:2px dashed var(--accent)}
+        .status{margin:20px 0;font-size:14px;color:#aaa}
+        
+        input{width:100%;padding:16px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);font-size:24px;text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase;margin-bottom:15px}
+        input:focus{outline:none;border-color:var(--accent)}
+        
+        button{width:100%;padding:16px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:16px;margin-top:10px}
+        button:hover{opacity:0.9}
+        button:disabled{opacity:0.5;cursor:not-allowed;background:#555;color:#888}
         button.secondary{background:#333;color:var(--text)}
-        button.small{width:auto;padding:8px 16px;font-size:12px}
-        button:disabled{opacity:0.5;cursor:not-allowed;transform:none}
         
-        textarea{width:100%;height:100px;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);font-family:monospace;font-size:11px;margin:10px 0;resize:none}
-        
-        #chat{height:100%;display:flex;flex-direction:column;padding:20px}
-        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
-        .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
-        .badge.direct{background:var(--accent);color:#000}
-        .badge.failed{background:var(--err);color:#fff}
-        .badge.local{background:var(--info);color:#fff}
-        .badge.waiting{background:var(--warn);color:#000}
-        
-        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
-        .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
+        #chat{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;padding:20px}
+        #messages{flex:1;overflow-y:auto;padding:15px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
+        .msg{margin:8px 0;padding:12px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
         .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
-        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%;padding:5px}
-        .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
+        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
         .msg .time{font-size:10px;color:#666;margin-top:4px}
         
         #input{display:flex;gap:10px}
-        #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
+        #input input{flex:1;font-size:14px;text-align:left;letter-spacing:normal;text-transform:none}
         #input button{width:auto;padding:12px 24px}
         
-        .signal-panel{background:#000;border:1px solid #333;border-radius:8px;padding:15px;margin-bottom:15px}
-        .signal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:5px}
-        .short-code{font-size:28px;font-weight:bold;color:var(--accent);letter-spacing:6px;text-align:center;padding:15px;background:rgba(0,208,132,0.1);border-radius:4px;margin:10px 0;font-family:monospace;border:1px dashed var(--accent)}
-        .code-info{font-size:11px;color:#666;text-align:center;margin-top:5px}
+        .hidden{display:none!important}
         
-        .refresh-bar{display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,165,2,0.1);border-radius:4px;margin-top:10px;font-size:12px}
+        /* 加载动画 */
+        .loader{display:inline-block;width:20px;height:20px;border:3px solid rgba(0,208,132,0.3);border-radius:50%;border-top-color:var(--accent);animation:spin 1s ease-in-out infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
         
-        .input-group{display:flex;gap:10px;margin-top:10px}
-        .input-group input{flex:1;padding:10px;background:#000;border:1px solid #444;border-radius:4px;color:var(--text);font-family:monospace;font-size:11px}
-        .input-group button{width:auto;margin:0}
-        
-        .stats{font-size:10px;color:#666;margin-top:5px}
-        
-        .modal{position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
-        .modal-content{background:var(--bg2);padding:20px;border-radius:12px;max-width:500px;width:100%}
+        .error{color:var(--err);font-size:14px;margin-top:10px}
     </style>
 </head>
 <body>
-    <!-- 初始设置界面 -->
-    <div id="setup">
-        <div class="card">
-            <h1>🔮 Zero-TURN P2P</h1>
-            <div class="info">
-                <strong>持久化版本</strong><br>
-                • 邀请码长期有效（支持ICE Restart）<br>
-                • 断线自动重连<br>
-                • 刷新页面不丢失会话<br>
-                <span style="color:var(--warn)">提示：建议双方尽快完成连接</span>
-            </div>
-            
-            <button onclick="App.createRoom()" id="createBtn">创建房间</button>
-            <button class="secondary" onclick="App.joinRoom()">加入房间</button>
-            
-            <div id="joinSection" class="hidden" style="margin-top:20px">
-                <label style="font-size:12px;color:#888">输入6位房间码或粘贴完整邀请码：</label>
-                <input type="text" id="joinCode" placeholder="如：ABC123 或粘贴长码..." style="width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);margin:10px 0;text-transform:uppercase;font-family:monospace">
-                <button onclick="App.connect()" id="connectBtn">连接</button>
-            </div>
-        </div>
+
+<!-- 主页 -->
+<div id="home" class="card">
+    <h1>📡 P2P 直连</h1>
+    <p>无需服务器，端到端加密聊天<br>只需 6 位短码即可连接</p>
+    
+    <button onclick="App.createRoom()" id="createBtn">创建房间</button>
+    
+    <div style="margin:20px 0;height:1px;background:#333"></div>
+    
+    <input type="text" id="joinInput" placeholder="输入6位短码" maxlength="6">
+    <button class="secondary" onclick="App.joinRoom()">加入房间</button>
+</div>
+
+<!-- 等待页（创建者） -->
+<div id="waiting" class="card hidden">
+    <h1>⏳ 等待连接</h1>
+    <p>请让对方输入以下短码：</p>
+    <div class="code-display" id="roomCode">------</div>
+    <div class="status">
+        <span class="loader"></span> 等待对方加入...
     </div>
+    <button class="secondary" onclick="location.reload()">取消</button>
+</div>
 
-    <!-- 聊天界面 -->
-    <div id="chat" class="hidden">
-        <div id="status">
-            <span>
-                状态: <span id="connStatus">初始化...</span>
-                <span id="connType" class="badge waiting" style="margin-left:10px">等待连接</span>
-            </span>
-            <button class="secondary small" onclick="App.disconnect()">断开</button>
-        </div>
-        
-        <!-- 信令面板（创建者显示） -->
-        <div id="signalPanel" class="signal-panel hidden">
-            <div class="signal-header">
-                <strong>📡 邀请码（长期有效）</strong>
-                <span style="font-size:11px;color:#888" id="updateTime">刚刚更新</span>
-            </div>
-            
-            <div class="short-code" id="shortCode">生成中...</div>
-            <div class="code-info">6位短码 + 完整SDP（支持重复刷新）</div>
-            
-            <button onclick="App.copyInvite()" style="width:100%;margin-top:10px">复制完整邀请码</button>
-            
-            <div class="refresh-bar">
-                <span>ICE候选已优化</span>
-                <button class="small secondary" onclick="App.refreshOffer()" style="width:auto">强制刷新</button>
-            </div>
-            
-            <div style="margin-top:15px;padding-top:15px;border-top:1px solid #333">
-                <label style="font-size:11px;color:#888">粘贴对方发来的响应码：</label>
-                <div class="input-group">
-                    <input type="text" id="responseCode" placeholder="粘贴响应码后按回车..." onkeypress="if(event.key==='Enter')App.completeConnection()">
-                    <button onclick="App.completeConnection()" class="small">完成</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 加入者面板 -->
-        <div id="joinerPanel" class="signal-panel hidden">
-            <div class="signal-header">
-                <strong>🔗 等待连接确认</strong>
-            </div>
-            <p style="font-size:12px;color:#888;margin-bottom:10px">请将以下响应码发送给邀请方：</p>
-            <textarea id="answerCode" readonly style="height:60px;font-size:10px"></textarea>
-            <button onclick="App.copyAnswer()" style="width:100%;margin-top:10px">复制响应码</button>
-            <p style="font-size:11px;color:#666;margin-top:10px">等待邀请方完成连接...</p>
-        </div>
-        
-        <div id="messages"></div>
-        
-        <div id="input" style="display:none">
-            <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')App.send()">
-            <button onclick="App.send()">发送</button>
-        </div>
+<!-- 聊天页 -->
+<div id="chat">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;color:#888">短码: <b id="displayCode" style="color:var(--accent)">----</b></span>
+        <span id="connStatus" style="font-size:12px;color:var(--warn)">连接中...</span>
+        <button class="secondary" style="width:auto;padding:8px 16px;font-size:12px" onclick="location.reload()">断开</button>
     </div>
+    
+    <div id="messages"></div>
+    
+    <div id="input">
+        <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000">
+        <button onclick="App.send()">发送</button>
+    </div>
+</div>
 
-    <script>
-        // 内联 LZ-String 压缩算法（避免外部CDN依赖）
-        var LZString = {
-            compress:function(uncompressed){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){value=uncompressed.charCodeAt(ii);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn=2;context_dictSize=3;context_numBits=2;context_dictionary={};context_dictionaryToCreate={};context_wc="";context_w="";context_c="";context_data_val=0;context_data_position=0;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}else{context_dictionaryToCreate[context_c]=false}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==15){context_data_position=0;context_data.push(String.fromCharCode(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==15){context_data.push(String.fromCharCode(context_data_val));break}else context_data_position++}return context_data.join("")},
+<script>
+/**
+ * 配置：使用 Firebase Realtime Database 作为免费信令服务器
+ * 注意：这是公开的测试数据库，仅供演示。实际使用请替换为您自己的 Firebase URL
+ * 获取方式：https://firebase.google.com/ → 创建项目 → Realtime Database → 复制链接
+ */
+const CONFIG = {
+    signalServer: 'https://p2p-chat-signal-default-rtdb.firebaseio.com', // 示例地址，建议替换
+    iceServers: [
+        {urls: 'stun:stun.l.google.com:19302'},
+        {urls: 'stun:stun1.l.google.com:19302'}
+    ]
+};
+
+const App = {
+    pc: null,
+    dc: null,
+    isInitiator: false,
+    code: null,
+    pollTimer: null,
+    
+    generateCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        return Array(6).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+    },
+    
+    // 信令服务器操作
+    async signal(method, data = null) {
+        const url = `${CONFIG.signalServer}/${this.code}.json`;
+        if (method === 'GET') {
+            const res = await fetch(url);
+            return res.json();
+        } else if (method === 'PUT') {
+            await fetch(url, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+        } else if (method === 'DELETE') {
+            await fetch(url, {method: 'DELETE'});
+        }
+    },
+    
+    async createRoom() {
+        this.isInitiator = true;
+        this.code = this.generateCode();
+        
+        // 检查短码是否被占用
+        const existing = await this.signal('GET');
+        if (existing) {
+            // 如果被占用，重新生成
+            return this.createRoom();
+        }
+        
+        document.getElementById('home').classList.add('hidden');
+        document.getElementById('waiting').classList.remove('hidden');
+        document.getElementById('roomCode').textContent = this.code;
+        
+        // 初始化连接
+        await this.initConnection();
+        
+        // 创建 Offer
+        const offer = await this.pc.createOffer();
+        await this.pc.setLocalDescription(offer);
+        
+        // 等待 ICE 收集完成（收集所有网络候选）
+        await this.waitForIceComplete();
+        
+        // 上传到信令服务器（5分钟后自动过期）
+        await this.signal('PUT', {
+            offer: this.pc.localDescription,
+            timestamp: Date.now()
+        });
+        
+        // 开始轮询等待 Answer
+        this.pollForAnswer();
+    },
+    
+    async joinRoom() {
+        const code = document.getElementById('joinInput').value.trim().toUpperCase();
+        if (!code || code.length !== 6) return alert('请输入6位短码');
+        
+        this.isInitiator = false;
+        this.code = code;
+        
+        // 获取 Offer
+        const signal = await this.signal('GET');
+        if (!signal || !signal.offer) {
+            return alert('房间不存在或已过期');
+        }
+        
+        document.getElementById('home').classList.add('hidden');
+        document.getElementById('chat').style.display = 'flex';
+        document.getElementById('displayCode').textContent = code;
+        
+        await this.initConnection();
+        
+        // 设置远端描述
+        await this.pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+        
+        // 创建 Answer
+        const answer = await this.pc.createAnswer();
+        await this.pc.setLocalDescription(answer);
+        
+        await this.waitForIceComplete();
+        
+        // 上传 Answer
+        await this.signal('PUT', {
+            ...signal,
+            answer: this.pc.localDescription
+        });
+        
+        this.addMessage('系统', '已发送响应，等待连接...', 'system');
+    },
+    
+    async initConnection() {
+        this.pc = new RTCPeerConnection({iceServers: CONFIG.iceServers});
+        
+        if (this.isInitiator) {
+            this.dc = this.pc.createDataChannel('chat', {ordered: true});
+            this.setupDataChannel(this.dc);
+        } else {
+            this.pc.ondatachannel = (e) => {
+                this.dc = e.channel;
+                this.setupDataChannel(this.dc);
+            };
+        }
+        
+        this.pc.oniceconnectionstatechange = () => {
+            const state = this.pc.iceConnectionState;
+            const statusEl = document.getElementById('connStatus');
             
-            decompress:function(compressed){if(compressed==null)return"";if(compressed=="")return null;var dictionary={0:0,1:1,2:2},next=3,enlargeIn=4,numBits=3,result=[],dict={},i,w,bits,resb,maxpower,power,c,errorCount=0,currentPosition=0,data={val:compressed.charCodeAt(0),position:32768,index:1};for(i=0;i<3;i+=1)dict[i]=i;bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=String.fromCharCode(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=String.fromCharCode(bits);break;case 2:return""}dictionary[3]=c;w=c;result.push(c);while(true){if(data.index>compressed.length)return"";bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[next++]=String.fromCharCode(bits);enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=32768;data.val=compressed.charCodeAt(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[next++]=String.fromCharCode(bits);enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[bits]){c=dictionary[bits]}else{if(bits==next)c=w+w.charAt(0);else return null}result.push(c);dictionary[next++]=w+c.charAt(0);enlargeIn--;w=c;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}}},
-            
-            compressToEncodedURIComponent:function(uncompressed){if(uncompressed==null)return"";return this.compress(uncompressed).replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,".")},
-            
-            decompressFromEncodedURIComponent:function(compressed){if(compressed==null)return"";if(compressed=="")return null;compressed=compressed.replace(/-/g,"+").replace(/_/g,"/").replace(/\./g,"=");return this.decompress(compressed)}
-        };
-
-        const App = {
-            pc: null,
-            dc: null,
-            isInitiator: false,
-            shortCode: null,
-            currentOffer: null,
-            currentAnswer: null,
-            reconnectAttempts: 0,
-            maxReconnectAttempts: 5,
-            iceCandidateBuffer: [],
-            connectionStartTime: null,
-            
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun.miwifi.com' }
-                ],
-                iceTransportPolicy: 'all',
-                bundlePolicy: 'max-bundle',
-                rtcpMuxPolicy: 'require',
-                // 关键：启用ICE重启支持
-                iceCandidatePoolSize: 10
-            },
-
-            generateShortCode() {
-                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                let result = '';
-                for (let i = 0; i < 6; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return result;
-            },
-
-            createRoom() {
-                this.isInitiator = true;
-                this.shortCode = this.generateShortCode();
-                this.saveState();
-                this.initConnection();
-                
-                document.getElementById('setup').classList.add('hidden');
-                document.getElementById('chat').classList.remove('hidden');
-                document.getElementById('signalPanel').classList.remove('hidden');
-                document.getElementById('shortCode').textContent = this.shortCode;
-                
-                this.addMessage('系统', `房间 ${this.shortCode} 已创建，邀请码长期有效，支持重复刷新`, 'system');
-            },
-
-            joinRoom() {
-                this.isInitiator = false;
-                document.getElementById('joinSection').classList.remove('hidden');
-                document.getElementById('createBtn').classList.add('hidden');
-                document.querySelector('#setup button.secondary').classList.add('hidden');
-            },
-
-            async initConnection() {
-                try {
-                    this.pc = new RTCPeerConnection(this.config);
-                    this.iceCandidateBuffer = [];
-                    
-                    if (this.isInitiator) {
-                        this.dc = this.pc.createDataChannel('chat', {
-                            ordered: true,
-                            maxRetransmits: 3
-                        });
-                        this.setupDataChannel(this.dc);
-                    } else {
-                        this.pc.ondatachannel = (e) => {
-                            this.dc = e.channel;
-                            this.setupDataChannel(this.dc);
-                        };
-                    }
-
-                    // ICE 候选收集：缓冲所有候选，直到收集完成
-                    this.pc.onicecandidate = (e) => {
-                        if (e.candidate) {
-                            this.iceCandidateBuffer.push(e.candidate);
-                            this.updateTimeDisplay();
-                        } else {
-                            // ICE收集完成，更新邀请码
-                            this.updateInviteCode();
-                        }
-                    };
-
-                    this.pc.oniceconnectionstatechange = () => {
-                        this.handleConnectionStateChange();
-                    };
-
-                    this.pc.onconnectionstatechange = () => {
-                        if (this.pc.connectionState === 'connected') {
-                            this.connectionStartTime = Date.now();
-                            this.saveState();
-                        } else if (this.pc.connectionState === 'failed') {
-                            this.handleConnectionFailure();
-                        }
-                    };
-
-                    if (this.isInitiator) {
-                        const offer = await this.pc.createOffer();
-                        await this.pc.setLocalDescription(offer);
-                        // 等待ICE收集完成自动触发updateInviteCode
-                    }
-                } catch (e) {
-                    console.error('初始化失败:', e);
-                    this.addMessage('系统', '初始化失败: ' + e.message, 'error');
-                }
-            },
-
-            updateInviteCode() {
-                if (!this.isInitiator || !this.pc.localDescription) return;
-                
-                const sdpData = {
-                    type: this.pc.localDescription.type,
-                    sdp: this.pc.localDescription.sdp,
-                    candidates: this.iceCandidateBuffer,
-                    ts: Date.now(),
-                    v: 2 // 版本号
-                };
-                
-                const jsonStr = JSON.stringify(sdpData);
-                this.currentOffer = LZString.compressToEncodedURIComponent(jsonStr);
-                
-                // 更新UI
-                document.getElementById('updateTime').textContent = '已更新 ' + new Date().toLocaleTimeString();
-                this.saveState();
-            },
-
-            updateTimeDisplay() {
+            if (state === 'connected' || state === 'completed') {
+                statusEl.textContent = '已连接';
+                statusEl.style.color = 'var(--accent)';
                 if (this.isInitiator) {
-                    document.getElementById('updateTime').textContent = '收集候选中... ' + this.iceCandidateBuffer.length + '个';
+                    document.getElementById('waiting').classList.add('hidden');
+                    document.getElementById('chat').style.display = 'flex';
+                    document.getElementById('displayCode').textContent = this.code;
                 }
-            },
-
-            // 刷新邀请码（ICE Restart）
-            async refreshOffer() {
-                if (!this.isInitiator || !this.pc) return;
-                
-                this.addMessage('系统', '正在刷新邀请码（ICE Restart）...', 'system');
-                this.iceCandidateBuffer = [];
-                
-                try {
-                    const offer = await this.pc.createOffer({iceRestart: true});
-                    await this.pc.setLocalDescription(offer);
-                    // 等待新的ICE收集完成
-                } catch (e) {
-                    this.addMessage('系统', '刷新失败: ' + e.message, 'error');
-                }
-            },
-
-            async connect() {
-                const input = document.getElementById('joinCode').value.trim();
-                if (!input) return alert('请输入房间码');
-                
-                try {
-                    await this.initConnection();
-                    
-                    let remoteData;
-                    
-                    if (input.length === 6) {
-                        alert('短码需要配合完整SDP使用。请向邀请方索取完整邀请码。');
-                        return;
-                    } else {
-                        // 解压
-                        try {
-                            const decompressed = LZString.decompressFromEncodedURIComponent(input);
-                            remoteData = JSON.parse(decompressed);
-                        } catch(e) {
-                            // 尝试旧格式
-                            remoteData = JSON.parse(atob(input));
-                        }
-                    }
-                    
-                    if (remoteData.type === 'offer') {
-                        await this.handleOffer(remoteData);
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert('无效的邀请码或解析失败');
-                }
-            },
-
-            async handleOffer(offerData) {
-                try {
-                    // 处理包含候选的Offer
-                    await this.pc.setRemoteDescription(new RTCSessionDescription({
-                        type: offerData.type,
-                        sdp: offerData.sdp
-                    }));
-                    
-                    // 添加远程候选
-                    if (offerData.candidates) {
-                        offerData.candidates.forEach(cand => {
-                            this.pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.log('添加候选失败:', e));
-                        });
-                    }
-                    
-                    const answer = await this.pc.createAnswer();
-                    await this.pc.setLocalDescription(answer);
-                    
-                    // 等待ICE收集完成显示答案
-                    setTimeout(() => {
-                        const answerData = {
-                            type: this.pc.localDescription.type,
-                            sdp: this.pc.localDescription.sdp,
-                            candidates: this.iceCandidateBuffer,
-                            ts: Date.now()
-                        };
-                        const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(answerData));
-                        this.currentAnswer = compressed;
-                        
-                        document.getElementById('setup').classList.add('hidden');
-                        document.getElementById('chat').classList.remove('hidden');
-                        document.getElementById('joinerPanel').classList.remove('hidden');
-                        document.getElementById('answerCode').value = compressed;
-                        
-                        this.addMessage('系统', '请复制上方响应码发给邀请方', 'system');
-                    }, 1000);
-                    
-                } catch (e) {
-                    this.addMessage('系统', '处理邀请码失败: ' + e.message, 'error');
-                }
-            },
-
-            async completeConnection() {
-                const response = document.getElementById('responseCode').value.trim();
-                if (!response) return;
-                
-                try {
-                    let data;
-                    try {
-                        const decompressed = LZString.decompressFromEncodedURIComponent(response);
-                        data = JSON.parse(decompressed);
-                    } catch(e) {
-                        data = JSON.parse(atob(response));
-                    }
-                    
-                    await this.pc.setRemoteDescription(new RTCSessionDescription({
-                        type: data.type,
-                        sdp: data.sdp
-                    }));
-                    
-                    if (data.candidates) {
-                        data.candidates.forEach(cand => {
-                            this.pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
-                        });
-                    }
-                    
-                    document.getElementById('responseCode').value = '';
-                    
-                } catch(e) {
-                    alert('无效的响应码: ' + e.message);
-                }
-            },
-
-            handleConnectionStateChange() {
-                const state = this.pc.iceConnectionState;
-                document.getElementById('connStatus').textContent = state;
-                
-                const badge = document.getElementById('connType');
-                
-                if (state === 'connected' || state === 'completed') {
-                    badge.textContent = this.isInitiator ? '已连接(主机)' : '已连接(访客)';
-                    badge.className = 'badge direct';
-                    document.getElementById('signalPanel').classList.add('hidden');
-                    document.getElementById('joinerPanel').classList.add('hidden');
-                    document.getElementById('input').style.display = 'flex';
-                    this.addMessage('系统', '✅ 连接成功！', 'system');
-                    this.reconnectAttempts = 0;
-                    this.saveState();
-                } else if (state === 'checking') {
-                    badge.textContent = '连接中...';
-                    badge.className = 'badge waiting';
-                } else if (state === 'failed') {
-                    badge.textContent = '连接失败';
-                    badge.className = 'badge failed';
-                    this.addMessage('系统', '❌ 连接失败，请尝试刷新邀请码或重新连接', 'error');
-                } else if (state === 'disconnected') {
-                    badge.textContent = '已断开';
-                    badge.className = 'badge failed';
-                    this.handleDisconnection();
-                }
-            },
-
-            handleDisconnection() {
-                this.addMessage('系统', '连接断开，尝试重连...', 'system');
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.reconnectAttempts++;
-                    setTimeout(() => {
-                        if (this.pc && this.isInitiator) {
-                            this.refreshOffer();
-                        }
-                    }, 2000);
-                } else {
-                    this.addMessage('系统', '重连次数超限，请手动刷新', 'error');
-                }
-            },
-
-            handleConnectionFailure() {
-                this.addMessage('系统', '连接建立失败，建议使用"刷新邀请码"重新生成', 'error');
-            },
-
-            setupDataChannel(dc) {
-                dc.onopen = () => {
-                    console.log('DataChannel 已连接');
-                };
-                
-                dc.onmessage = (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        this.addMessage('对方', data.msg, 'other');
-                    } catch(err) {
-                        this.addMessage('对方', e.data, 'other');
-                    }
-                };
-
-                dc.onclose = () => {
-                    this.addMessage('系统', '数据通道已关闭', 'system');
-                };
-            },
-
-            send() {
-                const input = document.getElementById('msgInput');
-                const msg = input.value.trim();
-                if (!msg || !this.dc || this.dc.readyState !== 'open') {
-                    if (this.dc?.readyState !== 'open') {
-                        this.addMessage('系统', '尚未连接，无法发送', 'error');
-                    }
-                    return;
-                }
-                
-                this.dc.send(JSON.stringify({msg, time: Date.now()}));
-                this.addMessage('我', msg, 'self');
-                input.value = '';
-            },
-
-            addMessage(from, text, type) {
-                const div = document.createElement('div');
-                div.className = `msg ${type}`;
-                const time = new Date().toLocaleTimeString();
-                div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
-                document.getElementById('messages').appendChild(div);
-                div.scrollIntoView({behavior: 'smooth'});
-            },
-
-            copyInvite() {
-                if (!this.currentOffer) return;
-                navigator.clipboard.writeText(this.currentOffer);
-                this.addMessage('系统', '邀请码已复制到剪贴板（长度：' + this.currentOffer.length + '）', 'system');
-            },
-
-            copyAnswer() {
-                if (!this.currentAnswer) return;
-                navigator.clipboard.writeText(this.currentAnswer);
-                this.addMessage('系统', '响应码已复制', 'system');
-            },
-
-            disconnect() {
-                if (confirm('确定要断开连接吗？')) {
-                    this.cleanup();
-                    location.reload();
-                }
-            },
-
-            cleanup() {
-                if (this.dc) this.dc.close();
-                if (this.pc) this.pc.close();
-                this.dc = null;
-                this.pc = null;
-                localStorage.removeItem('p2p_state');
-            },
-
-            saveState() {
-                const state = {
-                    isInitiator: this.isInitiator,
-                    shortCode: this.shortCode,
-                    offer: this.currentOffer,
-                    timestamp: Date.now(),
-                    connected: this.pc?.connectionState === 'connected'
-                };
-                localStorage.setItem('p2p_state', JSON.stringify(state));
-            },
-
-            restoreState() {
-                try {
-                    const saved = localStorage.getItem('p2p_state');
-                    if (!saved) return false;
-                    
-                    const state = JSON.parse(saved);
-                    const age = Date.now() - state.timestamp;
-                    
-                    // 如果状态是已连接且不超过24小时，尝试恢复
-                    if (state.connected && age < 24 * 3600 * 1000) {
-                        if (confirm(`检测到之前的会话（${state.shortCode}），是否恢复？`)) {
-                            // 这里可以实现更复杂的恢复逻辑
-                            return true;
-                        }
-                    } else if (!state.connected && age < 3600 * 1000) {
-                        // 未连接状态且不超过1小时
-                        if (confirm(`检测到未完成的房间 ${state.shortCode}，是否继续？`)) {
-                            this.isInitiator = state.isInitiator;
-                            this.shortCode = state.shortCode;
-                            if (this.isInitiator) {
-                                this.createRoom();
-                            }
-                            return true;
-                        }
-                    }
-                    localStorage.removeItem('p2p_state');
-                    return false;
-                } catch(e) {
-                    return false;
-                }
+                this.addMessage('系统', '✅ 连接成功！开始聊天吧', 'system');
+                // 连接成功后清理信令数据（保护隐私）
+                setTimeout(() => this.signal('DELETE'), 2000);
+            } else if (state === 'failed') {
+                statusEl.textContent = '连接失败';
+                statusEl.style.color = 'var(--err)';
+                this.addMessage('系统', '❌ 连接失败，请检查网络或重试', 'error');
+            } else if (state === 'checking') {
+                statusEl.textContent = '连接中...';
             }
         };
-
-        // 页面加载时检查状态
-        window.addEventListener('load', () => {
-            App.restoreState();
+    },
+    
+    setupDataChannel(dc) {
+        dc.onopen = () => console.log('DataChannel 已连接');
+        dc.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                this.addMessage('对方', data.msg, 'other');
+            } catch(e) {
+                this.addMessage('对方', e.data, 'other');
+            }
+        };
+        dc.onclose = () => this.addMessage('系统', '对方已断开连接', 'system');
+    },
+    
+    async waitForIceComplete() {
+        if (this.pc.iceGatheringState === 'complete') return;
+        
+        return new Promise(resolve => {
+            const check = setInterval(() => {
+                if (this.pc.iceGatheringState === 'complete') {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 200);
+            // 超时保护（5秒）
+            setTimeout(() => { clearInterval(check); resolve(); }, 5000);
         });
+    },
+    
+    async pollForAnswer() {
+        this.pollTimer = setInterval(async () => {
+            const signal = await this.signal('GET');
+            if (signal && signal.answer) {
+                clearInterval(this.pollTimer);
+                await this.pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+            }
+        }, 1500);
+        
+        // 5分钟超时清理
+        setTimeout(() => {
+            clearInterval(this.pollTimer);
+            if (this.pc && this.pc.iceConnectionState !== 'connected') {
+                this.addMessage('系统', '连接超时，房间已关闭', 'error');
+                this.signal('DELETE');
+            }
+        }, 5 * 60 * 1000);
+    },
+    
+    send() {
+        const input = document.getElementById('msgInput');
+        const msg = input.value.trim();
+        if (!msg || !this.dc || this.dc.readyState !== 'open') {
+            if (this.dc?.readyState !== 'open') {
+                alert('尚未连接，无法发送');
+            }
+            return;
+        }
+        
+        this.dc.send(JSON.stringify({msg, time: Date.now()}));
+        this.addMessage('我', msg, 'self');
+        input.value = '';
+    },
+    
+    addMessage(from, text, type) {
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        const time = new Date().toLocaleTimeString();
+        div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
+        const container = document.getElementById('messages');
+        container.appendChild(div);
+        div.scrollIntoView({behavior: 'smooth'});
+    }
+};
 
-        // 页面关闭前保存
-        window.addEventListener('beforeunload', () => {
-            App.saveState();
-        });
-    </script>
+// 清理旧数据（可选：加载时清理5分钟前的房间）
+window.addEventListener('load', async () => {
+    // 简单的清理逻辑（演示用，实际应在服务端设置规则）
+    try {
+        const res = await fetch(`${CONFIG.signalServer}.json?shallow=true`);
+        const keys = await res.json();
+        if (keys) {
+            Object.keys(keys).forEach(async key => {
+                const data = await fetch(`${CONFIG.signalServer}/${key}.json`).then(r => r.json());
+                if (data && Date.now() - data.timestamp > 10 * 60 * 1000) { // 10分钟过期
+                    await fetch(`${CONFIG.signalServer}/${key}.json`, {method: 'DELETE'});
+                }
+            });
+        }
+    } catch(e) {}
+});
+</script>
+
 </body>
 </html>
