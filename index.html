@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P (P2PT版)</title>
-    <script src="https://cdn.jsdelivr.net/npm/p2pt@1.5.0/dist/p2pt.min.js"></script>
+    <title>Zero-TURN P2P (MQTT信令版)</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
     <style>
         :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
@@ -19,6 +19,7 @@
         button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
         button:hover{opacity:0.9}
         button:disabled{opacity:0.5;cursor:not-allowed}
+        button.secondary{background:#333;color:var(--text)}
         
         .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
         
@@ -26,51 +27,62 @@
         #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
         .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
         .badge.direct{background:var(--accent);color:#000}
+        .badge.failed{background:var(--err);color:#fff}
+        .badge.waiting{background:var(--warn);color:#000}
         
         #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
         .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
         .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
         .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
+        .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
         
         #input{display:flex;gap:10px}
         #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
         #input button{width:auto;padding:12px 24px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer}
         
-        .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:20px 0}
-        .spinner{width:20px;height:20px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
+        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px;margin:10px 0}
+        
+        .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:10px 0;font-size:12px}
+        .spinner{width:16px;height:16px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         
-        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px;margin:10px 0}
+        .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:60px;overflow-y:auto}
     </style>
 </head>
 <body>
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN P2P (P2PT版)</h1>
+            <h1>🔮 Zero-TURN P2P (HiveMQ版)</h1>
             <div class="info">
-                <strong>基于公共BT网络的信令</strong><br>
+                <strong>使用HiveMQ公共MQTT服务器</strong><br>
                 • 无需注册，无需API Key<br>
-                • 使用WebTorrent公共Tracker<br>
-                • 自动穿透NAT，支持跨网段<br>
-                <span style="color:var(--warn)">提示：首次连接可能需要10-20秒寻找节点</span>
+                • broker.hivemq.com (全球负载均衡)<br>
+                • 输入6位短码自动连接<br>
+                <span style="color:var(--warn)">提示：首次连接需要3-5秒建立MQTT连接</span>
             </div>
             
             <button onclick="App.createRoom()" id="createBtn">创建房间</button>
-            <button onclick="App.showJoin()" id="joinBtn" style="background:#333;color:var(--text)">加入房间</button>
+            <button onclick="App.showJoin()" id="joinBtn" class="secondary">加入房间</button>
             
             <div id="createPanel" class="hidden">
-                <div class="loading">
+                <div class="loading" id="createLoading">
                     <div class="spinner"></div>
-                    <span>正在连接全球Tracker...</span>
+                    <span>正在连接MQTT服务器...</span>
                 </div>
-                <div class="code-display" id="roomCodeDisplay" style="display:none"></div>
+                <div class="code-display hidden" id="roomCodeDisplay"></div>
                 <div style="font-size:11px;color:#666;text-align:center;margin-top:10px" id="createHint"></div>
+                <div class="log hidden" id="log"></div>
             </div>
             
             <div id="joinPanel" class="hidden" style="margin-top:20px">
                 <label style="font-size:12px;color:#888">输入6位房间码：</label>
                 <input type="text" id="joinCode" placeholder="ABC123" maxlength="6">
                 <button onclick="App.joinRoom()" id="connectBtn">连接</button>
+                <div id="joinLoading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <span>正在加入...</span>
+                </div>
+                <div class="log hidden" id="joinLog"></div>
             </div>
         </div>
     </div>
@@ -79,33 +91,39 @@
         <div id="status">
             <span>
                 房间: <span id="roomId" style="color:var(--accent);font-weight:bold">-</span>
-                <span id="connBadge" class="badge" style="margin-left:10px">连接中...</span>
+                <span id="connBadge" class="badge waiting" style="margin-left:10px">连接中...</span>
             </span>
             <button onclick="location.reload()" style="background:#333;color:var(--text);padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-size:12px">退出</button>
         </div>
         
         <div id="messages"></div>
         
-        <div id="input">
+        <div id="input" style="display:none">
             <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')App.send()">
             <button onclick="App.send()">发送</button>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+        
         const App = {
-            p2pt: null,
-            peers: [],
+            pc: null,
+            dc: null,
+            client: null,
             roomCode: null,
             isInitiator: false,
+            messageQueue: [],
             
-            // 公共WebTorrent Tracker列表（长期有效）
-            trackers: [
-                'wss://tracker.openwebtorrent.com',
-                'wss://tracker.files.fm:7073/announce',
-                'wss://spacetradersapi-chatbox.fly.dev:443/announce',
-                'wss://tracker.webtorrent.dev'
-            ],
+            log(msg, isError = false) {
+                console.log(msg);
+                const logEl = document.getElementById(this.isInitiator ? 'log' : 'joinLog');
+                if (logEl) {
+                    logEl.classList.remove('hidden');
+                    logEl.innerHTML += `<div style="color:${isError ? '#ff4757' : '#888'}">${new Date().toLocaleTimeString()} ${msg}</div>`;
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+            },
 
             generateCode() {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -116,7 +134,7 @@
                 return result;
             },
 
-            createRoom() {
+            async createRoom() {
                 this.isInitiator = true;
                 this.roomCode = this.generateCode();
                 
@@ -124,7 +142,13 @@
                 document.getElementById('joinBtn').classList.add('hidden');
                 document.getElementById('createPanel').classList.remove('hidden');
                 
-                this.initP2PT();
+                try {
+                    await this.connectMQTT();
+                    await this.initConnection();
+                } catch(e) {
+                    this.log('错误: ' + e.message, true);
+                    alert('连接失败: ' + e.message);
+                }
             },
 
             showJoin() {
@@ -134,116 +158,270 @@
                 document.getElementById('joinCode').focus();
             },
 
-            joinRoom() {
+            async joinRoom() {
                 const code = document.getElementById('joinCode').value.trim().toUpperCase();
                 if (code.length !== 6) return alert('请输入6位房间码');
                 
                 this.isInitiator = false;
                 this.roomCode = code;
                 
-                document.getElementById('connectBtn').disabled = true;
-                document.getElementById('connectBtn').textContent = '连接中...';
-                
-                this.initP2PT();
-            },
-
-            initP2PT() {
-                // 使用房间码作为种子标识
-                const identifier = 'p2p-chat-' + this.roomCode;
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('joinLoading').classList.remove('hidden');
                 
                 try {
-                    this.p2pt = new P2PT(this.trackers, identifier);
-                    
-                    this.p2pt.on('trackerconnect', (tracker, stats) => {
-                        console.log('Connected to tracker:', tracker, 'peers:', stats.connected);
-                        if (this.isInitiator) {
-                            document.getElementById('createHint').textContent = '等待对方加入... (已连接 ' + stats.connected + ' 个节点)';
-                        }
-                    });
-                    
-                    this.p2pt.on('peerconnect', (peer) => {
-                        console.log('New peer connected:', peer);
-                        this.peers.push(peer);
-                        this.onConnect();
-                    });
-                    
-                    this.p2pt.on('peerclose', (peer) => {
-                        console.log('Peer disconnected:', peer);
-                        this.peers = this.peers.filter(p => p !== peer);
-                        this.addMessage('系统', '对方已断开', 'system');
-                    });
-                    
-                    this.p2pt.on('msg', (peer, msg) => {
-                        console.log('Received:', msg);
-                        if (msg.type === 'chat') {
-                            this.addMessage('对方', msg.data, 'other');
-                        } else if (msg.type === 'join' && this.isInitiator) {
-                            // 有人加入，发送确认
-                            this.p2pt.send(peer, JSON.stringify({type: 'welcome'}));
-                        }
-                    });
-                    
-                    // 启动连接
-                    this.p2pt.start();
-                    
-                    if (this.isInitiator) {
-                        setTimeout(() => {
-                            document.querySelector('.loading').style.display = 'none';
-                            document.getElementById('roomCodeDisplay').style.display = 'block';
-                            document.getElementById('roomCodeDisplay').textContent = this.roomCode;
-                            document.getElementById('createHint').textContent = '将房间码发给对方，等待连接...';
-                        }, 1000);
-                    } else {
-                        setTimeout(() => {
-                            if (this.peers.length === 0) {
-                                alert('未找到房间，请检查房间码或让对方重新创建');
-                                location.reload();
-                            }
-                        }, 15000);
-                    }
-                    
-                } catch (e) {
-                    console.error('P2PT初始化失败:', e);
-                    alert('初始化失败，请刷新重试');
+                    await this.connectMQTT();
+                    await this.initConnection();
+                } catch(e) {
+                    this.log('错误: ' + e.message, true);
+                    alert('连接失败: ' + e.message);
                 }
             },
 
-            onConnect() {
-                document.getElementById('setup').classList.add('hidden');
-                document.getElementById('chat').classList.remove('hidden');
-                document.getElementById('roomId').textContent = this.roomCode;
-                document.getElementById('connBadge').textContent = '已连接';
-                document.getElementById('connBadge').className = 'badge direct';
-                
-                this.addMessage('系统', '✅ 连接成功！可以开始聊天了', 'system');
-                
-                if (!this.isInitiator) {
-                    // 加入者发送加入消息
-                    setTimeout(() => {
-                        if (this.peers.length > 0) {
-                            this.p2pt.send(this.peers[0], JSON.stringify({type: 'join'}));
+            async connectMQTT() {
+                return new Promise((resolve, reject) => {
+                    // 使用HiveMQ公共服务器（更稳定）
+                    const url = 'wss://broker.hivemq.com:8884/mqtt';
+                    const clientId = 'p2p_' + Math.random().toString(36).substr(2, 8);
+                    
+                    this.log(`Connecting to ${url} as ${clientId}`);
+                    
+                    this.client = mqtt.connect(url, {
+                        clientId: clientId,
+                        clean: true,
+                        connectTimeout: 10000,
+                        reconnectPeriod: 2000,
+                        rejectUnauthorized: false
+                    });
+                    
+                    const timeout = setTimeout(() => {
+                        reject(new Error('MQTT连接超时'));
+                    }, 15000);
+                    
+                    this.client.on('connect', () => {
+                        clearTimeout(timeout);
+                        this.log('MQTT已连接');
+                        
+                        // 订阅房间主题（使用通配符接收所有子主题）
+                        const topic = `p2p-chat/${this.roomCode}/#`;
+                        this.client.subscribe(topic, (err) => {
+                            if (err) {
+                                this.log('订阅失败: ' + err.message, true);
+                                reject(err);
+                            } else {
+                                this.log('已订阅主题: ' + topic);
+                                resolve();
+                            }
+                        });
+                    });
+                    
+                    this.client.on('message', (topic, message) => {
+                        try {
+                            const data = JSON.parse(message.toString());
+                            this.log(`收到消息 [${topic}]: ${data.type}`);
+                            this.handleSignalingData(data);
+                        } catch (e) {
+                            this.log('消息解析错误: ' + e.message, true);
                         }
-                    }, 500);
+                    });
+                    
+                    this.client.on('error', (err) => {
+                        this.log('MQTT错误: ' + err.message, true);
+                        clearTimeout(timeout);
+                        reject(err);
+                    });
+                    
+                    this.client.on('offline', () => {
+                        this.log('MQTT离线');
+                    });
+                    
+                    this.client.on('reconnect', () => {
+                        this.log('MQTT重连中...');
+                    });
+                });
+            },
+
+            async initConnection() {
+                this.pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ],
+                    iceCandidatePoolSize: 10
+                });
+                
+                this.log('WebRTC初始化完成');
+                
+                if (this.isInitiator) {
+                    this.dc = this.pc.createDataChannel('chat', {ordered: true});
+                    this.setupDataChannel(this.dc);
+                    this.log('创建DataChannel（发起方）');
+                    
+                    const offer = await this.pc.createOffer();
+                    await this.pc.setLocalDescription(offer);
+                    this.log('Offer已创建');
+                    
+                    // 显示房间码
+                    document.getElementById('createLoading').classList.add('hidden');
+                    document.getElementById('roomCodeDisplay').classList.remove('hidden');
+                    document.getElementById('roomCodeDisplay').textContent = this.roomCode;
+                    document.getElementById('createHint').textContent = '将房间码发给对方，等待连接...';
+                    
+                    // 等待ICE收集并发送
+                    this.waitForICE().then(() => {
+                        this.publish('offer', {sdp: this.pc.localDescription});
+                        this.log('Offer已通过MQTT发送');
+                    });
+                } else {
+                    this.pc.ondatachannel = (e) => {
+                        this.dc = e.channel;
+                        this.setupDataChannel(this.dc);
+                        this.log('收到DataChannel（加入方）');
+                    };
+                    
+                    // 加入者切换到聊天界面，等待offer
+                    document.getElementById('setup').classList.add('hidden');
+                    document.getElementById('chat').classList.remove('hidden');
+                    document.getElementById('roomId').textContent = this.roomCode;
+                    
+                    // 发送加入信号
+                    setTimeout(() => {
+                        this.publish('join', {});
+                        this.log('已发送加入请求');
+                        this.addMessage('系统', '正在等待对方信号...', 'system');
+                    }, 1000);
                 }
+
+                this.pc.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        this.publish('ice', {candidate: e.candidate});
+                        this.log('发送ICE候选');
+                    }
+                };
+
+                this.pc.oniceconnectionstatechange = () => {
+                    this.log('ICE状态: ' + this.pc.iceConnectionState);
+                    this.handleConnectionStateChange();
+                };
+            },
+
+            waitForICE() {
+                return new Promise((resolve) => {
+                    if (this.pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        const check = setInterval(() => {
+                            if (this.pc.iceGatheringState === 'complete') {
+                                clearInterval(check);
+                                resolve();
+                            }
+                        }, 500);
+                        // 最长等待5秒
+                        setTimeout(() => {
+                            clearInterval(check);
+                            resolve();
+                        }, 5000);
+                    }
+                });
+            },
+
+            publish(type, data) {
+                if (this.client && this.client.connected) {
+                    const topic = `p2p-chat/${this.roomCode}/${type}`;
+                    const payload = JSON.stringify({type, ...data, timestamp: Date.now()});
+                    this.client.publish(topic, payload);
+                } else {
+                    this.log('MQTT未连接，无法发送', true);
+                }
+            },
+
+            async handleSignalingData(data) {
+                try {
+                    if (data.type === 'join' && this.isInitiator) {
+                        this.log('收到加入请求，发送Offer');
+                        this.publish('offer', {sdp: this.pc.localDescription});
+                    }
+                    else if (data.type === 'offer' && !this.isInitiator) {
+                        this.log('收到Offer，创建Answer');
+                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        const answer = await this.pc.createAnswer();
+                        await this.pc.setLocalDescription(answer);
+                        
+                        this.waitForICE().then(() => {
+                            this.publish('answer', {sdp: this.pc.localDescription});
+                            this.log('Answer已发送');
+                        });
+                    }
+                    else if (data.type === 'answer' && this.isInitiator) {
+                        this.log('收到Answer');
+                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    }
+                    else if (data.type === 'ice') {
+                        this.log('收到ICE候选');
+                        await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    }
+                } catch (e) {
+                    this.log('信令处理错误: ' + e.message, true);
+                }
+            },
+
+            handleConnectionStateChange() {
+                const state = this.pc.iceConnectionState;
+                const badge = document.getElementById('connBadge');
+                badge.textContent = state;
+                
+                if (state === 'connected' || state === 'completed') {
+                    badge.className = 'badge direct';
+                    badge.textContent = '已连接';
+                    document.getElementById('input').style.display = 'flex';
+                    this.addMessage('系统', '✅ P2P连接成功！数据不再经过服务器', 'system');
+                    
+                    // 断开MQTT，纯P2P通信
+                    setTimeout(() => {
+                        if (this.client) {
+                            this.client.end();
+                            this.log('MQTT已断开，纯P2P模式');
+                        }
+                    }, 3000);
+                } else if (state === 'failed') {
+                    badge.className = 'badge failed';
+                    badge.textContent = '失败';
+                    this.addMessage('系统', '❌ 连接失败，请检查网络或重试', 'error');
+                } else if (state === 'disconnected') {
+                    badge.className = 'badge waiting';
+                    badge.textContent = '断开';
+                    this.addMessage('系统', '连接已断开', 'system');
+                }
+            },
+
+            setupDataChannel(dc) {
+                dc.onopen = () => {
+                    this.log('DataChannel已打开');
+                };
+                dc.onmessage = (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        this.addMessage('对方', data.msg, 'other');
+                    } catch(err) {
+                        this.addMessage('对方', e.data, 'other');
+                    }
+                };
+                dc.onclose = () => {
+                    this.log('DataChannel已关闭');
+                };
+                dc.onerror = (e) => {
+                    this.log('DataChannel错误: ' + e.message, true);
+                };
             },
 
             send() {
                 const input = document.getElementById('msgInput');
                 const msg = input.value.trim();
-                if (!msg || this.peers.length === 0) {
-                    alert('未连接或消息为空');
+                if (!msg || !this.dc || this.dc.readyState !== 'open') {
+                    alert(this.dc?.readyState !== 'open' ? '连接尚未就绪' : '消息不能为空');
                     return;
                 }
                 
-                // 发送给所有对等节点
-                this.peers.forEach(peer => {
-                    this.p2pt.send(peer, JSON.stringify({
-                        type: 'chat',
-                        data: msg,
-                        time: Date.now()
-                    }));
-                });
-                
+                this.dc.send(JSON.stringify({msg, time: Date.now()}));
                 this.addMessage('我', msg, 'self');
                 input.value = '';
             },
@@ -257,6 +435,8 @@
                 div.scrollIntoView({behavior: 'smooth'});
             }
         };
+        
+        window.App = App;
     </script>
 </body>
 </html>
