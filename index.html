@@ -2,62 +2,135 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P (修复版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Zero-TURN P2P (移动端优化版)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
     <style>
         :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
-        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-        body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent}
+        
+        /* 移动端优化：使用 dvh 单位，允许滚动 */
+        body{background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;position:relative}
         .hidden{display:none!important}
         
-        #setup{height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+        #setup{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
         .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
         h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
         .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
         
-        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px}
+        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px;touch-action:manipulation;-webkit-touch-callout:none}
         button:hover{opacity:0.9}
         button:disabled{opacity:0.5;cursor:not-allowed}
         button.secondary{background:#333;color:var(--text)}
         
         .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
         
-        #chat{height:100%;display:flex;flex-direction:column;padding:20px}
-        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+        /* 聊天界面优化 */
+        #chat{min-height:100dvh;display:flex;flex-direction:column;padding:20px;padding-bottom:env(safe-area-inset-bottom, 20px)}
+        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
         .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
         .badge.direct{background:var(--accent);color:#000}
         .badge.failed{background:var(--err);color:#fff}
         .badge.waiting{background:var(--warn);color:#000}
         
-        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333}
+        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333;-webkit-overflow-scrolling:touch;min-height:200px}
         .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
         .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
         .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
         .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
         
-        #input{display:flex;gap:10px}
-        #input input{flex:1;padding:12px;background:var(--bg2);border:1px solid #444;border-radius:8px;color:var(--text)}
-        #input button{width:auto;padding:12px 24px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer}
+        /* 输入框区域优化 - 固定在底部，适配键盘 */
+        #input{
+            display:none;
+            gap:10px;
+            flex-shrink:0;
+            padding-bottom:env(safe-area-inset-bottom, 0px);
+            position:sticky;
+            bottom:0;
+            background:var(--bg);
+            padding-top:10px;
+        }
         
-        input[type="text"]{width:100%;padding:12px;background:#000;border:1px solid #444;border-radius:8px;color:var(--text);text-transform:uppercase;font-family:monospace;font-size:16px;text-align:center;letter-spacing:4px;margin:10px 0}
+        #input input{
+            flex:1;
+            padding:12px;
+            background:var(--bg2);
+            border:1px solid #444;
+            border-radius:8px;
+            color:var(--text);
+            font-size:16px; /* 关键：iOS 小于 16px 会自动缩放 */
+            -webkit-user-select:text;
+            user-select:text;
+            -webkit-appearance:none;
+            appearance:none;
+            outline:none;
+        }
+        
+        #input input:focus{
+            border-color:var(--accent);
+            background:#222;
+        }
+        
+        #input button{
+            width:auto;
+            padding:12px 24px;
+            background:var(--accent);
+            border:none;
+            border-radius:8px;
+            color:#000;
+            font-weight:bold;
+            cursor:pointer;
+            touch-action:manipulation;
+        }
+        
+        input[type="text"]{
+            width:100%;
+            padding:12px;
+            background:#000;
+            border:1px solid #444;
+            border-radius:8px;
+            color:var(--text);
+            text-transform:uppercase;
+            font-family:monospace;
+            font-size:16px; /* 防止 iOS 缩放 */
+            text-align:center;
+            letter-spacing:4px;
+            margin:10px 0;
+            -webkit-user-select:text;
+            user-select:text;
+            -webkit-appearance:none;
+            outline:none;
+        }
+        
+        input[type="text"]:focus{
+            border-color:var(--accent);
+        }
         
         .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:10px 0;font-size:12px}
         .spinner{width:16px;height:16px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         
-        .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:100px;overflow-y:auto}
+        .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:100px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+        
+        /* 移动端键盘适配 */
+        @supports (-webkit-touch-callout: none) {
+            /* iOS 特定修复 */
+            #input{
+                margin-bottom: constant(safe-area-inset-bottom);
+                margin-bottom: env(safe-area-inset-bottom);
+            }
+        }
     </style>
 </head>
 <body>
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN P2P (修复版)</h1>
+            <h1>🔮 Zero-TURN P2P (移动端优化)</h1>
             <div class="info">
-                <strong>修复了创建者界面切换和ICE时序问题</strong><br>
-                • 使用HiveMQ公共MQTT服务器<br>
-                • 创建者和加入者都能正确显示界面<br>
-                • ICE候选缓冲处理<br>
+                <strong>修复移动端输入法适配问题</strong><br>
+                • 优化视口高度计算（dvh 单位）<br>
+                • 修复 iOS 键盘弹出时的布局<br>
+                • 输入框字体固定 16px 防止自动缩放<br>
                 <span style="color:var(--warn)">提示：如果连接失败，请刷新重试</span>
             </div>
             
@@ -76,7 +149,16 @@
             
             <div id="joinPanel" class="hidden" style="margin-top:20px">
                 <label style="font-size:12px;color:#888">输入6位房间码：</label>
-                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6">
+                <input type="text" 
+                       id="joinCode" 
+                       placeholder="ABC123" 
+                       maxlength="6"
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="characters"
+                       spellcheck="false"
+                       inputmode="text"
+                       enterkeyhint="go">
                 <button onclick="App.joinRoom()" id="connectBtn">连接</button>
                 <div id="joinLoading" class="loading hidden">
                     <div class="spinner"></div>
@@ -99,7 +181,17 @@
         <div id="messages"></div>
         
         <div id="input" style="display:none">
-            <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')App.send()">
+            <input type="text" 
+                   id="msgInput" 
+                   placeholder="输入消息..." 
+                   maxlength="1000" 
+                   autocomplete="off"
+                   autocorrect="off"
+                   autocapitalize="off"
+                   spellcheck="false"
+                   inputmode="text"
+                   enterkeyhint="send"
+                   onkeypress="if(event.key==='Enter')App.send()">
             <button onclick="App.send()">发送</button>
         </div>
     </div>
@@ -113,7 +205,7 @@
             client: null,
             roomCode: null,
             isInitiator: false,
-            iceCandidatesQueue: [], // 缓冲ICE候选
+            iceCandidatesQueue: [],
             remoteDescriptionSet: false,
 
             log(msg, isError = false) {
@@ -160,7 +252,10 @@
                 document.getElementById('joinPanel').classList.remove('hidden');
                 document.getElementById('joinBtn').classList.add('hidden');
                 document.getElementById('createBtn').classList.add('hidden');
-                document.getElementById('joinCode').focus();
+                // 移动端延迟聚焦，避免键盘过早弹出遮挡界面
+                setTimeout(() => {
+                    document.getElementById('joinCode').focus();
+                }, 100);
             },
 
             async joinRoom() {
@@ -173,10 +268,12 @@
                 document.getElementById('connectBtn').classList.add('hidden');
                 document.getElementById('joinLoading').classList.remove('hidden');
                 
+                // 隐藏键盘
+                document.getElementById('joinCode').blur();
+                
                 try {
                     await this.connectMQTT();
                     this.log('MQTT连接成功，准备加入...');
-                    // 加入者直接切换到聊天界面等待
                     this.switchToChat();
                     await this.initConnection();
                 } catch(e) {
@@ -265,7 +362,6 @@
                 this.remoteDescriptionSet = false;
 
                 if (this.isInitiator) {
-                    // 创建者：创建DataChannel
                     this.dc = this.pc.createDataChannel('chat', {
                         ordered: true,
                         maxRetransmits: 3
@@ -273,32 +369,27 @@
                     this.setupDataChannel(this.dc);
                     this.log('创建DataChannel');
                     
-                    // 创建Offer
                     const offer = await this.pc.createOffer();
                     await this.pc.setLocalDescription(offer);
                     this.log('Offer已创建，收集ICE中...');
                     
-                    // 显示房间码
                     document.getElementById('createLoading').classList.add('hidden');
                     document.getElementById('roomCodeDisplay').classList.remove('hidden');
                     document.getElementById('roomCodeDisplay').textContent = this.roomCode;
                     document.getElementById('createHint').textContent = '等待对方加入...';
                     
-                    // 等待ICE收集完成再发送
                     this.waitForICE().then(() => {
                         this.publish('offer', {sdp: this.pc.localDescription});
                         this.log('Offer已广播');
                     });
                     
                 } else {
-                    // 加入者：等待DataChannel
                     this.pc.ondatachannel = (e) => {
                         this.dc = e.channel;
                         this.setupDataChannel(e.channel);
                         this.log('收到DataChannel');
                     };
                     
-                    // 发送加入信号
                     setTimeout(() => {
                         this.publish('join', {});
                         this.log('发送加入请求');
@@ -306,7 +397,6 @@
                     }, 500);
                 }
 
-                // ICE候选处理
                 this.pc.onicecandidate = (e) => {
                     if (e.candidate) {
                         this.publish('ice', {candidate: e.candidate});
@@ -325,14 +415,17 @@
                         badge.textContent = '已连接';
                         document.getElementById('input').style.display = 'flex';
                         
-                        // 创建者此时也要切换界面（如果还没切换）
                         if (this.isInitiator && !document.getElementById('chat').classList.contains('hidden') === false) {
                             this.switchToChat();
                         }
                         
                         this.addMessage('系统', '✅ P2P连接成功！', 'system');
                         
-                        // 断开MQTT
+                        // 移动端：连接成功后稍微延迟聚焦，避免键盘遮挡欢迎消息
+                        setTimeout(() => {
+                            this.scrollToBottom();
+                        }, 100);
+                        
                         setTimeout(() => {
                             if (this.client) {
                                 this.client.end();
@@ -357,7 +450,6 @@
                                 resolve();
                             }
                         };
-                        // 保险：最多等3秒
                         setTimeout(resolve, 3000);
                     }
                 });
@@ -377,7 +469,6 @@
 
             async handleSignalingData(data) {
                 try {
-                    // 忽略自己的消息
                     if (data.from === (this.isInitiator ? 'creator' : 'joiner')) return;
                     
                     if (data.type === 'join' && this.isInitiator) {
@@ -389,7 +480,6 @@
                         await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
                         this.remoteDescriptionSet = true;
                         
-                        // 处理缓冲的ICE候选
                         this.processQueuedICECandidates();
                         
                         const answer = await this.pc.createAnswer();
@@ -405,10 +495,8 @@
                         await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
                         this.remoteDescriptionSet = true;
                         
-                        // 处理缓冲的ICE候选
                         this.processQueuedICECandidates();
                         
-                        // 创建者此时切换到聊天界面
                         this.switchToChat();
                     }
                     else if (data.type === 'ice') {
@@ -468,6 +556,10 @@
                 this.dc.send(JSON.stringify({msg, time: Date.now()}));
                 this.addMessage('我', msg, 'self');
                 input.value = '';
+                
+                // 移动端发送后保持聚焦，方便连续输入
+                input.focus();
+                this.scrollToBottom();
             },
 
             addMessage(from, text, type) {
@@ -476,11 +568,31 @@
                 const time = new Date().toLocaleTimeString();
                 div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
                 document.getElementById('messages').appendChild(div);
-                div.scrollIntoView({behavior: 'smooth'});
+                this.scrollToBottom();
+            },
+
+            scrollToBottom() {
+                const messages = document.getElementById('messages');
+                messages.scrollTop = messages.scrollHeight;
+                
+                // 移动端键盘弹出后，确保输入框在可视区域
+                if (document.getElementById('input').style.display !== 'none') {
+                    document.getElementById('msgInput').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+                }
             }
         };
         
         window.App = App;
+
+        // 全局辅助：监听视口变化（键盘弹出/收起）
+        window.addEventListener('resize', () => {
+            // iOS Safari 键盘处理
+            setTimeout(() => {
+                if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                    document.activeElement.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+            }, 100);
+        });
     </script>
 </body>
 </html>
