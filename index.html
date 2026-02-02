@@ -2,21 +2,83 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Secure Room - E2EE Chat</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        :root {
+            --bg-dark: #1e1e2e;
+            --bg-light: #2d2d44;
+            --text: #cdd6f4;
+            --text-sub: #9399b6;
+            --accent: #89b4fa;
+            --accent-light: #b4befe;
+            --success: #a6e3a1;
+            --warning: #f9e2af;
+            --error: #f38ba8;
+            --surface: rgba(30, 30, 46, 0.95);
+        }
+
+        html {
+            font-size: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
-            color: #cdd6f4;
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-light) 100%);
+            color: var(--text);
+            height: 100%;
+            height: -webkit-fill-available;
+            height: 100dvh;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
-        .container { max-width: 800px; width: 100%; margin: 0 auto; padding: 20px; flex: 1; display: flex; flex-direction: column; }
-        
-        /* Login Screen */
+
+        .container { 
+            max-width: 900px; 
+            width: 100%; 
+            margin: 0 auto; 
+            padding: 20px; 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(137, 180, 250, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         #login {
             flex: 1;
             display: flex;
@@ -24,54 +86,78 @@
             justify-content: center;
             align-items: center;
             gap: 20px;
+            overflow-y: auto;
+            padding: 20px 0;
         }
         .login-box {
-            background: rgba(30, 30, 46, 0.8);
-            backdrop-filter: blur(10px);
+            background: var(--surface);
             border: 1px solid rgba(147, 153, 178, 0.2);
             border-radius: 16px;
             padding: 40px;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
-        h1 { font-size: 24px; margin-bottom: 8px; color: #f5e0dc; }
-        .subtitle { color: #9399b6; font-size: 14px; margin-bottom: 24px; }
-        .input-group { margin-bottom: 16px; }
-        label { display: block; font-size: 12px; color: #9399b6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        h1 { font-size: 26px; margin-bottom: 8px; color: #f5e0dc; font-weight: 700; }
+        .subtitle { color: var(--text-sub); font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+        
+        .input-group { margin-bottom: 18px; }
+        label { 
+            display: block; 
+            font-size: 11px; 
+            color: var(--text-sub); 
+            margin-bottom: 6px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.8px; 
+            font-weight: 600;
+        }
         input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 16px;
             background: rgba(69, 71, 90, 0.4);
             border: 1px solid rgba(147, 153, 178, 0.2);
-            border-radius: 8px;
-            color: #cdd6f4;
-            font-size: 14px;
-            transition: all 0.3s;
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 15px;
+            transition: all 0.2s;
+            font-family: inherit;
         }
-        input:focus { outline: none; border-color: #89b4fa; background: rgba(69, 71, 90, 0.6); }
+        input:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            background: rgba(69, 71, 90, 0.6); 
+            box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.1);
+        }
+        
         button {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
+            padding: 15px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
             border: none;
-            border-radius: 8px;
-            color: #1e1e2e;
-            font-weight: 600;
+            border-radius: 10px;
+            color: var(--bg-dark);
+            font-weight: 700;
+            font-size: 15px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s;
             margin-top: 8px;
         }
-        button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(137, 180, 250, 0.4); }
-        button:active { transform: translateY(0); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        
-        /* Security Indicators */
+        button:hover:not(:disabled) { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(137, 180, 250, 0.4); 
+        }
+        button:active:not(:disabled) { transform: translateY(0); }
+        button:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+            transform: none !important;
+        }
+
         .security-badges {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: center;
-            margin-top: 20px;
+            margin-top: 24px;
             flex-wrap: wrap;
         }
         .badge {
@@ -79,71 +165,158 @@
             align-items: center;
             gap: 6px;
             padding: 6px 12px;
-            background: rgba(69, 71, 90, 0.4);
+            background: rgba(166, 227, 161, 0.1);
             border-radius: 20px;
-            font-size: 12px;
-            color: #a6e3a1;
+            font-size: 11px;
+            color: var(--success);
             border: 1px solid rgba(166, 227, 161, 0.2);
+            font-weight: 500;
         }
-        .badge::before { content: "●"; font-size: 8px; }
-        
-        /* Chat Screen */
-        #chat { display: none; flex-direction: column; height: 100vh; }
+        .badge::before { 
+            content: ""; 
+            width: 6px; height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .warning-box {
+            background: rgba(249, 226, 175, 0.1);
+            border: 1px solid rgba(249, 226, 175, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--warning);
+            line-height: 1.5;
+            display: none;
+        }
+        .warning-box.active { display: block; }
+
+        #chat { 
+            display: none; 
+            flex-direction: column; 
+            height: 100%;
+            background: var(--bg-dark);
+        }
         .chat-header {
-            background: rgba(30, 30, 46, 0.9);
-            backdrop-filter: blur(10px);
+            background: var(--surface);
             border-bottom: 1px solid rgba(147, 153, 178, 0.2);
-            padding: 16px 20px;
+            padding: 14px 20px;
+            padding-top: calc(14px + env(safe-area-inset-top, 0px));
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 10;
+            flex-shrink: 0;
         }
-        .room-info h2 { font-size: 18px; color: #f5e0dc; margin-bottom: 4px; }
-        .room-meta { font-size: 12px; color: #9399b6; display: flex; gap: 12px; align-items: center; }
+        .room-info { flex: 1; min-width: 0; }
+        .room-info h2 { 
+            font-size: 17px; 
+            color: #f5e0dc; 
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .room-meta { 
+            font-size: 12px; 
+            color: var(--text-sub); 
+            display: flex; 
+            gap: 12px; 
+            align-items: center;
+            flex-wrap: wrap;
+        }
         .status { display: flex; align-items: center; gap: 6px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #a6e3a1; animation: pulse 2s infinite; }
-        .status-dot.offline { background: #f38ba8; animation: none; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .status-dot { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: var(--success); 
+            animation: pulse 2s infinite;
+            position: relative;
+        }
+        .status-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border-radius: 50%;
+            border: 2px solid var(--success);
+            opacity: 0;
+            animation: ripple 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes ripple { 
+            0% { transform: scale(0.8); opacity: 0.5; } 
+            100% { transform: scale(1.5); opacity: 0; } 
+        }
         
-        .header-actions { display: flex; gap: 8px; }
+        .peer-count { font-weight: 600; color: var(--text); }
+        .peer-count.warning { color: var(--warning); }
+        .peer-count.error { color: var(--error); }
+
+        .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
         .icon-btn {
-            padding: 8px 12px;
+            padding: 8px 14px;
             background: rgba(69, 71, 90, 0.4);
             border: 1px solid rgba(147, 153, 178, 0.2);
-            border-radius: 6px;
-            color: #cdd6f4;
-            font-size: 12px;
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 13px;
             cursor: pointer;
             width: auto;
             margin: 0;
+            font-weight: 500;
+            white-space: nowrap;
         }
         .icon-btn:hover { background: rgba(69, 71, 90, 0.6); }
-        
+        .icon-btn.danger { 
+            background: rgba(243, 139, 168, 0.1); 
+            border-color: rgba(243, 139, 168, 0.3);
+            color: var(--error);
+        }
+
         .messages {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             scroll-behavior: smooth;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+            contain: layout style paint;
         }
+        
         .message {
-            max-width: 70%;
+            max-width: 75%;
+            min-width: 120px;
             padding: 12px 16px;
-            border-radius: 12px;
+            border-radius: 14px;
             position: relative;
             animation: fadeIn 0.3s ease;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.5;
+            font-size: 14.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px) scale(0.98); } 
+            to { opacity: 1; transform: translateY(0) scale(1); } 
+        }
+        
         .message.self {
             align-self: flex-end;
-            background: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
-            color: #1e1e2e;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: var(--bg-dark);
             border-bottom-right-radius: 4px;
         }
         .message.other {
@@ -154,117 +327,164 @@
         }
         .message.system {
             align-self: center;
-            background: rgba(245, 224, 220, 0.1);
-            color: #f5e0dc;
+            background: rgba(245, 224, 220, 0.08);
+            color: var(--text-sub);
             font-size: 12px;
-            padding: 6px 12px;
+            padding: 8px 16px;
             max-width: 90%;
+            border-radius: 20px;
+            border: 1px solid rgba(245, 224, 220, 0.1);
+            font-style: italic;
         }
+        .message.history-sync {
+            background: rgba(166, 227, 161, 0.1);
+            border: 1px dashed rgba(166, 227, 161, 0.3);
+            color: var(--success);
+            font-size: 12px;
+            align-self: center;
+            border-radius: 20px;
+        }
+        
         .msg-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 4px;
             font-size: 12px;
-            opacity: 0.8;
+            opacity: 0.9;
             gap: 12px;
         }
-        .msg-user { font-weight: 600; }
-        .msg-time { font-size: 11px; opacity: 0.7; }
-        .msg-text { line-height: 1.5; font-size: 14px; }
+        .msg-user { 
+            font-weight: 700; 
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .user-fingerprint {
+            font-size: 10px;
+            opacity: 0.7;
+            font-family: monospace;
+            font-weight: normal;
+            background: rgba(255,255,255,0.15);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .msg-time { font-size: 11px; opacity: 0.8; }
         
         .input-area {
-            background: rgba(30, 30, 46, 0.9);
-            backdrop-filter: blur(10px);
+            background: var(--surface);
             border-top: 1px solid rgba(147, 153, 178, 0.2);
-            padding: 16px 20px;
+            padding: 14px 20px;
+            padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
             display: flex;
-            gap: 12px;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0;
         }
         .input-area input {
             flex: 1;
             background: rgba(69, 71, 90, 0.4);
+            margin: 0;
         }
         .input-area button {
             width: auto;
             padding: 12px 24px;
             margin: 0;
+            white-space: nowrap;
         }
-        
-        .typing-indicator {
-            font-size: 12px;
-            color: #9399b6;
-            font-style: italic;
-            padding: 0 20px;
-            height: 20px;
+
+        @media (max-width: 768px) {
+            .container { padding: 0; height: 100%; }
+            .login-box { 
+                border-radius: 0; 
+                height: 100%; 
+                max-width: 100%; 
+                display: flex; 
+                flex-direction: column; 
+                justify-content: center; 
+                padding: 24px;
+                padding-top: calc(24px + env(safe-area-inset-top, 0px));
+                padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            }
+            #chat { height: 100%; }
+            .chat-header { padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+            .messages { padding: 16px; }
+            .message { max-width: 88%; font-size: 15px; }
+            .input-area { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+            .login-box, .chat-header, .input-area { backdrop-filter: none !important; }
         }
-        
-        /* Responsive */
-        @media (max-width: 600px) {
-            .container { padding: 0; }
-            .login-box { border-radius: 0; height: 100vh; max-width: 100%; display: flex; flex-direction: column; justify-content: center; }
-            .message { max-width: 85%; }
-            .chat-header { padding: 12px 16px; }
+
+        @media (max-width: 380px) {
+            html { font-size: 14px; }
+            h1 { font-size: 22px; }
+            .message { max-width: 92%; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Login Screen -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <div style="color: var(--text-sub); font-size: 14px;">加密连接中...</div>
+        </div>
+
         <div id="login">
             <div class="login-box">
-                <h1>🔒 Secure Room</h1>
-                <p class="subtitle">端到端加密 · 无服务器 · 零痕迹</p>
+                <h1>🔐 Secure Room</h1>
+                <p class="subtitle">端到端加密 · 无服务器 · 最多6人群聊</p>
                 
                 <div class="input-group">
                     <label>房间标识</label>
-                    <input type="text" id="roomInput" placeholder="例如：project-alpha" autocomplete="off">
+                    <input type="text" id="roomInput" placeholder="例如：project-alpha" autocomplete="off" spellcheck="false">
                 </div>
                 
                 <div class="input-group">
                     <label>访问密码</label>
-                    <input type="password" id="pwdInput" placeholder="用于加密和身份验证" autocomplete="off">
+                    <input type="password" id="pwdInput" placeholder="用于加密和身份验证" autocomplete="new-password" spellcheck="false">
                 </div>
                 
                 <div class="input-group">
                     <label>你的昵称</label>
-                    <input type="text" id="nameInput" placeholder="Anonymous" value="User" maxlength="20">
+                    <input type="text" id="nameInput" placeholder="Anonymous" value="User" maxlength="20" autocomplete="off">
+                </div>
+                
+                <div class="warning-box" id="mobileWarning">
+                    ⚠️ 检测到移动端设备：6人同时在线可能导致发热耗电，建议参与者以桌面端为主。
                 </div>
                 
                 <button onclick="app.join()" id="joinBtn">进入安全频道</button>
                 
                 <div class="security-badges">
                     <div class="badge">AES-256-GCM</div>
-                    <div class="badge">Nostr 中继</div>
-                    <div class="badge">P2P 直连</div>
+                    <div class="badge">6人上限</div>
+                    <div class="badge">P2P直连</div>
                 </div>
             </div>
         </div>
 
-        <!-- Chat Screen -->
         <div id="chat">
             <div class="chat-header">
                 <div class="room-info">
-                    <h2 id="displayRoom">Encrypted Room</h2>
+                    <h2 id="displayRoom">🔐 Encrypted Room</h2>
                     <div class="room-meta">
                         <span class="status">
                             <span class="status-dot" id="statusDot"></span>
-                            <span id="peerCount">1 人在线</span>
+                            <span class="peer-count" id="peerCount">1/6 在线</span>
                         </span>
-                        <span id="relayStatus">Nostr 已连接</span>
+                        <span id="relayStatus" style="color: var(--text-sub);">Nostr 网络</span>
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button class="icon-btn" onclick="app.copyLink()" title="复制分享链接">分享</button>
-                    <button class="icon-btn" onclick="app.leave()" title="离开房间">退出</button>
+                    <button class="icon-btn" onclick="app.copyLink()">分享</button>
+                    <button class="icon-btn danger" onclick="app.leave()">退出</button>
                 </div>
             </div>
             
             <div class="messages" id="messages"></div>
-            <div class="typing-indicator" id="typing"></div>
             
             <div class="input-area">
-                <input type="text" id="msgInput" placeholder="输入加密消息..." maxlength="500" onkeypress="if(event.key==='Enter')app.send()">
-                <button onclick="app.send()">发送</button>
+                <input type="text" id="msgInput" placeholder="输入加密消息..." maxlength="1000" autocomplete="off">
+                <button onclick="app.send()" id="sendBtn">发送</button>
             </div>
         </div>
     </div>
@@ -272,12 +492,12 @@
     <script type="module">
         import { joinRoom } from 'https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm';
 
-        // 加密工具类
         class SecureChannel {
             constructor(password) {
                 this.password = password;
                 this.key = null;
-                this.salt = new TextEncoder().encode('secure-room-v1'); // 固定 salt 用于确定性 ID 派生
+                this.salt = new TextEncoder().encode('secure-room-v1');
+                this.fingerprint = null;
             }
 
             async init() {
@@ -287,8 +507,10 @@
                     encoder.encode(this.password),
                     'PBKDF2',
                     false,
-                    ['deriveKey']
+                    ['deriveKey', 'deriveBits']
                 );
+                
+                // 派生加密密钥
                 this.key = await crypto.subtle.deriveKey(
                     {
                         name: 'PBKDF2',
@@ -301,6 +523,23 @@
                     false,
                     ['encrypt', 'decrypt']
                 );
+
+                // ✅ 修复：使用 deriveBits 而不是 deriveKey + exportKey
+                const fingerprintBits = await crypto.subtle.deriveBits(
+                    {
+                        name: 'PBKDF2',
+                        salt: encoder.encode('fingerprint-salt-v1'),
+                        iterations: 1000,
+                        hash: 'SHA-256'
+                    },
+                    keyMaterial,
+                    128
+                );
+                
+                this.fingerprint = Array.from(new Uint8Array(fingerprintBits))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('')
+                    .substring(0, 8);
             }
 
             async encrypt(text) {
@@ -329,11 +568,10 @@
                     );
                     return new TextDecoder().decode(decrypted);
                 } catch (e) {
-                    return null; // 解密失败（密码错误或数据损坏）
+                    return null;
                 }
             }
 
-            // 派生公开房间 ID
             async deriveRoomId(roomName) {
                 const encoder = new TextEncoder();
                 const data = encoder.encode(roomName + ':' + this.password);
@@ -345,14 +583,30 @@
             }
         }
 
-        // 聊天应用主类
         class ChatApp {
             constructor() {
                 this.room = null;
                 this.channel = null;
-                this.peers = new Set();
+                this.peers = new Map();
                 this.myName = '';
                 this.roomName = '';
+                this.userFingerprint = '';
+                this.vectorClock = 0;
+                this.messageHistory = [];
+                this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                this.maxPeers = 5;
+                this.sendingLock = false;
+                
+                if (this.isMobile) {
+                    document.getElementById('mobileWarning').classList.add('active');
+                }
+
+                if (location.hash && location.hash.length > 1) {
+                    try {
+                        const roomFromUrl = atob(decodeURIComponent(location.hash.substring(1)));
+                        document.getElementById('roomInput').value = roomFromUrl;
+                    } catch(e) {}
+                }
             }
 
             async join() {
@@ -366,155 +620,190 @@
                 }
 
                 const btn = document.getElementById('joinBtn');
+                const loading = document.getElementById('loadingOverlay');
                 btn.disabled = true;
-                btn.textContent = '加密连接中...';
+                loading.classList.add('active');
 
                 try {
-                    // 初始化加密通道
                     this.channel = new SecureChannel(pwdInput);
                     await this.channel.init();
-                    
-                    // 派生匿名房间 ID
-                    const roomId = await this.channel.deriveRoomId(roomInput);
+                    this.userFingerprint = this.channel.fingerprint;
                     this.roomName = roomInput;
                     this.myName = nameInput;
 
-                    // 使用 Nostr 策略（抗审查）
+                    const roomId = await this.channel.deriveRoomId(roomInput);
+
+                    const connectionTimeout = setTimeout(() => {
+                        alert('连接超时：部分中继节点无响应，请检查网络后重试');
+                        btn.disabled = false;
+                        loading.classList.remove('active');
+                    }, 15000);
+
                     this.room = joinRoom({
-                        appId: 'sr-v1',
+                        appId: 'sr-v1-6p',
                         relayUrls: [
                             'wss://relay.damus.io',
                             'wss://relay.snort.social',
                             'wss://nos.lol',
                             'wss://relay.nostr.band'
-                        ]
+                        ],
+                        password: roomId,
+                        maxPeers: this.maxPeers
                     }, roomId);
 
-                    // 设置消息处理
                     const [sendMsg, getMsg] = this.room.makeAction('msg');
+                    const [sendSync, getSync] = this.room.makeAction('sync');
+                    
                     this.sendMsg = sendMsg;
+                    this.sendSync = sendSync;
 
                     getMsg(async (data, peerId) => {
                         if (!data.payload) return;
                         const decrypted = await this.channel.decrypt(data.payload);
-                        if (decrypted) {
-                            try {
-                                const msg = JSON.parse(decrypted);
-                                this.displayMsg(msg.name, msg.text, msg.ts, false);
-                            } catch (e) {
-                                console.error('消息解析失败');
+                        if (!decrypted) return;
+                        
+                        try {
+                            const msg = JSON.parse(decrypted);
+                            if (msg.vc && msg.vc > this.vectorClock) {
+                                this.vectorClock = msg.vc;
                             }
+                            
+                            this.messageHistory.push({
+                                payload: data.payload,
+                                ts: msg.ts
+                            });
+                            if (this.messageHistory.length > 20) this.messageHistory.shift();
+                            
+                            if (msg.fingerprint) {
+                                this.peers.set(peerId, {
+                                    name: msg.name,
+                                    fingerprint: msg.fingerprint,
+                                    lastSeen: Date.now()
+                                });
+                            }
+                            
+                            this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
+                        } catch (e) {
+                            console.error('消息解析失败', e);
                         }
                     });
 
-                    // 对等节点事件
+                    getSync(async (data, peerId) => {
+                        if (data.type === 'request' && this.messageHistory.length > 0) {
+                            this.sendMsg({ 
+                                type: 'history',
+                                history: this.messageHistory.slice(-20),
+                                target: peerId
+                            });
+                        }
+                    });
+
                     this.room.onPeerJoin((peerId) => {
-                        this.peers.add(peerId);
+                        clearTimeout(connectionTimeout);
+                        if (this.peers.size >= this.maxPeers) {
+                            this.displayMsg('系统', '⚠️ 房间已满（最多6人）', Date.now(), true);
+                            return;
+                        }
+                        this.peers.set(peerId, { 
+                            name: 'Unknown', 
+                            fingerprint: null,
+                            lastSeen: Date.now() 
+                        });
                         this.updatePeerCount();
-                        this.displayMsg('系统', '有加密节点接入频道', Date.now(), true);
+                        this.displayMsg('系统', `🔔 有加密节点接入 (${this.peers.size}/6)`, Date.now(), true);
+                        
+                        setTimeout(() => this.sendSync({ type: 'request' }), 1000);
                     });
 
                     this.room.onPeerLeave((peerId) => {
                         this.peers.delete(peerId);
                         this.updatePeerCount();
-                        this.displayMsg('系统', '加密节点断开连接', Date.now(), true);
+                        this.displayMsg('系统', `👋 加密节点断开 (${this.peers.size}/6)`, Date.now(), true);
                     });
 
-                    // 切换界面
                     document.getElementById('login').style.display = 'none';
                     document.getElementById('chat').style.display = 'flex';
-                    document.getElementById('displayRoom').textContent = `🔐 ${roomInput}`;
+                    document.getElementById('displayRoom').innerHTML = `🔐 ${this.escapeHtml(roomInput)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
                     
-                    this.displayMsg('系统', `你已匿名进入房间 "${roomInput}"\n所有消息已端到端加密`, Date.now(), true);
+                    loading.classList.remove('active');
+                    
+                    this.displayMsg('系统', 
+                        `✅ 已进入房间 "${roomInput}"\n` +
+                        `📍 你的指纹: ${this.userFingerprint}\n` +
+                        `👥 上限: 6人 | 当前: ${this.peers.size + 1}人`, 
+                        Date.now(), true
+                    );
 
                 } catch (err) {
                     console.error(err);
-                    alert('连接失败，请检查网络');
+                    alert('连接失败: ' + err.message);
                     btn.disabled = false;
-                    btn.textContent = '进入安全频道';
+                    loading.classList.remove('active');
                 }
             }
 
             async send() {
+                if (this.sendingLock) return;
                 const input = document.getElementById('msgInput');
                 const text = input.value.trim();
                 if (!text || !this.sendMsg) return;
 
-                const msg = {
-                    name: this.myName,
-                    text: text,
-                    ts: Date.now()
-                };
+                this.sendingLock = true;
+                document.getElementById('sendBtn').disabled = true;
 
                 try {
+                    this.vectorClock++;
+                    const msg = {
+                        id: crypto.randomUUID(),
+                        name: this.myName,
+                        text: text,
+                        ts: Date.now(),
+                        vc: this.vectorClock,
+                        fingerprint: this.userFingerprint
+                    };
+
                     const encrypted = await this.channel.encrypt(JSON.stringify(msg));
                     this.sendMsg({ payload: encrypted });
-                    this.displayMsg(this.myName, text, msg.ts, true);
+                    
+                    this.messageHistory.push({ payload: encrypted, ts: msg.ts });
+                    if (this.messageHistory.length > 20) this.messageHistory.shift();
+
+                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, false, true);
                     input.value = '';
+                    
                 } catch (err) {
                     console.error('发送失败', err);
+                    alert('发送失败，请重试');
+                } finally {
+                    this.sendingLock = false;
+                    document.getElementById('sendBtn').disabled = false;
                 }
             }
 
-            displayMsg(user, text, ts, isSystem) {
+            displayMsg(user, text, ts, isSystem, fingerprint = null, isHistory = false, isSelf = false) {
                 const container = document.getElementById('messages');
                 const div = document.createElement('div');
-                div.className = `message ${isSystem ? 'system' : (user === this.myName ? 'self' : 'other')}`;
                 
-                const time = new Date(ts).toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+                if (isSystem) {
+                    div.className = 'message system';
+                } else if (isSelf) {
+                    div.className = 'message self';
+                } else {
+                    div.className = 'message other';
+                }
+                
+                const time = new Date(ts).toLocaleTimeString('zh-CN', {
+                    hour: '2-digit', 
+                    minute: '2-digit'
+                });
                 
                 if (isSystem) {
                     div.innerHTML = `<div class="msg-text" style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
                 } else {
+                    const fpDisplay = fingerprint ? 
+                        `<span class="user-fingerprint">#${fingerprint.substring(0,4)}</span>` : '';
+                    
                     div.innerHTML = `
                         <div class="msg-header">
-                            <span class="msg-user">${this.escapeHtml(user)}</span>
-                            <span class="msg-time">${time}</span>
-                        </div>
-                        <div class="msg-text">${this.escapeHtml(text)}</div>
-                    `;
-                }
-                
-                container.appendChild(div);
-                container.scrollTop = container.scrollHeight;
-            }
-
-            updatePeerCount() {
-                const count = this.peers.size + 1;
-                document.getElementById('peerCount').textContent = `${count} 人在线`;
-                document.getElementById('statusDot').className = count > 1 ? 'status-dot' : 'status-dot offline';
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            copyLink() {
-                const url = `${window.location.origin}${window.location.pathname}#${btoa(this.roomName)}`;
-                navigator.clipboard.writeText(url).then(() => {
-                    alert('房间链接已复制（注意：密码不会包含在链接中，请通过安全渠道分享密码）');
-                });
-            }
-
-            leave() {
-                if (this.room) this.room.leave();
-                location.reload();
-            }
-        }
-
-        // 初始化
-        const app = new ChatApp();
-        window.app = app; // 暴露到全局以便 HTML 调用
-
-        // 检查 URL hash 是否有预设房间
-        if (location.hash) {
-            try {
-                const roomFromUrl = atob(location.hash.substring(1));
-                document.getElementById('roomInput').value = roomFromUrl;
-            } catch(e) {}
-        }
-    </script>
-</body>
-</html>
+                            <span class="msg-user">${this.escapeHtml(user)}${fpDisplay}</span>
+                            <sp
