@@ -548,10 +548,6 @@
             box-shadow: 0 4px 16px rgba(0, 200, 170, 0.25);
         }
         
-        .msg.self .msg-author{
-            color: var(--accent);
-        }
-        
         .msg.system{
             align-self: center;
             max-width: 90%;
@@ -756,6 +752,11 @@
             opacity: 0.6;
         }
         
+        #input input[type="text"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .input-btn {
             width: 40px !important;
             height: 40px;
@@ -774,14 +775,21 @@
             transition: all 0.3s ease !important;
         }
         
-        .input-btn:hover {
+        .input-btn:hover:not(:disabled) {
             transform: scale(1.05) !important;
             background: var(--accent) !important;
             color: white !important;
         }
         
-        .input-btn:active {
+        .input-btn:active:not(:disabled) {
             transform: scale(0.95) !important;
+        }
+        
+        .input-btn:disabled {
+            opacity: 0.4 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: none !important;
         }
         
         #input button.send-btn{
@@ -791,6 +799,11 @@
             border-radius: 20px;
             white-space: nowrap;
             font-weight: 600;
+        }
+        
+        #input button.send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
         
         /* 语音输入按钮 */
@@ -814,7 +827,7 @@
             overflow: hidden;
         }
         
-        .voice-record-btn:active, .voice-record-btn.recording {
+        .voice-record-btn:active:not(:disabled), .voice-record-btn.recording {
             background: var(--voice-bg);
             border-color: var(--accent);
             color: var(--accent);
@@ -828,6 +841,11 @@
         @keyframes recordingPulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(0, 200, 170, 0.4); }
             50% { box-shadow: 0 0 0 10px rgba(0, 200, 170, 0); }
+        }
+        
+        .voice-record-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
         
         .voice-record-btn .record-hint {
@@ -1086,6 +1104,35 @@
             50% { opacity: 0.5; transform: scale(0.9); }
         }
         
+        /* 图片源选择菜单 */
+        #imageSourceModal {
+            touch-action: none;
+        }
+        
+        #imageSourceModal .glass-strong button {
+            transition: background-color 0.2s;
+        }
+        
+        #imageSourceModal .glass-strong button:active {
+            background: var(--hover-bg) !important;
+            transform: scale(0.98) !important;
+        }
+        
+        /* 输入框阻塞提示 */
+        #inputBlocker {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 13px;
+            color: var(--warning);
+            font-weight: 600;
+            pointer-events: none;
+            text-shadow: 0 1px 2px var(--bg);
+            animation: pulse 2s infinite;
+        }
+        
         @media (max-width: 600px){
             .card { padding: 28px 24px; }
             h1 { font-size: 24px; }
@@ -1146,6 +1193,31 @@
         <div class="record-hint-text" id="recordHint">松开发送，上滑取消</div>
         <div class="record-cancel-zone" id="cancelZone">
             <span>松开取消</span>
+        </div>
+    </div>
+
+    <!-- 图片源选择菜单 -->
+    <div id="imageSourceModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 2500; display: flex; align-items: flex-end; justify-content: center; padding: 20px; opacity: 0; transition: opacity 0.3s;">
+        <div class="glass-strong" style="width: 100%; max-width: 400px; border-radius: 24px; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+            <div style="padding: 12px 0; text-align: center; border-bottom: 1px solid var(--glass-border);">
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: 600;">选择图片来源</span>
+            </div>
+            
+            <button onclick="window.chatApp?.selectImageSource('camera')" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--text); font-size: 17px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; margin: 0; box-shadow: none;">
+                <span style="font-size: 20px;">📷</span> 拍照
+            </button>
+            
+            <div style="height: 1px; background: var(--glass-border); margin: 0 20px;"></div>
+            
+            <button onclick="window.chatApp?.selectImageSource('gallery')" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--text); font-size: 17px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; margin: 0; box-shadow: none;">
+                <span style="font-size: 20px;">🖼️</span> 从相册选择
+            </button>
+            
+            <div style="height: 8px; background: var(--glass-border); opacity: 0.5;"></div>
+            
+            <button onclick="window.chatApp?.closeImageSourceModal()" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--error); font-size: 17px; font-weight: 600; cursor: pointer; border-radius: 0; margin: 0; box-shadow: none;">
+                取消
+            </button>
         </div>
     </div>
 
@@ -1250,7 +1322,12 @@
         <div id="messages"></div>
         
         <div id="input" class="glass-strong input-mode-text">
-            <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="window.chatApp?.handleImageSelect(event)">
+            <!-- 连接状态提示层 -->
+            <div id="inputBlocker" class="hidden">
+                🔒 等待加密节点连接...
+            </div>
+            
+            <input type="file" id="fileInput" accept="image/*" onchange="window.chatApp?.handleImageSelect(event)">
             
             <!-- 语音/文本切换按钮 -->
             <button class="input-btn" onclick="window.chatApp?.toggleInputMode()" title="切换语音/文字" id="modeToggleBtn">
@@ -1258,9 +1335,9 @@
             </button>
             
             <!-- 文本输入模式 -->
-            <div id="textInputWrapper" style="flex:1;display:flex;gap:10px;align-items:center;">
+            <div id="textInputWrapper" style="flex:1;display:flex;gap:10px;align-items:center; position: relative;">
                 <div id="inputWrapper" style="flex:1;">
-                    <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')window.chatApp?.send()">
+                    <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter' && !this.disabled) window.chatApp?.send()">
                 </div>
                 <button class="input-btn" onclick="window.chatApp?.triggerImageSelect()" title="发送图片" style="font-size:16px;">
                     📷
@@ -1287,31 +1364,31 @@
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
         // ==================== 配置常量 ====================
- const CONFIG = {
-    MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
-    MQTT_USERNAME: 'hajimi',
-    // 密码用 Base64 编码，防君子不防小人
-    // 原密码 258758Szh 的 Base64: MjU4NzU4U3po
-    get MQTT_PASSWORD() { 
-        try {
-            return atob('MjU4NzU4U3po'); 
-        } catch(e) {
-            return '258758Szh'; // 备用
-        }
-    },
-    
-    ICE_SERVERS: [
-        { urls: "stun:stun.relay.metered.ca:80" },
-        { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-        { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
-    ],
-    MAX_PEERS: 7,
-    MAX_MESSAGE_SIZE: 16384,
-    CHUNK_SIZE: 16384,
-    MAX_VOICE_DURATION: 60,
-    READ_RECEIPT_DELAY: 500,
-    ROOM_EXPIRY: 30 * 60 * 1000
-};
+        const CONFIG = {
+            MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
+            MQTT_USERNAME: 'hajimi',
+            // 密码用 Base64 编码，防君子不防小人
+            // 原密码 258758Szh 的 Base64: MjU4NzU4U3po
+            get MQTT_PASSWORD() { 
+                try {
+                    return atob('MjU4NzU4U3po'); 
+                } catch(e) {
+                    return '258758Szh'; // 备用
+                }
+            },
+            
+            ICE_SERVERS: [
+                { urls: "stun:stun.relay.metered.ca:80" },
+                { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+                { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
+            ],
+            MAX_PEERS: 7,
+            MAX_MESSAGE_SIZE: 16384,
+            CHUNK_SIZE: 16384,
+            MAX_VOICE_DURATION: 60,
+            READ_RECEIPT_DELAY: 500,
+            ROOM_EXPIRY: 30 * 60 * 1000
+        };
 
         // ==================== 工具类 ====================
         class Utils {
@@ -1975,15 +2052,64 @@
                 e.preventDefault();
                 if (this.isRecording) return;
                 
-                const success = await this.voiceManager.startRecording();
-                if (!success) return;
+                // 检查是否有连接
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                if (!hasConnectedPeer) {
+                    this.showToast('⚠️ 请先等待节点连接');
+                    return;
+                }
                 
-                this.isRecording = true;
-                this.recordCancelZone = false;
-                
-                document.getElementById('recordOverlay').classList.add('show');
-                document.getElementById('recordBtn').classList.add('recording');
-                document.getElementById('recordBtnText').textContent = '松开结束';
+                try {
+                    this.voiceManager.initAudioContext();
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            sampleRate: 16000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        } 
+                    });
+
+                    this.voiceManager.audioChunks = [];
+                    this.voiceManager.recorder = new MediaRecorder(stream, {
+                        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                            ? 'audio/webm;codecs=opus' 
+                            : 'audio/webm'
+                    });
+
+                    this.voiceManager.recorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) this.voiceManager.audioChunks.push(e.data);
+                    };
+
+                    this.voiceManager.recorder.onstop = () => {
+                        this.voiceManager.finalizeRecording();
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    this.voiceManager.recorder.start(100);
+                    this.voiceManager.recordStartTime = Date.now();
+                    this.voiceManager.startRecordTimer();
+                    
+                    this.isRecording = true;
+                    this.recordCancelZone = false;
+                    
+                    document.getElementById('recordOverlay').classList.add('show');
+                    document.getElementById('recordBtn').classList.add('recording');
+                    document.getElementById('recordBtnText').textContent = '松开结束';
+                    
+                    return true;
+                } catch (err) {
+                    console.error('录音失败:', err);
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        this.showToast('❌ 请允许麦克风权限以发送语音');
+                        this.addSystemMessage('⚠️ 麦克风权限被拒绝：请点击地址栏左侧锁形图标，允许麦克风权限', 'warning');
+                    } else if (err.name === 'NotFoundError') {
+                        this.showToast('❌ 未找到麦克风设备');
+                    } else {
+                        this.showToast('无法访问麦克风：' + err.message);
+                    }
+                    return false;
+                }
             }
 
             stopRecord(e) {
@@ -2137,6 +2263,79 @@
                 
                 this.updateOnlineCount();
                 this.connection.established = true;
+                
+                // 添加关键使用提示（每个对话开始时显示）
+                setTimeout(() => {
+                    this.addSystemMessage('💡 提示：发送语音前请允许浏览器麦克风权限', 'info');
+                    this.addSystemMessage('⏳ 提示：等待左上角显示"已连接"后再发送消息', 'info');
+                    this.updateInputBlocker();
+                }, 600);
+            }
+
+            updateInputBlocker() {
+                const input = document.getElementById('msgInput');
+                const sendBtn = document.querySelector('#textInputWrapper .send-btn');
+                const recordBtn = document.getElementById('recordBtn');
+                const modeToggleBtn = document.getElementById('modeToggleBtn');
+                const imageBtn = document.querySelector('button[title="发送图片"]');
+                
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                const isConnecting = Array.from(this.peers.values()).some(p => 
+                    p.pc && (p.pc.connectionState === 'connecting' || p.pc.connectionState === 'new')
+                );
+                
+                if (!hasConnectedPeer) {
+                    input.disabled = true;
+                    input.placeholder = isConnecting ? '正在建立加密连接...' : '等待节点加入...';
+                    input.style.opacity = '0.6';
+                    
+                    if (sendBtn) {
+                        sendBtn.disabled = true;
+                        sendBtn.style.opacity = '0.4';
+                        sendBtn.style.cursor = 'not-allowed';
+                    }
+                    
+                    if (recordBtn) {
+                        recordBtn.disabled = true;
+                        recordBtn.style.opacity = '0.4';
+                        document.getElementById('recordBtnText').textContent = '🔇 等待连接';
+                    }
+                    
+                    if (modeToggleBtn) modeToggleBtn.disabled = true;
+                    if (imageBtn) {
+                        imageBtn.disabled = true;
+                        imageBtn.style.opacity = '0.4';
+                    }
+                    
+                    const blocker = document.getElementById('inputBlocker');
+                    if (blocker) blocker.classList.remove('hidden');
+                    
+                } else {
+                    input.disabled = false;
+                    input.placeholder = '发送消息...';
+                    input.style.opacity = '1';
+                    
+                    if (sendBtn) {
+                        sendBtn.disabled = false;
+                        sendBtn.style.opacity = '1';
+                        sendBtn.style.cursor = 'pointer';
+                    }
+                    
+                    if (recordBtn) {
+                        recordBtn.disabled = false;
+                        recordBtn.style.opacity = '1';
+                        document.getElementById('recordBtnText').textContent = '按住说话';
+                    }
+                    
+                    if (modeToggleBtn) modeToggleBtn.disabled = false;
+                    if (imageBtn) {
+                        imageBtn.disabled = false;
+                        imageBtn.style.opacity = '1';
+                    }
+                    
+                    const blocker = document.getElementById('inputBlocker');
+                    if (blocker) blocker.classList.add('hidden');
+                }
             }
 
             copyCurrentRoomCode() {
@@ -2393,6 +2592,7 @@
                     this.updateOnlineCount();
                     this.updateUserList();
                     this.showToast(`${peer.username} 已连接`);
+                    this.updateInputBlocker();
                     
                     while (peer.pendingMessages?.length > 0) {
                         const msg = peer.pendingMessages.shift();
@@ -2426,6 +2626,7 @@
                     peer.connected = false;
                     this.updateOnlineCount();
                     this.updateUserList();
+                    this.updateInputBlocker();
                 };
                 
                 dc.onerror = (err) => console.error('DataChannel error:', err);
@@ -2459,16 +2660,23 @@
 
             updateConnectionStatus(state, peer) {
                 const statusEl = document.getElementById('connectionStatus');
+                
                 if (state === 'connected') {
                     peer.connected = true;
                     this.updateOnlineCount();
                     this.updateUserList();
                     if (statusEl) statusEl.innerHTML = '<span class="conn-status connected"></span>已连接';
+                    this.updateInputBlocker();
                 } else if (state === 'connecting') {
                     if (statusEl) statusEl.innerHTML = '<span class="conn-status connecting"></span>连接中';
+                    this.updateInputBlocker();
                 } else if (['disconnected', 'failed', 'closed'].includes(state)) {
                     if (state === 'disconnected') {
-                        setTimeout(() => { if (peer.pc.connectionState === 'disconnected') this.removePeer(peer.userId); }, 5000);
+                        setTimeout(() => { 
+                            if (peer.pc.connectionState === 'disconnected') {
+                                this.removePeer(peer.userId);
+                            }
+                        }, 5000);
                     } else {
                         this.removePeer(peer.userId);
                     }
@@ -2514,37 +2722,93 @@
                     this.peers.delete(userId);
                     this.updateOnlineCount();
                     this.updateUserList();
+                    this.updateInputBlocker();
                 }
             }
 
             triggerImageSelect() {
+                const modal = document.getElementById('imageSourceModal');
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    modal.style.opacity = '1';
+                    modal.querySelector('.glass-strong').style.transform = 'translateY(0)';
+                });
+            }
+
+            selectImageSource(source) {
                 const fileInput = document.getElementById('fileInput');
-                if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
-                    fileInput.capture = 'environment';
+                
+                if (source === 'camera') {
+                    fileInput.setAttribute('capture', 'environment');
+                    fileInput.removeAttribute('multiple');
                 } else {
                     fileInput.removeAttribute('capture');
+                    if (!/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                        fileInput.setAttribute('multiple', 'multiple');
+                    }
                 }
-                fileInput.click();
+                
+                this.closeImageSourceModal();
+                
+                setTimeout(() => {
+                    fileInput.click();
+                }, 100);
+            }
+
+            closeImageSourceModal() {
+                const modal = document.getElementById('imageSourceModal');
+                modal.style.opacity = '0';
+                modal.querySelector('.glass-strong').style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
             }
 
             async handleImageSelect(event) {
-                const file = event.target.files[0];
-                if (!file || !file.type.startsWith('image/')) return this.showToast('请选择图片');
-                if (file.size > 10 * 1024 * 1024) return this.showToast('图片过大');
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
                 
-                this.showToast('处理中...');
-                try {
-                    const compressed = await Utils.compressImage(file);
-                    if (compressed.length > 500 * 1024) return this.showToast('图片仍过大');
-                    this.sendImage(compressed, Utils.getDataSize(compressed));
-                } catch (err) {
-                    this.showToast('处理失败');
-                } finally {
+                const invalidFiles = files.filter(f => !f.type.startsWith('image/'));
+                if (invalidFiles.length > 0) {
+                    this.showToast('请选择图片文件');
                     event.target.value = '';
+                    return;
                 }
+                
+                const oversizedFiles = files.filter(f => f.size > 10 * 1024 * 1024);
+                if (oversizedFiles.length > 0) {
+                    this.showToast('部分图片过大（超过10MB）');
+                }
+                
+                const validFiles = files.filter(f => f.size <= 10 * 1024 * 1024);
+                
+                this.showToast(`正在处理 ${validFiles.length} 张图片...`);
+                
+                for (const file of validFiles) {
+                    try {
+                        const compressed = await Utils.compressImage(file);
+                        if (compressed.length > 500 * 1024) {
+                            this.showToast(`"${file.name}" 压缩后仍过大，已跳过`);
+                            continue;
+                        }
+                        this.sendImage(compressed, Utils.getDataSize(compressed));
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    } catch (err) {
+                        console.error('处理图片失败:', err);
+                        this.showToast(`"${file.name}" 处理失败`);
+                    }
+                }
+                
+                event.target.value = '';
             }
 
             sendImage(dataUrl, sizeHint) {
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                if (!hasConnectedPeer) {
+                    this.showToast('⚠️ 请等待节点连接后再发送图片');
+                    return;
+                }
+                
                 this.messages.seq++;
                 const message = {
                     id: `${this.user.id}_${Date.now()}_${this.messages.seq}`,
@@ -2559,8 +2823,20 @@
 
             send() {
                 const input = document.getElementById('msgInput');
+                if (input.disabled) {
+                    this.showToast('⏳ 请等待节点连接后再发送');
+                    return;
+                }
+                
                 const content = input.value.trim();
                 if (!content) return;
+                
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                if (!hasConnectedPeer) {
+                    this.showToast('⚠️ 当前无可用连接，请稍候');
+                    this.updateInputBlocker();
+                    return;
+                }
                 
                 this.messages.seq++;
                 const message = {
