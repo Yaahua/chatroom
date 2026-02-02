@@ -7,7 +7,7 @@
 
 &gt; 一个基于 WebRTC 的端到端加密 P2P 聊天室，支持文字、图片和语音消息。无需服务器存储，数据直接在浏览器间传输。
 
-[🌐 在线体验](https://yourusername.github.io/your-repo-name/) 
+[🌐 在线体验](https://yaahua.github.io/chatroom/) 
 
 ---
 
@@ -23,11 +23,7 @@
 
 ---
 
-## 🚀 快速开始
-
-### 在线使用（推荐）
-直接访问 GitHub Pages 部署地址：https://yaahua.github.io/chatroom/
-### 🐛 如何提交 Issue
+## 🐛 如何提交 Issue
 提交前检查
 [ ] 已查阅 FAQ 没有找到解决方案
 [ ] 已搜索现有 Issues，确认没有重复问题
