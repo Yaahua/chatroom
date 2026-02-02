@@ -48,7 +48,7 @@
 是否能看见对方在线？
 双方网络环境（是否同一 WiFi、是否有防火墙）
 控制台 webrtc-internals 日志（Chrome 访问 chrome://webrtc-internals）
-###❓ 常见问题
+### ❓ 常见问题
 Q: 为什么有时候消息发送失败？
 A: P2P 连接需要双方网络都支持 WebRTC。如果一方在企业防火墙/NAT 后，可能需要通过 TURN 服务器中继。
 Q: 语音消息可以保存多久？
