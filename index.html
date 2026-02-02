@@ -171,6 +171,30 @@
         .msg.join .msg-content{background:rgba(52,152,219,0.1);border-color:rgba(52,152,219,0.3);color:var(--info)}
         .msg.leave .msg-content{background:rgba(255,71,87,0.1);border-color:rgba(255,71,87,0.3);color:var(--err)}
         
+        /* 图片消息样式 */
+        .msg-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin-top: 4px;
+            background: #000;
+            object-fit: cover;
+        }
+        .msg-image-placeholder {
+            width: 200px;
+            height: 150px;
+            background: var(--bg);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 12px;
+            border: 1px dashed #444;
+        }
+        
         /* 输入区域 - 修改为固定在底部 */
         #input{
             position:fixed; /* 固定定位 */
@@ -189,24 +213,61 @@
             margin:0 auto; /* 居中 */
         }
         
-        #input input{
-            flex:1;padding:12px;background:#000;border:1px solid #444;
-            border-radius:8px;color:var(--text);font-size:16px;
+        #inputWrapper {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        #input input[type="text"]{
+            flex:1;padding:8px 12px;background:transparent;border:none;
+            color:var(--text);font-size:16px;
             -webkit-user-select:text;user-select:text;-webkit-appearance:none;outline:none;
         }
-        #input input:focus{border-color:var(--accent)}
+        #input input[type="text"]:focus{border-color:var(--accent)}
         
-        #input button{
-            width:auto;padding:12px 20px;margin:0;border-radius:8px;white-space:nowrap;
+        /* 图片按钮 */
+        .img-btn {
+            width: 36px !important;
+            height: 36px;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: 6px;
+            background: transparent !important;
+            color: var(--text) !important;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none !important;
+            flex-shrink: 0;
+        }
+        .img-btn:hover {
+            background: rgba(255,255,255,0.1) !important;
+            transform: none !important;
         }
         
-        input[type="text"]{
+        #input button.send-btn{
+            width:auto;padding:10px 20px;margin:0;border-radius:8px;white-space:nowrap;
+        }
+        
+        input[type="text"].setup-input{
             width:100%;padding:12px;background:#000;border:1px solid #444;
             border-radius:8px;color:var(--text);font-size:16px;text-align:center;
             letter-spacing:2px;margin:10px 0;-webkit-user-select:text;user-select:text;
             outline:none;
         }
-        input[type="text"]:focus{border-color:var(--accent)}
+        input[type="text"].setup-input:focus{border-color:var(--accent)}
+        
+        /* 文件输入隐藏 */
+        #fileInput {
+            display: none;
+        }
         
         .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:10px 0;font-size:12px}
         .spinner{width:16px;height:16px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
@@ -246,6 +307,49 @@
         }
         .toast.show { opacity: 1; }
         
+        /* 图片预览模态框 */
+        #imageModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #imageModal.show { display: flex; }
+        #imageModal img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        #imageModal .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        /* 图片发送进度 */
+        .image-progress {
+            font-size: 11px;
+            color: var(--accent);
+            margin-top: 4px;
+            font-style: italic;
+        }
+        
         /* 连接状态指示器 */
         .conn-status {
             display: inline-block;
@@ -266,6 +370,7 @@
             #input{padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom, 20px))}
             #messages{padding:10px;padding-bottom:90px}
             .recent-room-code{font-size:20px}
+            .msg-image { max-height: 200px; }
         }
     </style>
 </head>
@@ -273,12 +378,18 @@
     <!-- Toast 提示 -->
     <div id="toast" class="toast"></div>
 
+    <!-- 图片预览模态框 -->
+    <div id="imageModal" onclick="App.closeImageModal()">
+        <button class="close-modal" onclick="event.stopPropagation(); App.closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="预览">
+    </div>
+
     <!-- 用户名设置弹窗 -->
     <div id="userSetup">
         <div class="card" style="max-width:400px">
             <div class="user-avatar" id="avatarPreview">?</div>
             <h2 style="text-align:center;margin-bottom:10px">设置你的身份</h2>
-            <input type="text" id="usernameInput" placeholder="输入昵称 (2-12字)" maxlength="12" style="text-transform:none;letter-spacing:0">
+            <input type="text" id="usernameInput" placeholder="输入昵称 (2-12字)" maxlength="12" style="text-transform:none;letter-spacing:0" class="setup-input">
             <div style="font-size:12px;color:#666;text-align:center;margin-bottom:15px">
                 多人聊天室中显示的名称<br>
                 <span style="color:var(--warn)">进入后无法修改</span>
@@ -295,7 +406,7 @@
                 <strong>去中心化多人加密聊天</strong><br>
                 • 支持最多 8 人同时在线（Mesh 网络）<br>
                 • 消息端到端加密，服务器不存储记录<br>
-                • 显示精确时间戳和消息序号<br>
+                • 支持发送图片（自动压缩）<br>
                 • <span style="color:var(--accent)">已启用 TURN 服务器穿透</span>
             </div>
             
@@ -334,7 +445,7 @@
             
             <div id="joinPanel" class="hidden" style="margin-top:20px">
                 <label style="font-size:12px;color:#888">输入6位房间码：</label>
-                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" autocomplete="off" autocapitalize="characters">
+                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" autocomplete="off" autocapitalize="characters" class="setup-input">
                 <button onclick="App.joinRoom()" id="connectBtn">加入群聊</button>
                 <div id="joinLoading" class="loading hidden">
                     <div class="spinner"></div>
@@ -371,8 +482,12 @@
         
         <!-- 输入框已改为fixed定位，这里保留结构但样式已修改 -->
         <div id="input">
-            <input type="text" id="msgInput" placeholder="发送消息给所有人..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')App.send()">
-            <button onclick="App.send()">发送</button>
+            <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="App.handleImageSelect(event)">
+            <button class="img-btn" onclick="App.triggerImageSelect()" title="发送图片">📷</button>
+            <div id="inputWrapper">
+                <input type="text" id="msgInput" placeholder="发送消息给所有人..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')App.send()">
+            </div>
+            <button onclick="App.send()" class="send-btn">发送</button>
         </div>
     </div>
 
@@ -422,6 +537,54 @@
                 hash = name.charCodeAt(i) + ((hash << 5) - hash);
             }
             return colors[Math.abs(hash) % colors.length];
+        };
+        
+        // 图片压缩工具
+        const ImageCompressor = {
+            // 压缩图片到指定最大宽度/高度
+            compress(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            // 计算缩放比例
+                            if (width > maxWidth || height > maxHeight) {
+                                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                                width *= ratio;
+                                height *= ratio;
+                            }
+                            
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#000';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // 转换为 JPEG 以减小体积
+                            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            resolve(dataUrl);
+                        };
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            },
+            
+            // 获取文件大小提示
+            getSizeHint(base64String) {
+                const bytes = Math.ceil(base64String.length * 0.75);
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
         };
         
         const App = {
@@ -1117,7 +1280,109 @@
                 }
             },
 
-            // 发送消息（广播给所有 peers，支持离线缓存）
+            // ========== 图片发送功能 ==========
+            
+            // 触发图片选择（兼容移动端相机和相册）
+            triggerImageSelect() {
+                const fileInput = document.getElementById('fileInput');
+                // 移动端优先使用相机，如果不支持则使用相册
+                if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                    // 尝试使用相机，如果用户取消会回到相册
+                    fileInput.capture = 'environment';
+                } else {
+                    fileInput.removeAttribute('capture');
+                }
+                fileInput.click();
+            },
+            
+            // 处理图片选择
+            async handleImageSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // 检查文件类型
+                if (!file.type.startsWith('image/')) {
+                    this.showToast('请选择图片文件');
+                    return;
+                }
+                
+                // 检查文件大小（原始大小），限制 10MB
+                if (file.size > 10 * 1024 * 1024) {
+                    this.showToast('图片过大，请选择小于 10MB 的图片');
+                    return;
+                }
+                
+                this.showToast('正在处理图片...');
+                
+                try {
+                    // 压缩图片（最大1200px边长，质量0.7）
+                    const compressedDataUrl = await ImageCompressor.compress(file, 1200, 1200, 0.7);
+                    const sizeHint = ImageCompressor.getSizeHint(compressedDataUrl);
+                    
+                    // 检查压缩后大小（DataChannel 有 MTU 限制，约 16KB，但我们可以分片，这里先简单限制）
+                    // 实际应用中应该实现分片传输，这里为了简单限制在 500KB Base64
+                    if (compressedDataUrl.length > 500 * 1024) {
+                        this.showToast('图片压缩后仍过大，请裁剪后重试');
+                        return;
+                    }
+                    
+                    this.sendImage(compressedDataUrl, sizeHint);
+                    
+                } catch (err) {
+                    console.error('图片处理失败:', err);
+                    this.showToast('图片处理失败');
+                } finally {
+                    // 清空 input 以便下次选择同一文件
+                    event.target.value = '';
+                }
+            },
+            
+            // 发送图片消息
+            sendImage(imageDataUrl, sizeHint) {
+                this.messageSeq++;
+                
+                const message = {
+                    id: `${this.userId}_${Date.now()}_${this.messageSeq}`,
+                    userId: this.userId,
+                    username: this.username,
+                    avatarColor: this.avatarColor,
+                    content: imageDataUrl,
+                    seq: this.messageSeq,
+                    timestamp: new Date().toISOString(),
+                    type: 'image', // 标记为图片消息
+                    sizeHint: sizeHint
+                };
+                
+                // 发送给所有已连接或连接中的 peers
+                let sentCount = 0;
+                let pendingCount = 0;
+                
+                this.peers.forEach((peer, uid) => {
+                    if (peer.dataChannel && peer.dataChannel.readyState === 'open') {
+                        try {
+                            peer.dataChannel.send(JSON.stringify(message));
+                            sentCount++;
+                        } catch(e) {
+                            console.error(`发送给 ${peer.username} 失败`, e);
+                        }
+                    } else if (peer.pc && ['new', 'connecting'].includes(peer.pc.connectionState)) {
+                        if (!peer.pendingMessages) peer.pendingMessages = [];
+                        peer.pendingMessages.push(message);
+                        pendingCount++;
+                    }
+                });
+                
+                // 显示自己的图片消息
+                this.displayMessage(message, true);
+                
+                if (this.peers.size > 0 && sentCount === 0 && pendingCount === 0) {
+                    this.showToast('没有就绪的连接，图片仅自己可见');
+                } else if (sentCount > 0) {
+                    this.log(`图片已发送给 ${sentCount} 人 (${sizeHint})`);
+                }
+            },
+
+            // 发送文字消息（广播给所有 peers，支持离线缓存）
             send() {
                 const input = document.getElementById('msgInput');
                 const content = input.value.trim();
@@ -1182,6 +1447,19 @@
                 const div = document.createElement('div');
                 div.className = `msg ${isSelf ? 'self' : ''}`;
                 
+                let contentHtml = '';
+                
+                if (msg.type === 'image') {
+                    // 图片消息
+                    contentHtml = `
+                        <img src="${msg.content}" class="msg-image" alt="图片" onclick="App.openImageModal('${msg.content}')" loading="lazy">
+                        ${msg.sizeHint ? `<div class="image-progress">大小: ${msg.sizeHint}</div>` : ''}
+                    `;
+                } else {
+                    // 文字消息
+                    contentHtml = `<div class="msg-content">${this.escapeHtml(msg.content)}</div>`;
+                }
+                
                 div.innerHTML = `
                     <div class="msg-header">
                         <span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || '#fff')}">
@@ -1190,11 +1468,30 @@
                         <span class="msg-seq">#${msg.seq || '-'}</span>
                         <span class="msg-time">${time}</span>
                     </div>
-                    <div class="msg-content">${this.escapeHtml(msg.content)}</div>
+                    ${contentHtml}
                 `;
                 
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
+            },
+            
+            // 打开图片预览
+            openImageModal(src) {
+                const modal = document.getElementById('imageModal');
+                const img = document.getElementById('modalImage');
+                img.src = src;
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden'; // 防止背景滚动
+            },
+            
+            // 关闭图片预览
+            closeImageModal() {
+                const modal = document.getElementById('imageModal');
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+                setTimeout(() => {
+                    document.getElementById('modalImage').src = '';
+                }, 300);
             },
 
             addSystemMessage(text, type = 'info') {
@@ -1347,6 +1644,14 @@
                     userId: App.userId, 
                     action: 'leave'
                 });
+            }
+        });
+        
+        // 键盘快捷键（Ctrl/Cmd + Enter 发送）
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                const chatVisible = !document.getElementById('chat').classList.contains('hidden');
+                if (chatVisible) App.send();
             }
         });
     </script>
