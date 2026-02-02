@@ -1133,7 +1133,6 @@
             -webkit-user-select: none;
         }
     </style>
-<base target="_blank">
 </head>
 <body>
     <div id="toast" class="toast"></div>
@@ -1289,18 +1288,24 @@
 
         // ==================== 配置常量 ====================
         const CONFIG = {
-            MQTT_URL: 'wss://broker.hivemq.com:8884/mqtt',
+            // 新的 HiveMQ Cloud 专属集群地址（欧洲节点）
+            MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
+            
+            // 认证信息（你刚才创建的凭证）
+            MQTT_USERNAME: 'hajimi',
+            MQTT_PASSWORD: '258758Szh',
+            
             ICE_SERVERS: [
                 { urls: "stun:stun.relay.metered.ca:80" },
                 { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
                 { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
             ],
             MAX_PEERS: 7,
-            MAX_MESSAGE_SIZE: 16384, // 16KB
+            MAX_MESSAGE_SIZE: 16384,
             CHUNK_SIZE: 16384,
             MAX_VOICE_DURATION: 60,
             READ_RECEIPT_DELAY: 500,
-            ROOM_EXPIRY: 30 * 60 * 1000 // 30分钟
+            ROOM_EXPIRY: 30 * 60 * 1000
         };
 
         // ==================== 工具类 ====================
@@ -1400,7 +1405,7 @@
                 this.receivingBuffers = new Map();
                 this.currentPlaying = null;
                 this.audioContext = null;
-                this.voiceBlobs = new Map(); // 存储语音blob供播放
+                this.voiceBlobs = new Map();
             }
 
             initAudioContext() {
@@ -1508,10 +1513,8 @@
                 const voiceId = `voice_${this.app.user.id}_${Date.now()}`;
                 const arrayBuffer = await blob.arrayBuffer();
                 
-                // 始终使用分片传输确保可靠性
                 const totalChunks = Math.ceil(arrayBuffer.byteLength / CONFIG.CHUNK_SIZE) || 1;
                 
-                // 1. 发送元信息
                 const meta = {
                     id: `${this.app.user.id}_${Date.now()}`,
                     userId: this.app.user.id,
@@ -1531,7 +1534,6 @@
                     return;
                 }
                 
-                // 2. 分片发送
                 for (let i = 0; i < totalChunks; i++) {
                     const start = i * CONFIG.CHUNK_SIZE;
                     const end = Math.min(start + CONFIG.CHUNK_SIZE, arrayBuffer.byteLength);
@@ -1547,7 +1549,6 @@
                     if (i < totalChunks - 1) await new Promise(r => setTimeout(r, 10));
                 }
                 
-                // 3. 发送结束标记
                 setTimeout(() => {
                     this.app.broadcastMessage({
                         type: 'voice_end',
@@ -1556,7 +1557,6 @@
                     });
                 }, 100);
                 
-                // 本地显示
                 this.app.displayVoiceMessage({ ...meta, type: 'voice', blob, local: true }, true);
                 this.app.initMessageStatus(voiceId, true);
             }
@@ -1568,7 +1568,7 @@
                     let firstPipe = -1, secondPipe = -1;
                     
                     for (let i = 0; i < headerLen; i++) {
-                        if (uint8[i] === 124) { // '|'
+                        if (uint8[i] === 124) {
                             if (firstPipe === -1) firstPipe = i;
                             else if (secondPipe === -1) {
                                 secondPipe = i;
@@ -1628,7 +1628,7 @@
             }
 
             handleVoiceEnd(peerId, data) {
-                // 依靠数量判断，可扩展结束逻辑
+                // 依靠数量判断
             }
 
             assembleVoice(voiceId) {
@@ -1715,7 +1715,7 @@
         class ReadReceiptManager {
             constructor(chatApp) {
                 this.app = chatApp;
-                this.messageStatus = new Map(); // msgId -> { delivered, readBy:Set, readNames:Set, timestamp }
+                this.messageStatus = new Map();
                 this.pendingReceipts = new Set();
                 this.sendTimer = null;
                 this.observer = null;
@@ -1756,7 +1756,6 @@
                     timestamp: Date.now()
                 });
                 
-                // 检查送达状态
                 this.checkDelivery(msgId);
             }
 
@@ -1834,7 +1833,6 @@
                         ${readCount > 1 ? readCount : ''}
                     `;
                     
-                    // 添加详情提示
                     const timeEl = msgEl.querySelector('.msg-time');
                     if (timeEl && !timeEl.querySelector('.read-details')) {
                         const details = document.createElement('div');
@@ -1875,7 +1873,6 @@
                 this.isRecording = false;
                 this.recordCancelZone = false;
                 
-                // 模块实例
                 this.voiceManager = new VoiceManager(this);
                 this.readReceiptManager = new ReadReceiptManager(this);
                 
@@ -1949,7 +1946,6 @@
                 }
             }
 
-            // ==================== UI 方法 ====================
             toggleInputMode() {
                 const textWrapper = document.getElementById('textInputWrapper');
                 const voiceWrapper = document.getElementById('voiceInputWrapper');
@@ -2062,7 +2058,6 @@
                 document.getElementById('userSetup').classList.add('hidden');
             }
 
-            // ==================== 房间管理 ====================
             async createRoom() {
                 if (!this.user.name) {
                     document.getElementById('userSetup').classList.remove('hidden');
@@ -2221,7 +2216,6 @@
                 }
             }
 
-            // ==================== 连接管理 ====================
             async connectMQTT() {
                 return new Promise((resolve, reject) => {
                     const clientId = `hajimide-${this.user.id.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
@@ -2230,7 +2224,9 @@
                         clientId,
                         clean: true,
                         connectTimeout: 15000,
-                        reconnectPeriod: 3000
+                        reconnectPeriod: 3000,
+                        username: CONFIG.MQTT_USERNAME,
+                        password: CONFIG.MQTT_PASSWORD
                     });
                     
                     const timeout = setTimeout(() => reject(new Error('超时')), 15000);
@@ -2516,7 +2512,6 @@
                 }
             }
 
-            // ==================== 消息处理 ====================
             triggerImageSelect() {
                 const fileInput = document.getElementById('fileInput');
                 if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
@@ -2685,7 +2680,7 @@
                     const senderId = element.dataset.senderId;
                     if (senderId && senderId !== this.user.id) {
                         this.readReceiptManager.markAsRead(voiceId);
-                        this.readReceiptManager.sendBatch(); // 立即发送
+                        this.readReceiptManager.sendBatch();
                     }
                 }
             }
@@ -2749,7 +2744,6 @@
                 // 备用广播通道
             }
 
-            // ==================== 工具方法 ====================
             showToast(msg) {
                 const toast = document.getElementById('toast');
                 toast.textContent = msg;
@@ -2776,7 +2770,6 @@
             }
         }
 
-        // 初始化应用
         window.chatApp = new ChatApplication();
     </script>
 </body>
