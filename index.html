@@ -4,263 +4,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Secure Room - E2EE Chat</title>
     <style>
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent;
-            -webkit-text-size-adjust: 100%;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         :root {
-            --bg-dark: #1e1e2e;
+            --bg: #1e1e2e;
             --bg-light: #2d2d44;
             --text: #cdd6f4;
-            --text-sub: #9399b6;
+            --sub: #9399b6;
             --accent: #89b4fa;
-            --accent-light: #b4befe;
             --success: #a6e3a1;
-            --warning: #f9e2af;
+            --warn: #f9e2af;
             --error: #f38ba8;
-            --surface: rgba(30, 30, 46, 0.95);
         }
 
-        html {
-            font-size: 16px;
-            height: 100%;
-            overflow: hidden;
-        }
-
+        html { font-size: 16px; height: 100%; overflow: hidden; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-light) 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 100%);
             color: var(--text);
-            height: 100%;
-            height: -webkit-fill-available;
             height: 100dvh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        .container { 
-            max-width: 900px; 
-            width: 100%; 
-            margin: 0 auto; 
-            padding: 20px; 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column;
-            height: 100%;
-            position: relative;
-        }
+        .container { max-width: 900px; width: 100%; margin: 0 auto; padding: 20px; flex: 1; display: flex; flex-direction: column; height: 100%; }
 
+        /* Loading Screen with Progress */
         .loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
             flex-direction: column;
-            gap: 16px;
+            gap: 20px;
+            padding: 20px;
         }
         .loading-overlay.active { display: flex; }
+        
+        .loading-box {
+            background: rgba(30, 30, 46, 0.9);
+            border: 1px solid rgba(147, 153, 178, 0.2);
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+        }
+        
         .spinner {
             width: 40px; height: 40px;
-            border: 3px solid rgba(137, 180, 250, 0.3);
+            border: 3px solid rgba(137, 180, 250, 0.2);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        #login {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            overflow-y: auto;
-            padding: 20px 0;
+        .loading-status {
+            color: var(--text);
+            font-size: 15px;
+            margin-bottom: 8px;
         }
+        .loading-detail {
+            color: var(--sub);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .retry-btn {
+            margin-top: 16px;
+            padding: 10px 20px;
+            background: rgba(137, 180, 250, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: none;
+        }
+        .retry-btn.show { display: inline-block; }
+
+        /* Login */
+        #login { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .login-box {
-            background: var(--surface);
+            background: rgba(30, 30, 46, 0.9);
             border: 1px solid rgba(147, 153, 178, 0.2);
             border-radius: 16px;
             padding: 40px;
             width: 100%;
             max-width: 420px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
-        h1 { font-size: 26px; margin-bottom: 8px; color: #f5e0dc; font-weight: 700; }
-        .subtitle { color: var(--text-sub); font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #f5e0dc; }
+        .subtitle { color: var(--sub); font-size: 14px; margin-bottom: 24px; }
         
-        .input-group { margin-bottom: 18px; }
-        label { 
-            display: block; 
-            font-size: 11px; 
-            color: var(--text-sub); 
-            margin-bottom: 6px; 
-            text-transform: uppercase; 
-            letter-spacing: 0.8px; 
-            font-weight: 600;
-        }
+        .input-group { margin-bottom: 16px; }
+        label { display: block; font-size: 11px; color: var(--sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         input {
             width: 100%;
-            padding: 14px 16px;
+            padding: 14px;
             background: rgba(69, 71, 90, 0.4);
             border: 1px solid rgba(147, 153, 178, 0.2);
             border-radius: 10px;
             color: var(--text);
             font-size: 15px;
-            transition: all 0.2s;
-            font-family: inherit;
         }
-        input:focus { 
-            outline: none; 
-            border-color: var(--accent); 
-            background: rgba(69, 71, 90, 0.6); 
-            box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.1);
-        }
-        
+        input:focus { outline: none; border-color: var(--accent); }
+
         button {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, #b4befe 100%);
             border: none;
             border-radius: 10px;
-            color: var(--bg-dark);
+            color: var(--bg);
             font-weight: 700;
             font-size: 15px;
             cursor: pointer;
-            transition: all 0.2s;
             margin-top: 8px;
         }
-        button:hover:not(:disabled) { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 20px rgba(137, 180, 250, 0.4); 
-        }
-        button:active:not(:disabled) { transform: translateY(0); }
-        button:disabled { 
-            opacity: 0.6; 
-            cursor: not-allowed; 
-            transform: none !important;
-        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .security-badges {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 24px;
-            flex-wrap: wrap;
-        }
-        .badge {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: rgba(166, 227, 161, 0.1);
-            border-radius: 20px;
-            font-size: 11px;
-            color: var(--success);
-            border: 1px solid rgba(166, 227, 161, 0.2);
-            font-weight: 500;
-        }
-        .badge::before { 
-            content: ""; 
-            width: 6px; height: 6px;
-            background: var(--success);
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .warning-box {
-            background: rgba(249, 226, 175, 0.1);
-            border: 1px solid rgba(249, 226, 175, 0.3);
-            border-radius: 8px;
+        .tips {
+            margin-top: 20px;
             padding: 12px;
-            margin-top: 16px;
+            background: rgba(249, 226, 175, 0.1);
+            border-radius: 8px;
             font-size: 12px;
-            color: var(--warning);
+            color: var(--warn);
             line-height: 1.5;
             display: none;
         }
-        .warning-box.active { display: block; }
+        .tips.show { display: block; }
 
-        #chat { 
-            display: none; 
-            flex-direction: column; 
-            height: 100%;
-            background: var(--bg-dark);
-        }
+        /* Chat */
+        #chat { display: none; flex-direction: column; height: 100%; }
         .chat-header {
-            background: var(--surface);
+            background: rgba(30, 30, 46, 0.95);
             border-bottom: 1px solid rgba(147, 153, 178, 0.2);
             padding: 14px 20px;
             padding-top: calc(14px + env(safe-area-inset-top, 0px));
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            flex-shrink: 0;
         }
-        .room-info { flex: 1; min-width: 0; }
-        .room-info h2 { 
-            font-size: 17px; 
-            color: #f5e0dc; 
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .room-meta { 
-            font-size: 12px; 
-            color: var(--text-sub); 
-            display: flex; 
-            gap: 12px; 
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .status { display: flex; align-items: center; gap: 6px; }
+        .room-info h2 { font-size: 17px; color: #f5e0dc; display: flex; align-items: center; gap: 8px; }
+        .room-meta { font-size: 12px; color: var(--sub); margin-top: 2px; }
         .status-dot { 
-            width: 8px; 
-            height: 8px; 
-            border-radius: 50%; 
-            background: var(--success); 
+            width: 8px; height: 8px; border-radius: 50%; background: var(--success); 
+            display: inline-block; margin-right: 4px;
             animation: pulse 2s infinite;
-            position: relative;
         }
-        .status-dot::after {
-            content: '';
-            position: absolute;
-            top: -4px; left: -4px; right: -4px; bottom: -4px;
-            border-radius: 50%;
-            border: 2px solid var(--success);
-            opacity: 0;
-            animation: ripple 2s infinite;
-        }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        @keyframes ripple { 
-            0% { transform: scale(0.8); opacity: 0.5; } 
-            100% { transform: scale(1.5); opacity: 0; } 
-        }
-        
-        .peer-count { font-weight: 600; color: var(--text); }
-        .peer-count.warning { color: var(--warning); }
-        .peer-count.error { color: var(--error); }
+        .status-dot.offline { background: var(--error); animation: none; }
+        .status-dot.connecting { background: var(--warn); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
         .icon-btn {
             padding: 8px 14px;
             background: rgba(69, 71, 90, 0.4);
@@ -271,52 +175,29 @@
             cursor: pointer;
             width: auto;
             margin: 0;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .icon-btn:hover { background: rgba(69, 71, 90, 0.6); }
-        .icon-btn.danger { 
-            background: rgba(243, 139, 168, 0.1); 
-            border-color: rgba(243, 139, 168, 0.3);
-            color: var(--error);
         }
 
         .messages {
             flex: 1;
             overflow-y: auto;
-            overflow-x: hidden;
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             scroll-behavior: smooth;
-            overscroll-behavior-y: contain;
-            -webkit-overflow-scrolling: touch;
-            contain: layout style paint;
         }
-        
         .message {
-            max-width: 75%;
-            min-width: 120px;
+            max-width: 80%;
             padding: 12px 16px;
             border-radius: 14px;
-            position: relative;
-            animation: fadeIn 0.3s ease;
             word-wrap: break-word;
-            overflow-wrap: break-word;
             line-height: 1.5;
-            font-size: 14.5px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 14px;
         }
-        @keyframes fadeIn { 
-            from { opacity: 0; transform: translateY(10px) scale(0.98); } 
-            to { opacity: 1; transform: translateY(0) scale(1); } 
-        }
-        
         .message.self {
             align-self: flex-end;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            color: var(--bg-dark);
+            background: linear-gradient(135deg, var(--accent) 0%, #b4befe 100%);
+            color: var(--bg);
             border-bottom-right-radius: 4px;
         }
         .message.other {
@@ -327,163 +208,100 @@
         }
         .message.system {
             align-self: center;
-            background: rgba(245, 224, 220, 0.08);
-            color: var(--text-sub);
+            color: var(--sub);
             font-size: 12px;
-            padding: 8px 16px;
-            max-width: 90%;
-            border-radius: 20px;
-            border: 1px solid rgba(245, 224, 220, 0.1);
             font-style: italic;
-        }
-        .message.history-sync {
-            background: rgba(166, 227, 161, 0.1);
-            border: 1px dashed rgba(166, 227, 161, 0.3);
-            color: var(--success);
-            font-size: 12px;
-            align-self: center;
+            background: rgba(245, 224, 220, 0.05);
+            padding: 8px 16px;
             border-radius: 20px;
         }
-        
-        .msg-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-            font-size: 12px;
-            opacity: 0.9;
-            gap: 12px;
-        }
-        .msg-user { 
-            font-weight: 700; 
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .user-fingerprint {
-            font-size: 10px;
-            opacity: 0.7;
-            font-family: monospace;
-            font-weight: normal;
-            background: rgba(255,255,255,0.15);
-            padding: 1px 4px;
-            border-radius: 3px;
-        }
-        .msg-time { font-size: 11px; opacity: 0.8; }
-        
+
         .input-area {
-            background: var(--surface);
+            background: rgba(30, 30, 46, 0.95);
             border-top: 1px solid rgba(147, 153, 178, 0.2);
             padding: 14px 20px;
             padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
             display: flex;
             gap: 10px;
-            align-items: center;
-            flex-shrink: 0;
         }
-        .input-area input {
-            flex: 1;
-            background: rgba(69, 71, 90, 0.4);
-            margin: 0;
-        }
-        .input-area button {
-            width: auto;
-            padding: 12px 24px;
-            margin: 0;
-            white-space: nowrap;
-        }
+        .input-area input { flex: 1; }
+        .input-area button { width: auto; padding: 12px 24px; margin: 0; }
 
         @media (max-width: 768px) {
-            .container { padding: 0; height: 100%; }
+            .container { padding: 0; }
             .login-box { 
-                border-radius: 0; 
-                height: 100%; 
-                max-width: 100%; 
-                display: flex; 
-                flex-direction: column; 
-                justify-content: center; 
+                height: 100%; max-width: 100%; border-radius: 0; 
+                display: flex; flex-direction: column; justify-content: center;
                 padding: 24px;
                 padding-top: calc(24px + env(safe-area-inset-top, 0px));
                 padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
             }
             #chat { height: 100%; }
+            .message { max-width: 90%; }
             .chat-header { padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
-            .messages { padding: 16px; }
-            .message { max-width: 88%; font-size: 15px; }
             .input-area { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
-            .login-box, .chat-header, .input-area { backdrop-filter: none !important; }
-        }
-
-        @media (max-width: 380px) {
-            html { font-size: 14px; }
-            h1 { font-size: 22px; }
-            .message { max-width: 92%; }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Loading with Status -->
         <div class="loading-overlay" id="loadingOverlay">
-            <div class="spinner"></div>
-            <div style="color: var(--text-sub); font-size: 14px;">加密连接中...</div>
+            <div class="loading-box">
+                <div class="spinner"></div>
+                <div class="loading-status" id="loadingStatus">初始化加密通道...</div>
+                <div class="loading-detail" id="loadingDetail">正在连接 Nostr 网络</div>
+                <button class="retry-btn" id="retryBtn" onclick="app.forceContinue()">跳过连接，进入离线模式</button>
+            </div>
         </div>
 
         <div id="login">
             <div class="login-box">
                 <h1>🔐 Secure Room</h1>
-                <p class="subtitle">端到端加密 · 无服务器 · 最多6人群聊</p>
+                <p class="subtitle">端到端加密 · P2P直连 · 最多6人</p>
                 
                 <div class="input-group">
                     <label>房间标识</label>
-                    <input type="text" id="roomInput" placeholder="例如：project-alpha" autocomplete="off" spellcheck="false">
+                    <input type="text" id="roomInput" placeholder="例如：project-alpha" autocomplete="off">
                 </div>
                 
                 <div class="input-group">
                     <label>访问密码</label>
-                    <input type="password" id="pwdInput" placeholder="用于加密和身份验证" autocomplete="new-password" spellcheck="false">
+                    <input type="password" id="pwdInput" placeholder="用于加密和身份验证" autocomplete="new-password">
                 </div>
                 
                 <div class="input-group">
                     <label>你的昵称</label>
-                    <input type="text" id="nameInput" placeholder="Anonymous" value="User" maxlength="20" autocomplete="off">
+                    <input type="text" id="nameInput" placeholder="Anonymous" value="User" maxlength="20">
                 </div>
                 
-                <div class="warning-box" id="mobileWarning">
-                    ⚠️ 检测到移动端设备：6人同时在线可能导致发热耗电，建议参与者以桌面端为主。
+                <div class="tips" id="networkTip">
+                    💡 提示：如果连接超时，可尝试切换网络（WiFi ↔ 移动数据）或稍后再试
                 </div>
                 
                 <button onclick="app.join()" id="joinBtn">进入安全频道</button>
-                
-                <div class="security-badges">
-                    <div class="badge">AES-256-GCM</div>
-                    <div class="badge">6人上限</div>
-                    <div class="badge">P2P直连</div>
-                </div>
             </div>
         </div>
 
         <div id="chat">
             <div class="chat-header">
                 <div class="room-info">
-                    <h2 id="displayRoom">🔐 Encrypted Room</h2>
+                    <h2 id="displayRoom">🔐 Room</h2>
                     <div class="room-meta">
-                        <span class="status">
-                            <span class="status-dot" id="statusDot"></span>
-                            <span class="peer-count" id="peerCount">1/6 在线</span>
-                        </span>
-                        <span id="relayStatus" style="color: var(--text-sub);">Nostr 网络</span>
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="peerCount">连接中...</span>
                     </div>
                 </div>
-                <div class="header-actions">
+                <div>
                     <button class="icon-btn" onclick="app.copyLink()">分享</button>
-                    <button class="icon-btn danger" onclick="app.leave()">退出</button>
+                    <button class="icon-btn" onclick="app.leave()" style="margin-left: 8px;">退出</button>
                 </div>
             </div>
             
             <div class="messages" id="messages"></div>
             
             <div class="input-area">
-                <input type="text" id="msgInput" placeholder="输入加密消息..." maxlength="1000" autocomplete="off">
+                <input type="text" id="msgInput" placeholder="输入消息..." maxlength="1000" onkeypress="if(event.key==='Enter')app.send()">
                 <button onclick="app.send()" id="sendBtn">发送</button>
             </div>
         </div>
@@ -492,94 +310,70 @@
     <script type="module">
         import { joinRoom } from 'https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm';
 
+        // 更健壮的中继列表（包含亚洲节点）
+        const RELAY_URLS = [
+            'wss://relay.damus.io',
+            'wss://relay.snort.social',
+            'wss://nos.lol',
+            'wss://relay.nostr.band',
+            'wss://nostr.wine',           // 欧洲
+            'wss://relay.nostr.bg',       // 东欧
+            'wss://nostr.oxtr.dev'        // 备选
+        ];
+
         class SecureChannel {
             constructor(password) {
                 this.password = password;
                 this.key = null;
-                this.salt = new TextEncoder().encode('secure-room-v1');
                 this.fingerprint = null;
             }
 
             async init() {
                 const encoder = new TextEncoder();
                 const keyMaterial = await crypto.subtle.importKey(
-                    'raw',
-                    encoder.encode(this.password),
-                    'PBKDF2',
-                    false,
-                    ['deriveKey', 'deriveBits']
+                    'raw', encoder.encode(this.password), 'PBKDF2', false, ['deriveKey', 'deriveBits']
                 );
                 
-                // 派生加密密钥
+                // 主密钥
+                const salt = encoder.encode('secure-room-v1');
                 this.key = await crypto.subtle.deriveKey(
-                    {
-                        name: 'PBKDF2',
-                        salt: this.salt,
-                        iterations: 100000,
-                        hash: 'SHA-256'
-                    },
-                    keyMaterial,
-                    { name: 'AES-GCM', length: 256 },
-                    false,
-                    ['encrypt', 'decrypt']
+                    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+                    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
                 );
 
-                // ✅ 修复：使用 deriveBits 而不是 deriveKey + exportKey
-                const fingerprintBits = await crypto.subtle.deriveBits(
-                    {
-                        name: 'PBKDF2',
-                        salt: encoder.encode('fingerprint-salt-v1'),
-                        iterations: 1000,
-                        hash: 'SHA-256'
-                    },
-                    keyMaterial,
-                    128
+                // 指纹（使用 deriveBits 避免 exportKey 限制）
+                const fpBits = await crypto.subtle.deriveBits(
+                    { name: 'PBKDF2', salt: encoder.encode('fp-salt'), iterations: 1000, hash: 'SHA-256' },
+                    keyMaterial, 128
                 );
-                
-                this.fingerprint = Array.from(new Uint8Array(fingerprintBits))
-                    .map(b => b.toString(16).padStart(2, '0'))
-                    .join('')
-                    .substring(0, 8);
+                this.fingerprint = Array.from(new Uint8Array(fpBits))
+                    .map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
             }
 
             async encrypt(text) {
-                const encoder = new TextEncoder();
                 const iv = crypto.getRandomValues(new Uint8Array(12));
                 const ciphertext = await crypto.subtle.encrypt(
-                    { name: 'AES-GCM', iv },
-                    this.key,
-                    encoder.encode(text)
+                    { name: 'AES-GCM', iv }, this.key, new TextEncoder().encode(text)
                 );
                 const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
-                combined.set(iv);
-                combined.set(new Uint8Array(ciphertext), iv.length);
+                combined.set(iv); combined.set(new Uint8Array(ciphertext), iv.length);
                 return btoa(String.fromCharCode(...combined));
             }
 
             async decrypt(base64) {
                 try {
                     const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-                    const iv = data.slice(0, 12);
-                    const ciphertext = data.slice(12);
                     const decrypted = await crypto.subtle.decrypt(
-                        { name: 'AES-GCM', iv },
-                        this.key,
-                        ciphertext
+                        { name: 'AES-GCM', iv: data.slice(0, 12) }, this.key, data.slice(12)
                     );
                     return new TextDecoder().decode(decrypted);
-                } catch (e) {
-                    return null;
-                }
+                } catch { return null; }
             }
 
             async deriveRoomId(roomName) {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(roomName + ':' + this.password);
+                const data = new TextEncoder().encode(roomName + ':' + this.password);
                 const hash = await crypto.subtle.digest('SHA-256', data);
-                return Array.from(new Uint8Array(hash))
-                    .map(b => b.toString(16).padStart(2, '0'))
-                    .join('')
-                    .substring(0, 32);
+                return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
             }
         }
 
@@ -587,26 +381,28 @@
             constructor() {
                 this.room = null;
                 this.channel = null;
-                this.peers = new Map();
+                this.peers = new Set();
                 this.myName = '';
                 this.roomName = '';
                 this.userFingerprint = '';
                 this.vectorClock = 0;
-                this.messageHistory = [];
-                this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                this.maxPeers = 5;
                 this.sendingLock = false;
+                this.connectionAttempt = 0;
+                this.maxRetries = 2;
+                this.offlineMode = false;
                 
-                if (this.isMobile) {
-                    document.getElementById('mobileWarning').classList.add('active');
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    document.getElementById('networkTip').classList.add('show');
                 }
 
-                if (location.hash && location.hash.length > 1) {
-                    try {
-                        const roomFromUrl = atob(decodeURIComponent(location.hash.substring(1)));
-                        document.getElementById('roomInput').value = roomFromUrl;
-                    } catch(e) {}
+                if (location.hash.length > 1) {
+                    try { document.getElementById('roomInput').value = atob(decodeURIComponent(location.hash.substring(1))); } catch {}
                 }
+            }
+
+            updateLoading(status, detail) {
+                document.getElementById('loadingStatus').textContent = status;
+                document.getElementById('loadingDetail').textContent = detail;
             }
 
             async join() {
@@ -614,139 +410,154 @@
                 const pwdInput = document.getElementById('pwdInput').value;
                 const nameInput = document.getElementById('nameInput').value.trim() || 'Anonymous';
                 
-                if (!roomInput || !pwdInput) {
-                    alert('请输入房间标识和密码');
-                    return;
-                }
+                if (!roomInput || !pwdInput) { alert('请输入房间标识和密码'); return; }
 
-                const btn = document.getElementById('joinBtn');
-                const loading = document.getElementById('loadingOverlay');
-                btn.disabled = true;
-                loading.classList.add('active');
+                document.getElementById('joinBtn').disabled = true;
+                document.getElementById('loadingOverlay').classList.add('active');
+                
+                this.roomName = roomInput;
+                this.myName = nameInput;
+                this.connectionAttempt++;
 
                 try {
+                    this.updateLoading('正在生成加密密钥...', 'AES-256-GCM 密钥派生中');
                     this.channel = new SecureChannel(pwdInput);
                     await this.channel.init();
                     this.userFingerprint = this.channel.fingerprint;
-                    this.roomName = roomInput;
-                    this.myName = nameInput;
 
                     const roomId = await this.channel.deriveRoomId(roomInput);
-
-                    const connectionTimeout = setTimeout(() => {
-                        alert('连接超时：部分中继节点无响应，请检查网络后重试');
-                        btn.disabled = false;
-                        loading.classList.remove('active');
-                    }, 15000);
-
-                    this.room = joinRoom({
-                        appId: 'sr-v1-6p',
-                        relayUrls: [
-                            'wss://relay.damus.io',
-                            'wss://relay.snort.social',
-                            'wss://nos.lol',
-                            'wss://relay.nostr.band'
-                        ],
-                        password: roomId,
-                        maxPeers: this.maxPeers
-                    }, roomId);
-
-                    const [sendMsg, getMsg] = this.room.makeAction('msg');
-                    const [sendSync, getSync] = this.room.makeAction('sync');
                     
-                    this.sendMsg = sendMsg;
-                    this.sendSync = sendSync;
-
-                    getMsg(async (data, peerId) => {
-                        if (!data.payload) return;
-                        const decrypted = await this.channel.decrypt(data.payload);
-                        if (!decrypted) return;
-                        
-                        try {
-                            const msg = JSON.parse(decrypted);
-                            if (msg.vc && msg.vc > this.vectorClock) {
-                                this.vectorClock = msg.vc;
-                            }
-                            
-                            this.messageHistory.push({
-                                payload: data.payload,
-                                ts: msg.ts
-                            });
-                            if (this.messageHistory.length > 20) this.messageHistory.shift();
-                            
-                            if (msg.fingerprint) {
-                                this.peers.set(peerId, {
-                                    name: msg.name,
-                                    fingerprint: msg.fingerprint,
-                                    lastSeen: Date.now()
-                                });
-                            }
-                            
-                            this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
-                        } catch (e) {
-                            console.error('消息解析失败', e);
-                        }
-                    });
-
-                    getSync(async (data, peerId) => {
-                        if (data.type === 'request' && this.messageHistory.length > 0) {
-                            this.sendMsg({ 
-                                type: 'history',
-                                history: this.messageHistory.slice(-20),
-                                target: peerId
-                            });
-                        }
-                    });
-
-                    this.room.onPeerJoin((peerId) => {
-                        clearTimeout(connectionTimeout);
-                        if (this.peers.size >= this.maxPeers) {
-                            this.displayMsg('系统', '⚠️ 房间已满（最多6人）', Date.now(), true);
-                            return;
-                        }
-                        this.peers.set(peerId, { 
-                            name: 'Unknown', 
-                            fingerprint: null,
-                            lastSeen: Date.now() 
-                        });
-                        this.updatePeerCount();
-                        this.displayMsg('系统', `🔔 有加密节点接入 (${this.peers.size}/6)`, Date.now(), true);
-                        
-                        setTimeout(() => this.sendSync({ type: 'request' }), 1000);
-                    });
-
-                    this.room.onPeerLeave((peerId) => {
-                        this.peers.delete(peerId);
-                        this.updatePeerCount();
-                        this.displayMsg('系统', `👋 加密节点断开 (${this.peers.size}/6)`, Date.now(), true);
-                    });
-
-                    document.getElementById('login').style.display = 'none';
-                    document.getElementById('chat').style.display = 'flex';
-                    document.getElementById('displayRoom').innerHTML = `🔐 ${this.escapeHtml(roomInput)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
+                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '正在寻找对等节点');
                     
-                    loading.classList.remove('active');
-                    
-                    this.displayMsg('系统', 
-                        `✅ 已进入房间 "${roomInput}"\n` +
-                        `📍 你的指纹: ${this.userFingerprint}\n` +
-                        `👥 上限: 6人 | 当前: ${this.peers.size + 1}人`, 
-                        Date.now(), true
-                    );
+                    // 延长超时到 30 秒，并显示跳过按钮
+                    const skipBtn = document.getElementById('retryBtn');
+                    let skipShown = false;
+                    const showSkipTimer = setTimeout(() => {
+                        skipShown = true;
+                        skipBtn.classList.add('show');
+                        this.updateLoading('连接较慢...', '可点击上方按钮进入离线模式（仅自己可见）');
+                    }, 8000);
 
+                    await this.connectWithTimeout(roomId, 30000);
+                    clearTimeout(showSkipTimer);
+                    
+                    this.enterRoom();
+                    
                 } catch (err) {
-                    console.error(err);
-                    alert('连接失败: ' + err.message);
-                    btn.disabled = false;
-                    loading.classList.remove('active');
+                    console.error('连接失败:', err);
+                    
+                    if (this.connectionAttempt <= this.maxRetries) {
+                        this.updateLoading(`连接失败，${3 - this.connectionAttempt} 秒后重试...`, err.message || '网络波动');
+                        setTimeout(() => {
+                            document.getElementById('joinBtn').disabled = false;
+                            this.join();
+                        }, 3000);
+                    } else {
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        document.getElementById('joinBtn').disabled = false;
+                        alert('连接失败：' + (err.message || '网络超时，请检查网络或更换房间重试'));
+                        this.connectionAttempt = 0;
+                    }
                 }
             }
 
+            connectWithTimeout(roomId, timeout) {
+                return new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                        reject(new Error('连接超时：部分中继节点无响应'));
+                    }, timeout);
+
+                    try {
+                        this.room = joinRoom({
+                            appId: 'secure-room-v2',
+                            relayUrls: RELAY_URLS,
+                            password: roomId,
+                            maxPeers: 5
+                        }, roomId);
+
+                        // 如果 3 秒内收到任何对等节点或成功自连接，视为成功
+                        const checkTimer = setTimeout(() => {
+                            clearTimeout(timer);
+                            resolve();
+                        }, 3000);
+
+                        this.room.onPeerJoin(() => {
+                            clearTimeout(timer);
+                            clearTimeout(checkTimer);
+                            resolve();
+                        });
+
+                        this.setupRoomHandlers();
+                        
+                    } catch (err) {
+                        clearTimeout(timer);
+                        reject(err);
+                    }
+                });
+            }
+
+            setupRoomHandlers() {
+                const [sendMsg, getMsg] = this.room.makeAction('msg');
+                this.sendMsg = sendMsg;
+
+                getMsg(async (data, peerId) => {
+                    if (!data.payload) return;
+                    const decrypted = await this.channel.decrypt(data.payload);
+                    if (!decrypted) return;
+                    
+                    try {
+                        const msg = JSON.parse(decrypted);
+                        this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
+                    } catch {}
+                });
+
+                this.room.onPeerJoin((peerId) => {
+                    this.peers.add(peerId);
+                    this.updateStatus();
+                    this.displayMsg('系统', `👤 ${this.peers.size} 号成员加入房间`, Date.now(), true);
+                });
+
+                this.room.onPeerLeave((peerId) => {
+                    this.peers.delete(peerId);
+                    this.updateStatus();
+                    this.displayMsg('系统', `👋 有成员离开 (${this.peers.size}/6)`, Date.now(), true);
+                });
+            }
+
+            enterRoom() {
+                document.getElementById('loadingOverlay').classList.remove('active');
+                document.getElementById('login').style.display = 'none';
+                document.getElementById('chat').style.display = 'flex';
+                document.getElementById('displayRoom').innerHTML = 
+                    `🔐 ${this.escapeHtml(this.roomName)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
+                
+                this.updateStatus();
+                this.displayMsg('系统', 
+                    `✅ 已进入房间 "${this.roomName}"\n` +
+                    `🆔 你的身份: ...${this.userFingerprint.substring(4)}\n` +
+                    `👥 当前在线: ${this.peers.size + 1}/6 人`, 
+                    Date.now(), true
+                );
+            }
+
+            forceContinue() {
+                // 离线模式进入（仅本地，不连接P2P）
+                this.offlineMode = true;
+                this.enterRoom();
+                this.displayMsg('系统', '⚠️ 离线模式：消息仅自己可见，刷新后重试连接', Date.now(), true);
+            }
+
             async send() {
-                if (this.sendingLock) return;
+                if (this.offlineMode) {
+                    alert('当前为离线模式，无法发送消息给其他人');
+                    return;
+                }
+                
+                if (this.sendingLock || !this.sendMsg) return;
+                
                 const input = document.getElementById('msgInput');
                 const text = input.value.trim();
-                if (!text || !this.sendMsg) return;
+                if (!text) return;
 
                 this.sendingLock = true;
                 document.getElementById('sendBtn').disabled = true;
@@ -754,84 +565,58 @@
                 try {
                     this.vectorClock++;
                     const msg = {
-                        id: crypto.randomUUID(),
-                        name: this.myName,
-                        text: text,
-                        ts: Date.now(),
-                        vc: this.vectorClock,
-                        fingerprint: this.userFingerprint
+                        name: this.myName, text, ts: Date.now(),
+                        vc: this.vectorClock, fingerprint: this.userFingerprint
                     };
-
+                    
                     const encrypted = await this.channel.encrypt(JSON.stringify(msg));
                     this.sendMsg({ payload: encrypted });
                     
-                    this.messageHistory.push({ payload: encrypted, ts: msg.ts });
-                    if (this.messageHistory.length > 20) this.messageHistory.shift();
-
-                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, false, true);
+                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, true);
                     input.value = '';
-                    
                 } catch (err) {
-                    console.error('发送失败', err);
-                    alert('发送失败，请重试');
+                    alert('发送失败');
                 } finally {
                     this.sendingLock = false;
                     document.getElementById('sendBtn').disabled = false;
                 }
             }
 
-            displayMsg(user, text, ts, isSystem, fingerprint = null, isHistory = false, isSelf = false) {
+            displayMsg(user, text, ts, isSystem, fingerprint = null, isSelf = false) {
                 const container = document.getElementById('messages');
                 const div = document.createElement('div');
+                div.className = `message ${isSystem ? 'system' : (isSelf ? 'self' : 'other')}`;
                 
                 if (isSystem) {
-                    div.className = 'message system';
-                } else if (isSelf) {
-                    div.className = 'message self';
+                    div.innerHTML = `<div style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
                 } else {
-                    div.className = 'message other';
-                }
-                
-                const time = new Date(ts).toLocaleTimeString('zh-CN', {
-                    hour: '2-digit', 
-                    minute: '2-digit'
-                });
-                
-                if (isSystem) {
-                    div.innerHTML = `<div class="msg-text" style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
-                } else {
-                    const fpDisplay = fingerprint ? 
-                        `<span class="user-fingerprint">#${fingerprint.substring(0,4)}</span>` : '';
-                    
+                    const time = new Date(ts).toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+                    const fp = fingerprint ? `<span style="opacity:0.6;font-family:monospace;font-size:11px"> #${fingerprint.substring(0,4)}</span>` : '';
                     div.innerHTML = `
-                        <div class="msg-header">
-                            <span class="msg-user">${this.escapeHtml(user)}${fpDisplay}</span>
-                            <span class="msg-time">${time}</span>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;opacity:0.8">
+                            <span style="font-weight:700">${this.escapeHtml(user)}${fp}</span>
+                            <span style="font-size:11px">${time}</span>
                         </div>
-                        <div class="msg-text">${this.escapeHtml(text)}</div>
+                        <div>${this.escapeHtml(text)}</div>
                     `;
                 }
                 
                 container.appendChild(div);
+                container.scrollTop = container.scrollHeight;
                 
-                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-                if (isNearBottom) {
-                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-                }
-                
-                while (container.children.length > 100) {
-                    container.removeChild(container.firstChild);
-                }
+                while (container.children.length > 50) container.removeChild(container.firstChild);
             }
 
-            updatePeerCount() {
+            updateStatus() {
                 const count = this.peers.size + 1;
-                const el = document.getElementById('peerCount');
-                el.textContent = `${count}/6 在线`;
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('peerCount');
                 
-                if (count >= 5) el.className = 'peer-count';
-                else if (count >= 3) el.className = 'peer-count warning';
-                else el.className = 'peer-count error';
+                text.textContent = `${count}/6 在线`;
+                
+                if (count === 1) { dot.className = 'status-dot offline'; text.style.color = 'var(--sub)'; }
+                else if (count < 6) { dot.className = 'status-dot connecting'; text.style.color = 'var(--warn)'; }
+                else { dot.className = 'status-dot'; text.style.color = 'var(--success)'; }
             }
 
             escapeHtml(text) {
@@ -841,26 +626,15 @@
             }
 
             async copyLink() {
-                const hash = encodeURIComponent(btoa(this.roomName));
-                const url = `${window.location.origin}${window.location.pathname}#${hash}`;
-                try {
-                    await navigator.clipboard.writeText(url);
-                    alert(`✅ 链接已复制\n\n密码请另外分享`);
-                } catch (err) {
-                    prompt('请手动复制：', url);
-                }
+                const url = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(btoa(this.roomName))}`;
+                try { await navigator.clipboard.writeText(url); alert('链接已复制');
+                } catch { prompt('复制链接:', url); }
             }
 
-            leave() {
-                if (confirm('确定要离开吗？历史消息将丢失。')) {
-                    if (this.room) this.room.leave();
-                    location.reload();
-                }
-            }
+            leave() { if (confirm('离开房间？')) { if (this.room) this.room.leave(); location.reload(); } }
         }
 
-        const app = new ChatApp();
-        window.app = app;
+        window.app = new ChatApp();
     </script>
 </body>
 </html>
