@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zero-TURN P2P (MQTT信令版)</title>
+    <title>Zero-TURN P2P (修复版)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
     <style>
         :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
@@ -46,19 +46,19 @@
         .spinner{width:16px;height:16px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         
-        .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:60px;overflow-y:auto}
+        .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:100px;overflow-y:auto}
     </style>
 </head>
 <body>
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN P2P (HiveMQ版)</h1>
+            <h1>🔮 Zero-TURN P2P (修复版)</h1>
             <div class="info">
-                <strong>使用HiveMQ公共MQTT服务器</strong><br>
-                • 无需注册，无需API Key<br>
-                • broker.hivemq.com (全球负载均衡)<br>
-                • 输入6位短码自动连接<br>
-                <span style="color:var(--warn)">提示：首次连接需要3-5秒建立MQTT连接</span>
+                <strong>修复了创建者界面切换和ICE时序问题</strong><br>
+                • 使用HiveMQ公共MQTT服务器<br>
+                • 创建者和加入者都能正确显示界面<br>
+                • ICE候选缓冲处理<br>
+                <span style="color:var(--warn)">提示：如果连接失败，请刷新重试</span>
             </div>
             
             <button onclick="App.createRoom()" id="createBtn">创建房间</button>
@@ -67,7 +67,7 @@
             <div id="createPanel" class="hidden">
                 <div class="loading" id="createLoading">
                     <div class="spinner"></div>
-                    <span>正在连接MQTT服务器...</span>
+                    <span>正在连接服务器...</span>
                 </div>
                 <div class="code-display hidden" id="roomCodeDisplay"></div>
                 <div style="font-size:11px;color:#666;text-align:center;margin-top:10px" id="createHint"></div>
@@ -91,7 +91,7 @@
         <div id="status">
             <span>
                 房间: <span id="roomId" style="color:var(--accent);font-weight:bold">-</span>
-                <span id="connBadge" class="badge waiting" style="margin-left:10px">连接中...</span>
+                <span id="connBadge" class="badge waiting" style="margin-left:10px">初始化...</span>
             </span>
             <button onclick="location.reload()" style="background:#333;color:var(--text);padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-size:12px">退出</button>
         </div>
@@ -113,14 +113,18 @@
             client: null,
             roomCode: null,
             isInitiator: false,
-            messageQueue: [],
-            
+            iceCandidatesQueue: [], // 缓冲ICE候选
+            remoteDescriptionSet: false,
+
             log(msg, isError = false) {
                 console.log(msg);
                 const logEl = document.getElementById(this.isInitiator ? 'log' : 'joinLog');
                 if (logEl) {
                     logEl.classList.remove('hidden');
-                    logEl.innerHTML += `<div style="color:${isError ? '#ff4757' : '#888'}">${new Date().toLocaleTimeString()} ${msg}</div>`;
+                    const div = document.createElement('div');
+                    div.style.color = isError ? '#ff4757' : '#888';
+                    div.textContent = `${new Date().toLocaleTimeString()} ${msg}`;
+                    logEl.appendChild(div);
                     logEl.scrollTop = logEl.scrollHeight;
                 }
             },
@@ -144,6 +148,7 @@
                 
                 try {
                     await this.connectMQTT();
+                    this.log('MQTT连接成功，初始化WebRTC...');
                     await this.initConnection();
                 } catch(e) {
                     this.log('错误: ' + e.message, true);
@@ -170,6 +175,9 @@
                 
                 try {
                     await this.connectMQTT();
+                    this.log('MQTT连接成功，准备加入...');
+                    // 加入者直接切换到聊天界面等待
+                    this.switchToChat();
                     await this.initConnection();
                 } catch(e) {
                     this.log('错误: ' + e.message, true);
@@ -177,38 +185,43 @@
                 }
             },
 
+            switchToChat() {
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('chat').classList.remove('hidden');
+                document.getElementById('roomId').textContent = this.roomCode;
+                this.log('切换到聊天界面');
+            },
+
             async connectMQTT() {
                 return new Promise((resolve, reject) => {
-                    // 使用HiveMQ公共服务器（更稳定）
                     const url = 'wss://broker.hivemq.com:8884/mqtt';
                     const clientId = 'p2p_' + Math.random().toString(36).substr(2, 8);
                     
-                    this.log(`Connecting to ${url} as ${clientId}`);
+                    this.log(`连接MQTT: ${clientId}`);
                     
                     this.client = mqtt.connect(url, {
                         clientId: clientId,
                         clean: true,
-                        connectTimeout: 10000,
-                        reconnectPeriod: 2000,
-                        rejectUnauthorized: false
+                        connectTimeout: 15000,
+                        reconnectPeriod: 3000,
+                        keepalive: 60
                     });
                     
                     const timeout = setTimeout(() => {
-                        reject(new Error('MQTT连接超时'));
+                        reject(new Error('连接超时(15s)'));
                     }, 15000);
                     
                     this.client.on('connect', () => {
                         clearTimeout(timeout);
                         this.log('MQTT已连接');
                         
-                        // 订阅房间主题（使用通配符接收所有子主题）
                         const topic = `p2p-chat/${this.roomCode}/#`;
                         this.client.subscribe(topic, (err) => {
                             if (err) {
                                 this.log('订阅失败: ' + err.message, true);
                                 reject(err);
                             } else {
-                                this.log('已订阅主题: ' + topic);
+                                this.log('已订阅: ' + topic);
                                 resolve();
                             }
                         });
@@ -217,17 +230,15 @@
                     this.client.on('message', (topic, message) => {
                         try {
                             const data = JSON.parse(message.toString());
-                            this.log(`收到消息 [${topic}]: ${data.type}`);
+                            this.log(`收到[${data.type}]`);
                             this.handleSignalingData(data);
                         } catch (e) {
-                            this.log('消息解析错误: ' + e.message, true);
+                            this.log('消息错误: ' + e.message, true);
                         }
                     });
                     
                     this.client.on('error', (err) => {
                         this.log('MQTT错误: ' + err.message, true);
-                        clearTimeout(timeout);
-                        reject(err);
                     });
                     
                     this.client.on('offline', () => {
@@ -235,7 +246,7 @@
                     });
                     
                     this.client.on('reconnect', () => {
-                        this.log('MQTT重连中...');
+                        this.log('MQTT重连...');
                     });
                 });
             },
@@ -244,63 +255,95 @@
                 this.pc = new RTCPeerConnection({
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
                     ],
                     iceCandidatePoolSize: 10
                 });
                 
-                this.log('WebRTC初始化完成');
-                
+                this.iceCandidatesQueue = [];
+                this.remoteDescriptionSet = false;
+
                 if (this.isInitiator) {
-                    this.dc = this.pc.createDataChannel('chat', {ordered: true});
+                    // 创建者：创建DataChannel
+                    this.dc = this.pc.createDataChannel('chat', {
+                        ordered: true,
+                        maxRetransmits: 3
+                    });
                     this.setupDataChannel(this.dc);
-                    this.log('创建DataChannel（发起方）');
+                    this.log('创建DataChannel');
                     
+                    // 创建Offer
                     const offer = await this.pc.createOffer();
                     await this.pc.setLocalDescription(offer);
-                    this.log('Offer已创建');
+                    this.log('Offer已创建，收集ICE中...');
                     
                     // 显示房间码
                     document.getElementById('createLoading').classList.add('hidden');
                     document.getElementById('roomCodeDisplay').classList.remove('hidden');
                     document.getElementById('roomCodeDisplay').textContent = this.roomCode;
-                    document.getElementById('createHint').textContent = '将房间码发给对方，等待连接...';
+                    document.getElementById('createHint').textContent = '等待对方加入...';
                     
-                    // 等待ICE收集并发送
+                    // 等待ICE收集完成再发送
                     this.waitForICE().then(() => {
                         this.publish('offer', {sdp: this.pc.localDescription});
-                        this.log('Offer已通过MQTT发送');
+                        this.log('Offer已广播');
                     });
+                    
                 } else {
+                    // 加入者：等待DataChannel
                     this.pc.ondatachannel = (e) => {
                         this.dc = e.channel;
-                        this.setupDataChannel(this.dc);
-                        this.log('收到DataChannel（加入方）');
+                        this.setupDataChannel(e.channel);
+                        this.log('收到DataChannel');
                     };
-                    
-                    // 加入者切换到聊天界面，等待offer
-                    document.getElementById('setup').classList.add('hidden');
-                    document.getElementById('chat').classList.remove('hidden');
-                    document.getElementById('roomId').textContent = this.roomCode;
                     
                     // 发送加入信号
                     setTimeout(() => {
                         this.publish('join', {});
-                        this.log('已发送加入请求');
-                        this.addMessage('系统', '正在等待对方信号...', 'system');
-                    }, 1000);
+                        this.log('发送加入请求');
+                        this.addMessage('系统', '等待对方接受...', 'system');
+                    }, 500);
                 }
 
+                // ICE候选处理
                 this.pc.onicecandidate = (e) => {
                     if (e.candidate) {
                         this.publish('ice', {candidate: e.candidate});
-                        this.log('发送ICE候选');
                     }
                 };
 
                 this.pc.oniceconnectionstatechange = () => {
-                    this.log('ICE状态: ' + this.pc.iceConnectionState);
-                    this.handleConnectionStateChange();
+                    const state = this.pc.iceConnectionState;
+                    this.log('ICE状态: ' + state);
+                    
+                    const badge = document.getElementById('connBadge');
+                    badge.textContent = state;
+                    
+                    if (state === 'connected' || state === 'completed') {
+                        badge.className = 'badge direct';
+                        badge.textContent = '已连接';
+                        document.getElementById('input').style.display = 'flex';
+                        
+                        // 创建者此时也要切换界面（如果还没切换）
+                        if (this.isInitiator && !document.getElementById('chat').classList.contains('hidden') === false) {
+                            this.switchToChat();
+                        }
+                        
+                        this.addMessage('系统', '✅ P2P连接成功！', 'system');
+                        
+                        // 断开MQTT
+                        setTimeout(() => {
+                            if (this.client) {
+                                this.client.end();
+                                this.log('MQTT已断开');
+                            }
+                        }, 2000);
+                        
+                    } else if (state === 'failed') {
+                        badge.className = 'badge failed';
+                        this.addMessage('系统', '❌ 连接失败', 'error');
+                    }
                 };
             },
 
@@ -309,17 +352,13 @@
                     if (this.pc.iceGatheringState === 'complete') {
                         resolve();
                     } else {
-                        const check = setInterval(() => {
+                        this.pc.onicegatheringstatechange = () => {
                             if (this.pc.iceGatheringState === 'complete') {
-                                clearInterval(check);
                                 resolve();
                             }
-                        }, 500);
-                        // 最长等待5秒
-                        setTimeout(() => {
-                            clearInterval(check);
-                            resolve();
-                        }, 5000);
+                        };
+                        // 保险：最多等3秒
+                        setTimeout(resolve, 3000);
                     }
                 });
             },
@@ -327,22 +366,32 @@
             publish(type, data) {
                 if (this.client && this.client.connected) {
                     const topic = `p2p-chat/${this.roomCode}/${type}`;
-                    const payload = JSON.stringify({type, ...data, timestamp: Date.now()});
-                    this.client.publish(topic, payload);
-                } else {
-                    this.log('MQTT未连接，无法发送', true);
+                    this.client.publish(topic, JSON.stringify({
+                        type, 
+                        ...data, 
+                        timestamp: Date.now(),
+                        from: this.isInitiator ? 'creator' : 'joiner'
+                    }));
                 }
             },
 
             async handleSignalingData(data) {
                 try {
+                    // 忽略自己的消息
+                    if (data.from === (this.isInitiator ? 'creator' : 'joiner')) return;
+                    
                     if (data.type === 'join' && this.isInitiator) {
-                        this.log('收到加入请求，发送Offer');
+                        this.log('对方加入，发送Offer');
                         this.publish('offer', {sdp: this.pc.localDescription});
                     }
                     else if (data.type === 'offer' && !this.isInitiator) {
                         this.log('收到Offer，创建Answer');
                         await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        this.remoteDescriptionSet = true;
+                        
+                        // 处理缓冲的ICE候选
+                        this.processQueuedICECandidates();
+                        
                         const answer = await this.pc.createAnswer();
                         await this.pc.setLocalDescription(answer);
                         
@@ -354,42 +403,36 @@
                     else if (data.type === 'answer' && this.isInitiator) {
                         this.log('收到Answer');
                         await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        this.remoteDescriptionSet = true;
+                        
+                        // 处理缓冲的ICE候选
+                        this.processQueuedICECandidates();
+                        
+                        // 创建者此时切换到聊天界面
+                        this.switchToChat();
                     }
                     else if (data.type === 'ice') {
-                        this.log('收到ICE候选');
-                        await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        if (this.remoteDescriptionSet) {
+                            await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        } else {
+                            this.log('缓冲ICE候选');
+                            this.iceCandidatesQueue.push(data.candidate);
+                        }
                     }
                 } catch (e) {
-                    this.log('信令处理错误: ' + e.message, true);
+                    this.log('信令错误: ' + e.message, true);
                 }
             },
 
-            handleConnectionStateChange() {
-                const state = this.pc.iceConnectionState;
-                const badge = document.getElementById('connBadge');
-                badge.textContent = state;
-                
-                if (state === 'connected' || state === 'completed') {
-                    badge.className = 'badge direct';
-                    badge.textContent = '已连接';
-                    document.getElementById('input').style.display = 'flex';
-                    this.addMessage('系统', '✅ P2P连接成功！数据不再经过服务器', 'system');
-                    
-                    // 断开MQTT，纯P2P通信
-                    setTimeout(() => {
-                        if (this.client) {
-                            this.client.end();
-                            this.log('MQTT已断开，纯P2P模式');
-                        }
-                    }, 3000);
-                } else if (state === 'failed') {
-                    badge.className = 'badge failed';
-                    badge.textContent = '失败';
-                    this.addMessage('系统', '❌ 连接失败，请检查网络或重试', 'error');
-                } else if (state === 'disconnected') {
-                    badge.className = 'badge waiting';
-                    badge.textContent = '断开';
-                    this.addMessage('系统', '连接已断开', 'system');
+            async processQueuedICECandidates() {
+                this.log(`处理${this.iceCandidatesQueue.length}个缓冲的ICE候选`);
+                while (this.iceCandidatesQueue.length > 0) {
+                    const candidate = this.iceCandidatesQueue.shift();
+                    try {
+                        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch(e) {
+                        this.log('添加ICE候选失败: ' + e.message, true);
+                    }
                 }
             },
 
@@ -407,9 +450,10 @@
                 };
                 dc.onclose = () => {
                     this.log('DataChannel已关闭');
+                    this.addMessage('系统', '对方已断开', 'system');
                 };
                 dc.onerror = (e) => {
-                    this.log('DataChannel错误: ' + e.message, true);
+                    this.log('DataChannel错误', true);
                 };
             },
 
@@ -417,7 +461,7 @@
                 const input = document.getElementById('msgInput');
                 const msg = input.value.trim();
                 if (!msg || !this.dc || this.dc.readyState !== 'open') {
-                    alert(this.dc?.readyState !== 'open' ? '连接尚未就绪' : '消息不能为空');
+                    alert('连接尚未就绪或消息为空');
                     return;
                 }
                 
