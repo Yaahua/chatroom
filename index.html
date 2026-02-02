@@ -3,108 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Zero-TURN P2P (移动端优化版)</title>
+    <title>Zero-TURN P2P 多人聊天室</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
     <style>
-        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502}
+        :root{--bg:#0f0f0f;--bg2:#1a1a1a;--text:#e0e0e0;--accent:#00d084;--err:#ff4757;--warn:#ffa502;--info:#3498db}
         *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent}
         
-        /* 移动端优化：使用 dvh 单位，允许滚动 */
         body{background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;position:relative}
         .hidden{display:none!important}
         
+        /* 用户名输入界面 */
+        #userSetup{
+            position:fixed;top:0;left:0;right:0;bottom:0;
+            background:rgba(0,0,0,0.95);
+            z-index:1000;
+            display:flex;align-items:center;justify-content:center;
+            padding:20px;
+        }
+        
         #setup{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
-        .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333}
-        h1{font-size:24px;margin-bottom:10px;color:var(--accent)}
-        .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
+        .card{background:var(--bg2);padding:30px;border-radius:16px;max-width:500px;width:100%;border:1px solid #333;position:relative;overflow:hidden}
         
-        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px;touch-action:manipulation;-webkit-touch-callout:none}
-        button:hover{opacity:0.9}
-        button:disabled{opacity:0.5;cursor:not-allowed}
+        .user-avatar{
+            width:60px;height:60px;border-radius:50%;
+            background:linear-gradient(135deg,var(--accent),#00a8ff);
+            display:flex;align-items:center;justify-content:center;
+            font-size:24px;font-weight:bold;color:#fff;margin:0 auto 15px;
+            border:3px solid var(--bg2);box-shadow:0 4px 15px rgba(0,208,132,0.3);
+        }
+        
+        h1{font-size:24px;margin-bottom:10px;color:var(--accent);text-align:center}
+        .info{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5;text-align:center}
+        
+        button{width:100%;padding:14px;margin:8px 0;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:14px;touch-action:manipulation;-webkit-touch-callout:none;transition:all 0.3s}
+        button:hover{opacity:0.9;transform:translateY(-1px)}
+        button:disabled{opacity:0.5;cursor:not-allowed;transform:none}
         button.secondary{background:#333;color:var(--text)}
+        button.danger{background:var(--err);color:#fff}
         
-        .code-display{font-size:32px;font-weight:bold;color:var(--accent);letter-spacing:8px;text-align:center;padding:20px;background:rgba(0,208,132,0.1);border-radius:8px;margin:20px 0;border:2px dashed var(--accent);font-family:monospace}
+        .code-display{font-size:28px;font-weight:bold;color:var(--accent);letter-spacing:6px;text-align:center;padding:15px;background:rgba(0,208,132,0.1);border-radius:8px;margin:15px 0;border:2px dashed var(--accent);font-family:monospace;word-break:break-all}
         
-        /* 聊天界面优化 */
-        #chat{min-height:100dvh;display:flex;flex-direction:column;padding:20px;padding-bottom:env(safe-area-inset-bottom, 20px)}
-        #status{padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-        .badge{padding:4px 8px;border-radius:4px;font-size:11px;background:#333}
-        .badge.direct{background:var(--accent);color:#000}
-        .badge.failed{background:var(--err);color:#fff}
-        .badge.waiting{background:var(--warn);color:#000}
+        /* 聊天室布局 */
+        #chat{min-height:100dvh;display:flex;flex-direction:column;padding:20px;padding-bottom:env(safe-area-inset-bottom, 20px);max-width:1200px;margin:0 auto}
         
-        #messages{flex:1;overflow-y:auto;padding:10px;background:#000;border-radius:8px;margin-bottom:10px;border:1px solid #333;-webkit-overflow-scrolling:touch;min-height:200px}
-        .msg{margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;max-width:80%;word-break:break-all}
-        .msg.self{margin-left:auto;background:rgba(0,208,132,0.2);border:1px solid var(--accent)}
-        .msg.system{text-align:center;background:transparent;color:#666;font-size:12px;max-width:100%}
-        .msg.error{background:rgba(255,71,87,0.1);border:1px solid var(--err);color:#ff4757}
+        /* 顶部状态栏 */
+        #header{
+            display:flex;justify-content:space-between;align-items:center;
+            padding:12px;background:var(--bg2);border-radius:12px;
+            margin-bottom:15px;border:1px solid #333;flex-shrink:0;
+        }
         
-        /* 输入框区域优化 - 固定在底部，适配键盘 */
+        #roomInfo{display:flex;align-items:center;gap:12px;flex:1}
+        #roomTitle{font-size:18px;font-weight:bold;color:var(--accent)}
+        #onlineCount{
+            background:rgba(0,208,132,0.2);color:var(--accent);
+            padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold;
+            border:1px solid rgba(0,208,132,0.3);
+        }
+        
+        /* 在线用户列表 */
+        #userList{
+            display:flex;gap:8px;overflow-x:auto;padding:5px;
+            max-width:200px;scrollbar-width:none;
+        }
+        #userList::-webkit-scrollbar{display:none}
+        
+        .user-chip{
+            flex-shrink:0;display:flex;align-items:center;gap:6px;
+            padding:6px 12px;background:#000;border-radius:20px;
+            border:1px solid #333;font-size:12px;white-space:nowrap;
+        }
+        .user-chip.me{border-color:var(--accent);background:rgba(0,208,132,0.1)}
+        .user-chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        
+        /* 消息区域 */
+        #messages{
+            flex:1;overflow-y:auto;padding:15px;background:#000;
+            border-radius:12px;margin-bottom:15px;border:1px solid #333;
+            -webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:12px;
+        }
+        
+        .msg{max-width:85%;animation:fadeIn 0.3s ease}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        
+        .msg-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;color:#666}
+        .msg-author{font-weight:bold;color:var(--accent)}
+        .msg-time{font-size:11px;opacity:0.7;font-family:monospace}
+        .msg-seq{background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:10px}
+        
+        .msg-content{
+            padding:12px;background:var(--bg2);border-radius:12px;
+            word-break:break-all;line-height:1.5;border:1px solid #333;
+            position:relative;
+        }
+        
+        .msg.self{margin-left:auto}
+        .msg.self .msg-content{background:rgba(0,208,132,0.15);border-color:rgba(0,208,132,0.3);color:#fff}
+        .msg.self .msg-author{color:#00d084}
+        
+        .msg.system{text-align:center;max-width:100%;align-self:center}
+        .msg.system .msg-content{background:transparent;border:none;color:#666;font-size:13px;padding:5px}
+        
+        .msg.join .msg-content{background:rgba(52,152,219,0.1);border-color:rgba(52,152,219,0.3);color:var(--info)}
+        .msg.leave .msg-content{background:rgba(255,71,87,0.1);border-color:rgba(255,71,87,0.3);color:var(--err)}
+        
+        /* 输入区域 */
         #input{
-            display:none;
-            gap:10px;
-            flex-shrink:0;
-            padding-bottom:env(safe-area-inset-bottom, 0px);
-            position:sticky;
-            bottom:0;
-            background:var(--bg);
-            padding-top:10px;
+            display:none;flex-shrink:0;background:var(--bg2);
+            padding:12px;border-radius:12px;border:1px solid #333;
+            gap:10px;align-items:center;
         }
         
         #input input{
-            flex:1;
-            padding:12px;
-            background:var(--bg2);
-            border:1px solid #444;
-            border-radius:8px;
-            color:var(--text);
-            font-size:16px; /* 关键：iOS 小于 16px 会自动缩放 */
-            -webkit-user-select:text;
-            user-select:text;
-            -webkit-appearance:none;
-            appearance:none;
-            outline:none;
+            flex:1;padding:12px;background:#000;border:1px solid #444;
+            border-radius:8px;color:var(--text);font-size:16px;
+            -webkit-user-select:text;user-select:text;-webkit-appearance:none;outline:none;
         }
-        
-        #input input:focus{
-            border-color:var(--accent);
-            background:#222;
-        }
+        #input input:focus{border-color:var(--accent)}
         
         #input button{
-            width:auto;
-            padding:12px 24px;
-            background:var(--accent);
-            border:none;
-            border-radius:8px;
-            color:#000;
-            font-weight:bold;
-            cursor:pointer;
-            touch-action:manipulation;
+            width:auto;padding:12px 20px;margin:0;border-radius:8px;white-space:nowrap;
         }
         
         input[type="text"]{
-            width:100%;
-            padding:12px;
-            background:#000;
-            border:1px solid #444;
-            border-radius:8px;
-            color:var(--text);
-            text-transform:uppercase;
-            font-family:monospace;
-            font-size:16px; /* 防止 iOS 缩放 */
-            text-align:center;
-            letter-spacing:4px;
-            margin:10px 0;
-            -webkit-user-select:text;
-            user-select:text;
-            -webkit-appearance:none;
+            width:100%;padding:12px;background:#000;border:1px solid #444;
+            border-radius:8px;color:var(--text);font-size:16px;text-align:center;
+            letter-spacing:2px;margin:10px 0;-webkit-user-select:text;user-select:text;
             outline:none;
         }
-        
-        input[type="text"]:focus{
-            border-color:var(--accent);
-        }
+        input[type="text"]:focus{border-color:var(--accent)}
         
         .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warn);margin:10px 0;font-size:12px}
         .spinner{width:16px;height:16px;border:2px solid var(--warn);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
@@ -112,26 +140,59 @@
         
         .log{margin-top:10px;padding:8px;background:rgba(0,0,0,0.5);border-radius:4px;font-size:10px;color:#666;font-family:monospace;max-height:100px;overflow-y:auto;-webkit-overflow-scrolling:touch}
         
-        /* 移动端键盘适配 */
-        @supports (-webkit-touch-callout: none) {
-            /* iOS 特定修复 */
-            #input{
-                margin-bottom: constant(safe-area-inset-bottom);
-                margin-bottom: env(safe-area-inset-bottom);
-            }
+        /* 系统消息样式 */
+        .sys-notice{
+            text-align:center;padding:8px;margin:8px 0;
+            background:rgba(255,255,255,0.05);border-radius:8px;
+            font-size:12px;color:#888;border:1px dashed #333;
+        }
+        
+        /* 回复引用样式 */
+        .reply-to{
+            font-size:11px;color:#666;border-left:2px solid var(--accent);
+            padding-left:8px;margin-bottom:6px;opacity:0.8;
+        }
+        
+        @media (max-width:600px){
+            .msg{max-width:90%}
+            #userList{max-width:150px}
+            .code-display{font-size:22px;letter-spacing:4px}
         }
     </style>
 </head>
 <body>
+    <!-- 用户名设置弹窗 -->
+    <div id="userSetup">
+        <div class="card" style="max-width:400px">
+            <div class="user-avatar" id="avatarPreview">?</div>
+            <h2 style="text-align:center;margin-bottom:10px">设置你的身份</h2>
+            <input type="text" id="usernameInput" placeholder="输入昵称 (2-12字)" maxlength="12" style="text-transform:none;letter-spacing:0">
+            <div style="font-size:12px;color:#666;text-align:center;margin-bottom:15px">
+                多人聊天室中显示的名称<br>
+                <span style="color:var(--warn)">进入后无法修改</span>
+            </div>
+            <button onclick="App.setUsername()" id="confirmUserBtn">进入聊天室</button>
+        </div>
+    </div>
+
+    <!-- 房间设置 -->
     <div id="setup">
         <div class="card">
-            <h1>🔮 Zero-TURN P2P (移动端优化)</h1>
+            <h1>🔮 Zero-TURN 多人聊天</h1>
             <div class="info">
-                <strong>修复移动端输入法适配问题</strong><br>
-                • 优化视口高度计算（dvh 单位）<br>
-                • 修复 iOS 键盘弹出时的布局<br>
-                • 输入框字体固定 16px 防止自动缩放<br>
-                <span style="color:var(--warn)">提示：如果连接失败，请刷新重试</span>
+                <strong>去中心化多人加密聊天</strong><br>
+                • 支持最多 8 人同时在线（Mesh 网络）<br>
+                • 消息端到端加密，服务器不存储记录<br>
+                • 显示精确时间戳和消息序号
+            </div>
+            
+            <div id="userInfo" style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px;background:#000;border-radius:8px;border:1px solid #333">
+                <div class="user-avatar" style="width:40px;height:40px;font-size:16px;margin:0" id="displayAvatar">?</div>
+                <div>
+                    <div style="font-size:12px;color:#888">当前身份</div>
+                    <div style="font-weight:bold;color:var(--accent)" id="displayUsername">未设置</div>
+                    <div style="font-size:10px;color:#666;font-family:monospace" id="displayUserId">-</div>
+                </div>
             </div>
             
             <button onclick="App.createRoom()" id="createBtn">创建房间</button>
@@ -140,7 +201,7 @@
             <div id="createPanel" class="hidden">
                 <div class="loading" id="createLoading">
                     <div class="spinner"></div>
-                    <span>正在连接服务器...</span>
+                    <span>初始化房间...</span>
                 </div>
                 <div class="code-display hidden" id="roomCodeDisplay"></div>
                 <div style="font-size:11px;color:#666;text-align:center;margin-top:10px" id="createHint"></div>
@@ -149,17 +210,8 @@
             
             <div id="joinPanel" class="hidden" style="margin-top:20px">
                 <label style="font-size:12px;color:#888">输入6位房间码：</label>
-                <input type="text" 
-                       id="joinCode" 
-                       placeholder="ABC123" 
-                       maxlength="6"
-                       autocomplete="off"
-                       autocorrect="off"
-                       autocapitalize="characters"
-                       spellcheck="false"
-                       inputmode="text"
-                       enterkeyhint="go">
-                <button onclick="App.joinRoom()" id="connectBtn">连接</button>
+                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" autocomplete="off" autocapitalize="characters">
+                <button onclick="App.joinRoom()" id="connectBtn">加入群聊</button>
                 <div id="joinLoading" class="loading hidden">
                     <div class="spinner"></div>
                     <span>正在加入...</span>
@@ -169,29 +221,29 @@
         </div>
     </div>
 
+    <!-- 聊天界面 -->
     <div id="chat" class="hidden">
-        <div id="status">
-            <span>
-                房间: <span id="roomId" style="color:var(--accent);font-weight:bold">-</span>
-                <span id="connBadge" class="badge waiting" style="margin-left:10px">初始化...</span>
-            </span>
-            <button onclick="location.reload()" style="background:#333;color:var(--text);padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-size:12px">退出</button>
+        <div id="header">
+            <div id="roomInfo">
+                <div>
+                    <div id="roomTitle">房间: -</div>
+                    <div style="font-size:11px;color:#666;margin-top:2px" id="connectionStatus">初始化...</div>
+                </div>
+                <div id="onlineCount">1人在线</div>
+            </div>
+            <div id="userList">
+                <div class="user-chip me">
+                    <span class="dot"></span>
+                    <span id="myChipName">我</span>
+                </div>
+            </div>
+            <button onclick="App.leaveRoom()" class="danger" style="width:auto;padding:8px 16px;font-size:12px;margin:0">退出</button>
         </div>
         
         <div id="messages"></div>
         
         <div id="input" style="display:none">
-            <input type="text" 
-                   id="msgInput" 
-                   placeholder="输入消息..." 
-                   maxlength="1000" 
-                   autocomplete="off"
-                   autocorrect="off"
-                   autocapitalize="off"
-                   spellcheck="false"
-                   inputmode="text"
-                   enterkeyhint="send"
-                   onkeypress="if(event.key==='Enter')App.send()">
+            <input type="text" id="msgInput" placeholder="发送消息给所有人..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter')App.send()">
             <button onclick="App.send()">发送</button>
         </div>
     </div>
@@ -199,26 +251,115 @@
     <script type="module">
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
         
+        // 生成 UUID
+        const generateUUID = () => {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
+        
+        // 获取头像颜色
+        const getAvatarColor = (name) => {
+            const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#34495e'];
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return colors[Math.abs(hash) % colors.length];
+        };
+        
         const App = {
-            pc: null,
-            dc: null,
-            client: null,
+            // 用户身份
+            username: null,
+            userId: null,
+            avatarColor: null,
+            
+            // 房间信息
             roomCode: null,
-            isInitiator: false,
-            iceCandidatesQueue: [],
-            remoteDescriptionSet: false,
-
+            isHost: false,
+            joined: false,
+            
+            // 连接管理
+            client: null,
+            peers: new Map(), // userId -> {pc, dc, username, userId, connected}
+            
+            // 消息序列号
+            messageSeq: 0,
+            receivedMessages: new Set(), // 去重用的消息ID集合
+            
             log(msg, isError = false) {
-                console.log(msg);
-                const logEl = document.getElementById(this.isInitiator ? 'log' : 'joinLog');
+                console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+                const logEl = document.getElementById(this.isHost ? 'log' : 'joinLog');
                 if (logEl) {
                     logEl.classList.remove('hidden');
                     const div = document.createElement('div');
                     div.style.color = isError ? '#ff4757' : '#888';
-                    div.textContent = `${new Date().toLocaleTimeString()} ${msg}`;
+                    div.textContent = msg;
                     logEl.appendChild(div);
                     logEl.scrollTop = logEl.scrollHeight;
                 }
+            },
+
+            // 设置用户名
+            setUsername() {
+                const input = document.getElementById('usernameInput');
+                const name = input.value.trim();
+                if (!name || name.length < 2) {
+                    alert('请输入至少2个字符的昵称');
+                    return;
+                }
+                if (name.length > 12) {
+                    alert('昵称不能超过12个字符');
+                    return;
+                }
+                
+                this.username = name;
+                this.userId = generateUUID();
+                this.avatarColor = getAvatarColor(name);
+                
+                // 更新显示
+                document.getElementById('displayUsername').textContent = name;
+                document.getElementById('displayUserId').textContent = this.userId.substr(0, 8) + '...';
+                document.getElementById('displayAvatar').textContent = name.charAt(0).toUpperCase();
+                document.getElementById('displayAvatar').style.background = this.avatarColor;
+                document.getElementById('myChipName').textContent = name;
+                
+                // 关闭弹窗
+                document.getElementById('userSetup').classList.add('hidden');
+                
+                // 保存到 sessionStorage（刷新后保留）
+                sessionStorage.setItem('p2p_username', name);
+                sessionStorage.setItem('p2p_userid', this.userId);
+                sessionStorage.setItem('p2p_color', this.avatarColor);
+            },
+
+            init() {
+                // 检查是否有保存的身份
+                const savedName = sessionStorage.getItem('p2p_username');
+                const savedId = sessionStorage.getItem('p2p_userid');
+                const savedColor = sessionStorage.getItem('p2p_color');
+                
+                if (savedName && savedId) {
+                    this.username = savedName;
+                    this.userId = savedId;
+                    this.avatarColor = savedColor || getAvatarColor(savedName);
+                    
+                    document.getElementById('usernameInput').value = savedName;
+                    document.getElementById('avatarPreview').textContent = savedName.charAt(0).toUpperCase();
+                    document.getElementById('avatarPreview').style.background = this.avatarColor;
+                    
+                    // 自动填充但不关闭弹窗，让用户确认
+                }
+                
+                document.getElementById('usernameInput').focus();
+                document.getElementById('usernameInput').addEventListener('input', (e) => {
+                    const val = e.target.value.trim();
+                    document.getElementById('avatarPreview').textContent = val ? val.charAt(0).toUpperCase() : '?';
+                    if (val) {
+                        document.getElementById('avatarPreview').style.background = getAvatarColor(val);
+                    }
+                });
             },
 
             generateCode() {
@@ -231,7 +372,13 @@
             },
 
             async createRoom() {
-                this.isInitiator = true;
+                if (!this.username) {
+                    alert('请先设置昵称');
+                    document.getElementById('userSetup').classList.remove('hidden');
+                    return;
+                }
+                
+                this.isHost = true;
                 this.roomCode = this.generateCode();
                 
                 document.getElementById('createBtn').classList.add('hidden');
@@ -240,59 +387,81 @@
                 
                 try {
                     await this.connectMQTT();
-                    this.log('MQTT连接成功，初始化WebRTC...');
-                    await this.initConnection();
+                    this.log('MQTT已连接，等待成员加入...');
+                    
+                    // 显示房间码
+                    document.getElementById('createLoading').classList.add('hidden');
+                    document.getElementById('roomCodeDisplay').classList.remove('hidden');
+                    document.getElementById('roomCodeDisplay').textContent = this.roomCode;
+                    document.getElementById('createHint').textContent = '分享此代码给好友，等待他们加入...';
+                    
+                    this.switchToChat();
+                    this.addSystemMessage('房间已创建，等待其他成员加入...', 'info');
+                    
                 } catch(e) {
                     this.log('错误: ' + e.message, true);
-                    alert('连接失败: ' + e.message);
+                    alert('创建失败: ' + e.message);
                 }
             },
 
             showJoin() {
+                if (!this.username) {
+                    alert('请先设置昵称');
+                    document.getElementById('userSetup').classList.remove('hidden');
+                    return;
+                }
+                
                 document.getElementById('joinPanel').classList.remove('hidden');
                 document.getElementById('joinBtn').classList.add('hidden');
                 document.getElementById('createBtn').classList.add('hidden');
-                // 移动端延迟聚焦，避免键盘过早弹出遮挡界面
-                setTimeout(() => {
-                    document.getElementById('joinCode').focus();
-                }, 100);
+                setTimeout(() => document.getElementById('joinCode').focus(), 100);
             },
 
             async joinRoom() {
                 const code = document.getElementById('joinCode').value.trim().toUpperCase();
                 if (code.length !== 6) return alert('请输入6位房间码');
                 
-                this.isInitiator = false;
+                this.isHost = false;
                 this.roomCode = code;
                 
                 document.getElementById('connectBtn').classList.add('hidden');
                 document.getElementById('joinLoading').classList.remove('hidden');
-                
-                // 隐藏键盘
                 document.getElementById('joinCode').blur();
                 
                 try {
                     await this.connectMQTT();
-                    this.log('MQTT连接成功，准备加入...');
+                    this.log('正在加入房间...');
                     this.switchToChat();
-                    await this.initConnection();
+                    
+                    // 广播加入消息
+                    this.publish('presence', {
+                        username: this.username,
+                        userId: this.userId,
+                        avatarColor: this.avatarColor,
+                        action: 'join'
+                    });
+                    
                 } catch(e) {
                     this.log('错误: ' + e.message, true);
-                    alert('连接失败: ' + e.message);
+                    alert('加入失败: ' + e.message);
                 }
             },
 
             switchToChat() {
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('chat').classList.remove('hidden');
-                document.getElementById('roomId').textContent = this.roomCode;
-                this.log('切换到聊天界面');
+                document.getElementById('roomTitle').textContent = `房间: ${this.roomCode}`;
+                document.getElementById('connectionStatus').textContent = this.isHost ? '等待成员加入...' : '正在连接...';
+                document.getElementById('input').style.display = 'flex';
+                
+                // 更新在线人数（自己）
+                this.updateOnlineCount();
             },
 
             async connectMQTT() {
                 return new Promise((resolve, reject) => {
                     const url = 'wss://broker.hivemq.com:8884/mqtt';
-                    const clientId = 'p2p_' + Math.random().toString(36).substr(2, 8);
+                    const clientId = `p2p-multi_${this.userId.substr(0,8)}_${Math.random().toString(36).substr(2,4)}`;
                     
                     this.log(`连接MQTT: ${clientId}`);
                     
@@ -304,21 +473,23 @@
                         keepalive: 60
                     });
                     
-                    const timeout = setTimeout(() => {
-                        reject(new Error('连接超时(15s)'));
-                    }, 15000);
+                    const timeout = setTimeout(() => reject(new Error('连接超时')), 15000);
                     
                     this.client.on('connect', () => {
                         clearTimeout(timeout);
-                        this.log('MQTT已连接');
+                        this.log('MQTT连接成功');
                         
-                        const topic = `p2p-chat/${this.roomCode}/#`;
-                        this.client.subscribe(topic, (err) => {
-                            if (err) {
-                                this.log('订阅失败: ' + err.message, true);
-                                reject(err);
-                            } else {
-                                this.log('已订阅: ' + topic);
+                        // 订阅房间所有消息类型
+                        const topics = [
+                            `p2p-multi/${this.roomCode}/presence`,
+                            `p2p-multi/${this.roomCode}/signal`,
+                            `p2p-multi/${this.roomCode}/broadcast`
+                        ];
+                        
+                        this.client.subscribe(topics, (err) => {
+                            if (err) reject(err);
+                            else {
+                                this.log('已订阅房间频道');
                                 resolve();
                             }
                         });
@@ -327,271 +498,454 @@
                     this.client.on('message', (topic, message) => {
                         try {
                             const data = JSON.parse(message.toString());
-                            this.log(`收到[${data.type}]`);
-                            this.handleSignalingData(data);
-                        } catch (e) {
-                            this.log('消息错误: ' + e.message, true);
+                            // 忽略自己的消息（通过userId判断）
+                            if (data.userId === this.userId) return;
+                            
+                            if (topic.includes('presence')) {
+                                this.handlePresence(data);
+                            } else if (topic.includes('signal')) {
+                                this.handleSignal(data);
+                            }
+                        } catch(e) {
+                            this.log('消息解析错误', true);
                         }
                     });
                     
                     this.client.on('error', (err) => {
                         this.log('MQTT错误: ' + err.message, true);
                     });
-                    
-                    this.client.on('offline', () => {
-                        this.log('MQTT离线');
-                    });
-                    
-                    this.client.on('reconnect', () => {
-                        this.log('MQTT重连...');
-                    });
                 });
             },
 
-            async initConnection() {
-                this.pc = new RTCPeerConnection({
+            // 处理用户上下线
+            async handlePresence(data) {
+                const {username, userId, avatarColor, action} = data;
+                
+                if (action === 'join') {
+                    this.log(`${username} 加入房间`);
+                    this.addSystemMessage(`${username} 加入了聊天室`, 'join');
+                    
+                    // 如果是我，且我不是房主，向房主发送连接请求
+                    if (!this.isHost && !this.peers.has(userId)) {
+                        // 延迟一下，避免所有人同时发请求造成冲突
+                        setTimeout(() => {
+                            this.initiateConnection(userId, username, avatarColor);
+                        }, Math.random() * 1000);
+                    }
+                    
+                    // 如果我是房主，主动向新成员发起连接
+                    if (this.isHost) {
+                        this.initiateConnection(userId, username, avatarColor);
+                    }
+                    
+                } else if (action === 'leave') {
+                    this.log(`${username} 离开房间`);
+                    this.addSystemMessage(`${username} 离开了聊天室`, 'leave');
+                    this.removePeer(userId);
+                }
+            },
+
+            // 初始化连接（发起方）
+            async initiateConnection(targetUserId, targetName, targetColor) {
+                if (this.peers.has(targetUserId)) return;
+                
+                this.log(`正在连接 ${targetName}...`);
+                
+                const pc = new RTCPeerConnection({
                     iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
-                    ],
-                    iceCandidatePoolSize: 10
+                        {urls: 'stun:stun.l.google.com:19302'},
+                        {urls: 'stun:stun1.l.google.com:19302'}
+                    ]
                 });
                 
-                this.iceCandidatesQueue = [];
-                this.remoteDescriptionSet = false;
-
-                if (this.isInitiator) {
-                    this.dc = this.pc.createDataChannel('chat', {
-                        ordered: true,
-                        maxRetransmits: 3
-                    });
-                    this.setupDataChannel(this.dc);
-                    this.log('创建DataChannel');
-                    
-                    const offer = await this.pc.createOffer();
-                    await this.pc.setLocalDescription(offer);
-                    this.log('Offer已创建，收集ICE中...');
-                    
-                    document.getElementById('createLoading').classList.add('hidden');
-                    document.getElementById('roomCodeDisplay').classList.remove('hidden');
-                    document.getElementById('roomCodeDisplay').textContent = this.roomCode;
-                    document.getElementById('createHint').textContent = '等待对方加入...';
-                    
-                    this.waitForICE().then(() => {
-                        this.publish('offer', {sdp: this.pc.localDescription});
-                        this.log('Offer已广播');
-                    });
-                    
-                } else {
-                    this.pc.ondatachannel = (e) => {
-                        this.dc = e.channel;
-                        this.setupDataChannel(e.channel);
-                        this.log('收到DataChannel');
-                    };
-                    
-                    setTimeout(() => {
-                        this.publish('join', {});
-                        this.log('发送加入请求');
-                        this.addMessage('系统', '等待对方接受...', 'system');
-                    }, 500);
-                }
-
-                this.pc.onicecandidate = (e) => {
+                const peer = {
+                    pc: pc,
+                    userId: targetUserId,
+                    username: targetName,
+                    avatarColor: targetColor,
+                    dataChannel: null,
+                    connected: false,
+                    iceCandidates: []
+                };
+                
+                this.peers.set(targetUserId, peer);
+                
+                // 创建数据通道
+                const dc = pc.createDataChannel('chat', {ordered: true});
+                this.setupDataChannel(dc, peer);
+                
+                // 创建Offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                // 等待ICE收集
+                await this.waitForICE(pc);
+                
+                // 发送Offer（通过MQTT）
+                this.publish('signal', {
+                    targetUserId: targetUserId,
+                    type: 'offer',
+                    sdp: pc.localDescription,
+                    fromUserId: this.userId,
+                    fromName: this.username,
+                    fromColor: this.avatarColor
+                });
+                
+                // ICE处理
+                pc.onicecandidate = (e) => {
                     if (e.candidate) {
-                        this.publish('ice', {candidate: e.candidate});
+                        this.publish('signal', {
+                            targetUserId: targetUserId,
+                            type: 'ice',
+                            candidate: e.candidate,
+                            fromUserId: this.userId
+                        });
                     }
                 };
-
-                this.pc.oniceconnectionstatechange = () => {
-                    const state = this.pc.iceConnectionState;
-                    this.log('ICE状态: ' + state);
-                    
-                    const badge = document.getElementById('connBadge');
-                    badge.textContent = state;
-                    
-                    if (state === 'connected' || state === 'completed') {
-                        badge.className = 'badge direct';
-                        badge.textContent = '已连接';
-                        document.getElementById('input').style.display = 'flex';
-                        
-                        if (this.isInitiator && !document.getElementById('chat').classList.contains('hidden') === false) {
-                            this.switchToChat();
-                        }
-                        
-                        this.addMessage('系统', '✅ P2P连接成功！', 'system');
-                        
-                        // 移动端：连接成功后稍微延迟聚焦，避免键盘遮挡欢迎消息
-                        setTimeout(() => {
-                            this.scrollToBottom();
-                        }, 100);
-                        
-                        setTimeout(() => {
-                            if (this.client) {
-                                this.client.end();
-                                this.log('MQTT已断开');
-                            }
-                        }, 2000);
-                        
-                    } else if (state === 'failed') {
-                        badge.className = 'badge failed';
-                        this.addMessage('系统', '❌ 连接失败', 'error');
+                
+                pc.onconnectionstatechange = () => {
+                    this.log(`${targetName} 连接状态: ${pc.connectionState}`);
+                    if (pc.connectionState === 'connected') {
+                        peer.connected = true;
+                        this.updateOnlineCount();
+                        this.updateUserList();
+                    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                        this.removePeer(targetUserId);
                     }
                 };
             },
 
-            waitForICE() {
+            // 处理信令消息（接收方）
+            async handleSignal(data) {
+                const {targetUserId, type, fromUserId, fromName, fromColor} = data;
+                
+                // 只处理发给我的消息
+                if (targetUserId !== this.userId) return;
+                
+                if (type === 'offer') {
+                    // 收到Offer，创建Answer
+                    this.log(`收到 ${fromName} 的连接请求`);
+                    
+                    const pc = new RTCPeerConnection({
+                        iceServers: [{urls: 'stun:stun.l.google.com:19302'}]
+                    });
+                    
+                    const peer = {
+                        pc: pc,
+                        userId: fromUserId,
+                        username: fromName,
+                        avatarColor: fromColor,
+                        dataChannel: null,
+                        connected: false,
+                        iceCandidates: []
+                    };
+                    
+                    this.peers.set(fromUserId, peer);
+                    
+                    pc.ondatachannel = (e) => {
+                        this.setupDataChannel(e.channel, peer);
+                    };
+                    
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    
+                    await this.waitForICE(pc);
+                    
+                    this.publish('signal', {
+                        targetUserId: fromUserId,
+                        type: 'answer',
+                        sdp: pc.localDescription,
+                        fromUserId: this.userId,
+                        fromName: this.username,
+                        fromColor: this.avatarColor
+                    });
+                    
+                    pc.onicecandidate = (e) => {
+                        if (e.candidate) {
+                            this.publish('signal', {
+                                targetUserId: fromUserId,
+                                type: 'ice',
+                                candidate: e.candidate,
+                                fromUserId: this.userId
+                            });
+                        }
+                    };
+                    
+                    pc.onconnectionstatechange = () => {
+                        if (pc.connectionState === 'connected') {
+                            peer.connected = true;
+                            this.updateOnlineCount();
+                            this.updateUserList();
+                            this.addSystemMessage(`与 ${fromName} 建立直接连接`, 'info');
+                        }
+                    };
+                    
+                    // 处理缓冲的ICE
+                    if (peer.iceCandidates.length > 0) {
+                        for (const cand of peer.iceCandidates) {
+                            await pc.addIceCandidate(new RTCIceCandidate(cand));
+                        }
+                        peer.iceCandidates = [];
+                    }
+                    
+                } else if (type === 'answer') {
+                    const peer = this.peers.get(fromUserId);
+                    if (peer) {
+                        await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        this.addSystemMessage(`${peer.username} 接受了连接`, 'info');
+                    }
+                    
+                } else if (type === 'ice') {
+                    const peer = this.peers.get(fromUserId);
+                    if (peer) {
+                        if (peer.pc.remoteDescription) {
+                            await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        } else {
+                            peer.iceCandidates.push(data.candidate);
+                        }
+                    }
+                }
+            },
+
+            setupDataChannel(dc, peer) {
+                peer.dataChannel = dc;
+                
+                dc.onopen = () => {
+                    this.log(`与 ${peer.username} 的数据通道已打开`);
+                    peer.connected = true;
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                };
+                
+                dc.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        this.displayMessage(msg);
+                    } catch(err) {
+                        console.error('消息解析错误', err);
+                    }
+                };
+                
+                dc.onclose = () => {
+                    this.log(`${peer.username} 的数据通道已关闭`);
+                    this.removePeer(peer.userId);
+                };
+            },
+
+            waitForICE(pc) {
                 return new Promise((resolve) => {
-                    if (this.pc.iceGatheringState === 'complete') {
+                    if (pc.iceGatheringState === 'complete') {
                         resolve();
                     } else {
-                        this.pc.onicegatheringstatechange = () => {
-                            if (this.pc.iceGatheringState === 'complete') {
+                        const check = setInterval(() => {
+                            if (pc.iceGatheringState === 'complete') {
+                                clearInterval(check);
                                 resolve();
                             }
-                        };
-                        setTimeout(resolve, 3000);
+                        }, 200);
+                        setTimeout(() => {
+                            clearInterval(check);
+                            resolve();
+                        }, 3000);
                     }
                 });
             },
 
-            publish(type, data) {
+            publish(subtopic, data) {
                 if (this.client && this.client.connected) {
-                    const topic = `p2p-chat/${this.roomCode}/${type}`;
+                    const topic = `p2p-multi/${this.roomCode}/${subtopic}`;
                     this.client.publish(topic, JSON.stringify({
-                        type, 
-                        ...data, 
+                        ...data,
                         timestamp: Date.now(),
-                        from: this.isInitiator ? 'creator' : 'joiner'
+                        userId: this.userId
                     }));
                 }
             },
 
-            async handleSignalingData(data) {
-                try {
-                    if (data.from === (this.isInitiator ? 'creator' : 'joiner')) return;
-                    
-                    if (data.type === 'join' && this.isInitiator) {
-                        this.log('对方加入，发送Offer');
-                        this.publish('offer', {sdp: this.pc.localDescription});
-                    }
-                    else if (data.type === 'offer' && !this.isInitiator) {
-                        this.log('收到Offer，创建Answer');
-                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                        this.remoteDescriptionSet = true;
-                        
-                        this.processQueuedICECandidates();
-                        
-                        const answer = await this.pc.createAnswer();
-                        await this.pc.setLocalDescription(answer);
-                        
-                        this.waitForICE().then(() => {
-                            this.publish('answer', {sdp: this.pc.localDescription});
-                            this.log('Answer已发送');
-                        });
-                    }
-                    else if (data.type === 'answer' && this.isInitiator) {
-                        this.log('收到Answer');
-                        await this.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                        this.remoteDescriptionSet = true;
-                        
-                        this.processQueuedICECandidates();
-                        
-                        this.switchToChat();
-                    }
-                    else if (data.type === 'ice') {
-                        if (this.remoteDescriptionSet) {
-                            await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        } else {
-                            this.log('缓冲ICE候选');
-                            this.iceCandidatesQueue.push(data.candidate);
-                        }
-                    }
-                } catch (e) {
-                    this.log('信令错误: ' + e.message, true);
-                }
-            },
-
-            async processQueuedICECandidates() {
-                this.log(`处理${this.iceCandidatesQueue.length}个缓冲的ICE候选`);
-                while (this.iceCandidatesQueue.length > 0) {
-                    const candidate = this.iceCandidatesQueue.shift();
-                    try {
-                        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
-                    } catch(e) {
-                        this.log('添加ICE候选失败: ' + e.message, true);
-                    }
-                }
-            },
-
-            setupDataChannel(dc) {
-                dc.onopen = () => {
-                    this.log('DataChannel已打开');
-                };
-                dc.onmessage = (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        this.addMessage('对方', data.msg, 'other');
-                    } catch(err) {
-                        this.addMessage('对方', e.data, 'other');
-                    }
-                };
-                dc.onclose = () => {
-                    this.log('DataChannel已关闭');
-                    this.addMessage('系统', '对方已断开', 'system');
-                };
-                dc.onerror = (e) => {
-                    this.log('DataChannel错误', true);
-                };
-            },
-
+            // 发送消息（广播给所有 peers）
             send() {
                 const input = document.getElementById('msgInput');
-                const msg = input.value.trim();
-                if (!msg || !this.dc || this.dc.readyState !== 'open') {
-                    alert('连接尚未就绪或消息为空');
-                    return;
+                const content = input.value.trim();
+                if (!content) return;
+                
+                this.messageSeq++;
+                
+                const message = {
+                    id: `${this.userId}_${Date.now()}_${this.messageSeq}`,
+                    userId: this.userId,
+                    username: this.username,
+                    avatarColor: this.avatarColor,
+                    content: content,
+                    seq: this.messageSeq,
+                    timestamp: new Date().toISOString(),
+                    type: 'chat'
+                };
+                
+                // 发送给所有已连接的 peers
+                let sentCount = 0;
+                this.peers.forEach((peer, uid) => {
+                    if (peer.dataChannel && peer.dataChannel.readyState === 'open') {
+                        try {
+                            peer.dataChannel.send(JSON.stringify(message));
+                            sentCount++;
+                        } catch(e) {
+                            console.error(`发送给 ${peer.username} 失败`, e);
+                        }
+                    }
+                });
+                
+                if (sentCount > 0 || this.peers.size === 0) {
+                    // 显示自己的消息
+                    this.displayMessage(message, true);
+                    input.value = '';
+                    
+                    if (this.peers.size === 0) {
+                        this.addSystemMessage('暂无其他人在线，消息已缓存（实验性功能）', 'warn');
+                    }
+                } else {
+                    alert('暂无可用的连接，请等待其他用户上线');
                 }
+            },
+
+            displayMessage(msg, isSelf = false) {
+                // 去重检查
+                if (this.receivedMessages.has(msg.id)) return;
+                this.receivedMessages.add(msg.id);
                 
-                this.dc.send(JSON.stringify({msg, time: Date.now()}));
-                this.addMessage('我', msg, 'self');
-                input.value = '';
+                const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
                 
-                // 移动端发送后保持聚焦，方便连续输入
-                input.focus();
+                const div = document.createElement('div');
+                div.className = `msg ${isSelf ? 'self' : ''}`;
+                
+                div.innerHTML = `
+                    <div class="msg-header">
+                        <span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || '#fff')}">
+                            ${isSelf ? '我' : msg.username}
+                        </span>
+                        <span class="msg-seq">#${msg.seq || '-'}</span>
+                        <span class="msg-time">${time}</span>
+                    </div>
+                    <div class="msg-content">${this.escapeHtml(msg.content)}</div>
+                `;
+                
+                document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
             },
 
-            addMessage(from, text, type) {
+            addSystemMessage(text, type = 'info') {
                 const div = document.createElement('div');
-                div.className = `msg ${type}`;
-                const time = new Date().toLocaleTimeString();
-                div.innerHTML = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${from} · ${time}</div><div>${text}</div>`;
+                div.className = `msg system ${type}`;
+                
+                const time = new Date().toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                div.innerHTML = `
+                    <div class="msg-header">
+                        <span class="msg-time">${time}</span>
+                    </div>
+                    <div class="msg-content">${text}</div>
+                `;
+                
                 document.getElementById('messages').appendChild(div);
                 this.scrollToBottom();
+            },
+
+            updateOnlineCount() {
+                const count = this.peers.size + 1; // +1 是自己
+                document.getElementById('onlineCount').textContent = `${count}人在线`;
+                document.getElementById('connectionStatus').textContent = 
+                    this.peers.size > 0 ? `已连接 ${this.peers.size} 个节点` : '等待其他成员...';
+            },
+
+            updateUserList() {
+                const list = document.getElementById('userList');
+                // 保留自己
+                list.innerHTML = `
+                    <div class="user-chip me">
+                        <span class="dot"></span>
+                        <span>${this.username}</span>
+                    </div>
+                `;
+                
+                this.peers.forEach((peer) => {
+                    if (peer.connected) {
+                        const chip = document.createElement('div');
+                        chip.className = 'user-chip';
+                        chip.innerHTML = `
+                            <span class="dot" style="background:${peer.avatarColor}"></span>
+                            <span>${peer.username}</span>
+                        `;
+                        list.appendChild(chip);
+                    }
+                });
+            },
+
+            removePeer(userId) {
+                const peer = this.peers.get(userId);
+                if (peer) {
+                    if (peer.pc) peer.pc.close();
+                    this.peers.delete(userId);
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                }
+            },
+
+            leaveRoom() {
+                // 广播离开消息
+                this.publish('presence', {
+                    username: this.username,
+                    userId: this.userId,
+                    action: 'leave'
+                });
+                
+                // 关闭所有连接
+                this.peers.forEach((peer) => {
+                    if (peer.dataChannel) peer.dataChannel.close();
+                    if (peer.pc) peer.pc.close();
+                });
+                this.peers.clear();
+                
+                // 断开MQTT
+                if (this.client) {
+                    this.client.end();
+                }
+                
+                // 清理
+                sessionStorage.removeItem('p2p_username');
+                sessionStorage.removeItem('p2p_userid');
+                sessionStorage.removeItem('p2p_color');
+                
+                location.reload();
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
             },
 
             scrollToBottom() {
                 const messages = document.getElementById('messages');
                 messages.scrollTop = messages.scrollHeight;
-                
-                // 移动端键盘弹出后，确保输入框在可视区域
-                if (document.getElementById('input').style.display !== 'none') {
-                    document.getElementById('msgInput').scrollIntoView({behavior: 'smooth', block: 'nearest'});
-                }
             }
         };
         
         window.App = App;
-
-        // 全局辅助：监听视口变化（键盘弹出/收起）
-        window.addEventListener('resize', () => {
-            // iOS Safari 键盘处理
-            setTimeout(() => {
-                if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-                    document.activeElement.scrollIntoView({behavior: 'smooth', block: 'center'});
-                }
-            }, 100);
+        App.init();
+        
+        // 页面关闭前清理
+        window.addEventListener('beforeunload', () => {
+            if (App.joined) {
+                App.publish('presence', {username: App.username, userId: App.userId, action: 'leave'});
+            }
         });
     </script>
 </body>
