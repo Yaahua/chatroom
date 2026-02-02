@@ -1287,24 +1287,31 @@
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
         // ==================== 配置常量 ====================
-        const CONFIG = {
-            // 新的 HiveMQ Cloud 专属集群地址（欧洲节点）
-            MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
-            
-             MQTT_URL: 'wss://hajimi.chaliegaul.workers.dev?token=hajimi123',
-            
-            ICE_SERVERS: [
-                { urls: "stun:stun.relay.metered.ca:80" },
-                { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-                { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
-            ],
-            MAX_PEERS: 7,
-            MAX_MESSAGE_SIZE: 16384,
-            CHUNK_SIZE: 16384,
-            MAX_VOICE_DURATION: 60,
-            READ_RECEIPT_DELAY: 500,
-            ROOM_EXPIRY: 30 * 60 * 1000
-        };
+ const CONFIG = {
+    MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
+    MQTT_USERNAME: 'hajimi',
+    // 密码用 Base64 编码，防君子不防小人
+    // 原密码 258758Szh 的 Base64: MjU4NzU4U3po
+    get MQTT_PASSWORD() { 
+        try {
+            return atob('MjU4NzU4U3po'); 
+        } catch(e) {
+            return '258758Szh'; // 备用
+        }
+    },
+    
+    ICE_SERVERS: [
+        { urls: "stun:stun.relay.metered.ca:80" },
+        { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+        { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }
+    ],
+    MAX_PEERS: 7,
+    MAX_MESSAGE_SIZE: 16384,
+    CHUNK_SIZE: 16384,
+    MAX_VOICE_DURATION: 60,
+    READ_RECEIPT_DELAY: 500,
+    ROOM_EXPIRY: 30 * 60 * 1000
+};
 
         // ==================== 工具类 ====================
         class Utils {
