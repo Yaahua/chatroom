@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300c8aa'/><path d='M50 25c-13.8 0-25 9.5-25 21.2 0 6.4 3.2 12.2 8.3 16.2v10.8l9.8-6.8c2.2.6 4.6.9 7 .9 13.8 0 25-9.5 25-21.2S63.8 25 50 25z' fill='white'/></svg>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>哈吉米德的聊天室</title>
@@ -25,6 +24,9 @@
             --system-bg: rgba(0, 0, 0, 0.03);
             --hover-bg: rgba(0, 0, 0, 0.05);
             --voice-bg: rgba(0, 200, 170, 0.12);
+            --network-good: #34c759;
+            --network-medium: #ff9500;
+            --network-poor: #ff3b30;
         }
         
         [data-theme="dark"]{
@@ -406,12 +408,14 @@
             flex-direction: column;
             gap: 16px;
             scroll-behavior: smooth;
+            contain: layout style paint;
         }
         
         .msg{
             max-width: 80%;
             animation: messageIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            contain: layout style;
         }
         
         @keyframes messageIn{
@@ -444,7 +448,6 @@
             gap: 4px;
         }
         
-        /* 已读状态样式 */
         .msg-status {
             display: inline-flex;
             align-items: center;
@@ -474,7 +477,6 @@
             height: 14px;
         }
         
-        /* 已读详情提示 */
         .read-details {
             position: absolute;
             bottom: calc(100% + 8px);
@@ -583,7 +585,6 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         
-        /* 语音消息样式 */
         .msg-voice {
             display: flex;
             align-items: center;
@@ -807,7 +808,6 @@
             cursor: not-allowed;
         }
         
-        /* 语音输入按钮 */
         .voice-record-btn {
             flex: 1;
             height: 44px;
@@ -856,7 +856,6 @@
             bottom: 4px;
         }
         
-        /* 录音遮罩层 */
         #recordOverlay {
             position: fixed;
             inset: 0;
@@ -1105,7 +1104,40 @@
             50% { opacity: 0.5; transform: scale(0.9); }
         }
         
-        /* 图片源选择菜单 */
+        /* 网络质量指示器 */
+        .network-quality {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            margin-left: 6px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: var(--hover-bg);
+            font-weight: 600;
+        }
+        
+        .network-quality.good { color: var(--network-good); }
+        .network-quality.medium { color: var(--network-medium); }
+        .network-quality.poor { color: var(--network-poor); }
+        
+        .network-quality svg {
+            width: 12px;
+            height: 12px;
+        }
+        
+        /* 虚拟滚动优化 */
+        .virtual-scroll-container {
+            position: relative;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .message-sentinel {
+            height: 1px;
+            width: 100%;
+        }
+        
         #imageSourceModal {
             touch-action: none;
         }
@@ -1119,7 +1151,6 @@
             transform: scale(0.98) !important;
         }
         
-        /* 输入框阻塞提示 */
         #inputBlocker {
             position: absolute;
             top: -40px;
@@ -1132,6 +1163,29 @@
             pointer-events: none;
             text-shadow: 0 1px 2px var(--bg);
             animation: pulse 2s infinite;
+        }
+        
+        /* 输入状态提示 */
+        .typing-indicator {
+            position: absolute;
+            bottom: 100%;
+            left: 20px;
+            background: var(--bg-secondary);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s;
+            pointer-events: none;
+            border: 1px solid var(--glass-border);
+        }
+        
+        .typing-indicator.show {
+            opacity: 1;
+            transform: translateY(0);
         }
         
         @media (max-width: 600px){
@@ -1150,7 +1204,6 @@
             .record-timer { font-size: 36px; }
             .record-wave-container { width: 160px; height: 160px; }
             
-            /* 移动端触摸优化 */
             button, .input-btn {
                 min-height: 44px;
                 min-width: 44px;
@@ -1160,7 +1213,6 @@
                 padding: 10px 18px !important;
             }
             
-            /* 确保底部安全区域 */
             @supports (padding-bottom: env(safe-area-inset-bottom)) {
                 #input {
                     padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
@@ -1168,7 +1220,6 @@
             }
         }
         
-        /* 触摸设备优化 */
         .touch-device button,
         .touch-device .input-btn {
             min-height: 44px;
@@ -1185,7 +1236,6 @@
 <body>
     <div id="toast" class="toast"></div>
 
-    <!-- 录音遮罩层 -->
     <div id="recordOverlay" onclick="window.chatApp?.cancelRecord()">
         <div class="record-timer" id="recordTimer">00:00</div>
         <div class="record-wave-container" id="waveContainer">
@@ -1197,7 +1247,6 @@
         </div>
     </div>
 
-    <!-- 图片源选择菜单 -->
     <div id="imageSourceModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 2500; display: flex; align-items: flex-end; justify-content: center; padding: 20px; opacity: 0; transition: opacity 0.3s;">
         <div class="glass-strong" style="width: 100%; max-width: 400px; border-radius: 24px; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
             <div style="padding: 12px 0; text-align: center; border-bottom: 1px solid var(--glass-border);">
@@ -1295,8 +1344,12 @@
             <div id="roomInfo">
                 <div style="min-width:0; flex:1; overflow:visible;">
                     <div id="roomTitle" onclick="window.chatApp?.copyCurrentRoomCode()" title="点击复制房间号">房间</div>
-                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;font-weight:500;display:flex;align-items:center" id="connectionStatus">
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;font-weight:500;display:flex;align-items:center;flex-wrap:wrap;gap:4px" id="connectionStatus">
                         <span class="conn-status connecting"></span>初始化
+                        <span class="network-quality" id="networkQuality" style="display:none">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 14h4v8H1zM8 10h4v12H8zM15 6h4v16h-4zM22 2h4v20h-4z"/></svg>
+                            <span>-</span>
+                        </span>
                     </div>
                 </div>
                 <div id="onlineCount" style="flex-shrink:0;">1人</div>
@@ -1321,24 +1374,22 @@
         </div>
         
         <div id="messages"></div>
+        <div class="typing-indicator" id="typingIndicator">对方正在输入...</div>
         
         <div id="input" class="glass-strong input-mode-text">
-            <!-- 连接状态提示层 -->
             <div id="inputBlocker" class="hidden">
                 🔒 等待加密节点连接...
             </div>
             
             <input type="file" id="fileInput" accept="image/*" onchange="window.chatApp?.handleImageSelect(event)">
             
-            <!-- 语音/文本切换按钮 -->
             <button class="input-btn" onclick="window.chatApp?.toggleInputMode()" title="切换语音/文字" id="modeToggleBtn">
                 🎙️
             </button>
             
-            <!-- 文本输入模式 -->
             <div id="textInputWrapper" style="flex:1;display:flex;gap:10px;align-items:center; position: relative;">
                 <div id="inputWrapper" style="flex:1;">
-                    <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter' && !this.disabled) window.chatApp?.send()">
+                    <input type="text" id="msgInput" placeholder="发送消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter' && !this.disabled) window.chatApp?.send()" oninput="window.chatApp?.handleInput()">
                 </div>
                 <button class="input-btn" onclick="window.chatApp?.triggerImageSelect()" title="发送图片" style="font-size:16px;">
                     📷
@@ -1346,7 +1397,6 @@
                 <button onclick="window.chatApp?.send()" class="send-btn" style="border-radius:20px;padding:10px 20px;width:auto;">发送</button>
             </div>
             
-            <!-- 语音输入模式 -->
             <div id="voiceInputWrapper" class="hidden" style="flex:1;">
                 <button class="voice-record-btn" id="recordBtn" 
                     onmousedown="window.chatApp?.startRecord(event)" 
@@ -1364,19 +1414,214 @@
     <script type="module">
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
+        // ==================== 混淆的安全配置（控制流扁平化） ====================
+        class SecureConfig {
+            static #state = 0;
+            static #buffer = new ArrayBuffer(32);
+            static #view = new DataView(SecureConfig.#buffer);
+            
+            static #init() {
+                // 虚假控制流 - 永假条件
+                if (Math.random() < -1) return "dead_code_path";
+                
+                // 分段存储敏感数据（异或加密）
+                const key = [0x4a, 0x3f, 0x12, 0x58, 0x9a, 0x2c];
+                const data1 = [0x7b, 0x0e, 0x63, 0x2a, 0xe9, 0x5d];
+                const data2 = [0x4e, 0x5d, 0x0a, 0x3b, 0xf1, 0x71];
+                
+                for(let i = 0; i < 6; i++) {
+                    SecureConfig.#view.setUint8(i, data1[i] ^ key[i]);
+                    SecureConfig.#view.setUint8(i + 6, data2[i] ^ key[i]);
+                }
+                SecureConfig.#state = 1;
+            }
+
+            static get MQTT_URL() {
+                const urls = [
+                    'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
+                    'wss://invalid.backup.url:8883/mqtt', // 虚假路径
+                    'wss://' + atob('N2UwN2I5MWJiYWFjNDgyNWFmOTU4Y2E5MDg0YzU1NDI') + '.s1.eu.hivemq.cloud:8884/mqtt'
+                ];
+                // 控制流混淆：随机选择（实际总是返回第一个）
+                const idx = (Date.now() % 3 === 0) ? 0 : ((Date.now() % 2 === 0) ? 0 : 0);
+                return urls[idx];
+            }
+
+            static get MQTT_USERNAME() {
+                if (SecureConfig.#state !== 1) SecureConfig.#init();
+                // 从内存读取
+                return String.fromCharCode(
+                    SecureConfig.#view.getUint8(0),
+                    SecureConfig.#view.getUint8(1),
+                    SecureConfig.#view.getUint8(2),
+                    SecureConfig.#view.getUint8(3),
+                    SecureConfig.#view.getUint8(4),
+                    SecureConfig.#view.getUint8(5)
+                );
+            }
+
+            static get MQTT_PASSWORD() {
+                if (SecureConfig.#state !== 1) SecureConfig.#init();
+                // 复杂计算路径
+                const step1 = SecureConfig.#view.getUint8(6);
+                const step2 = SecureConfig.#view.getUint8(7);
+                const step3 = SecureConfig.#view.getUint8(8);
+                const step4 = SecureConfig.#view.getUint8(9);
+                const step5 = SecureConfig.#view.getUint8(10);
+                const step6 = SecureConfig.#view.getUint8(11);
+                
+                // 虚假循环
+                for(let i = 0; i < (Math.random() > 2 ? 100 : 0); i++) {
+                    console.log('obfuscation');
+                }
+                
+                return String.fromCharCode(step1, step2, step3, step4, step5, step6);
+            }
+        }
+
+        // ==================== Web Worker for Image Processing ====================
+        const ImageWorkerCode = `
+            self.onmessage = function(e) {
+                const { file, maxWidth, maxHeight, quality, id } = e.data;
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        let { width, height } = img;
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width *= ratio;
+                            height *= ratio;
+                        }
+                        
+                        const canvas = new OffscreenCanvas(width, height);
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#f5f5f7';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        canvas.convertToBlob({ type: 'image/jpeg', quality: quality }).then(blob => {
+                            const reader2 = new FileReader();
+                            reader2.onloadend = () => {
+                                self.postMessage({ 
+                                    success: true, 
+                                    dataUrl: reader2.result, 
+                                    id,
+                                    size: blob.size 
+                                });
+                            };
+                            reader2.readAsDataURL(blob);
+                        });
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+        `;
+
+        const imageWorkerBlob = new Blob([ImageWorkerCode], { type: 'application/javascript' });
+        const imageWorkerUrl = URL.createObjectURL(imageWorkerBlob);
+
+        // ==================== E2E Encryption ====================
+        class E2EEncryption {
+            constructor() {
+                this.keyPair = null;
+                this.sharedSecrets = new Map(); // peerId -> CryptoKey
+            }
+
+            async generateKeyPair() {
+                this.keyPair = await crypto.subtle.generateKey(
+                    {
+                        name: "ECDH",
+                        namedCurve: "P-256"
+                    },
+                    false, // non-extractable
+                    ["deriveKey"]
+                );
+                return this.keyPair;
+            }
+
+            async deriveSharedSecret(peerPublicKeyJwk, peerId) {
+                const peerKey = await crypto.subtle.importKey(
+                    "jwk",
+                    peerPublicKeyJwk,
+                    { name: "ECDH", namedCurve: "P-256" },
+                    false,
+                    []
+                );
+
+                const sharedKey = await crypto.subtle.deriveKey(
+                    {
+                        name: "ECDH",
+                        public: peerKey
+                    },
+                    this.keyPair.privateKey,
+                    {
+                        name: "AES-GCM",
+                        length: 256
+                    },
+                    false,
+                    ["encrypt", "decrypt"]
+                );
+
+                this.sharedSecrets.set(peerId, sharedKey);
+                return sharedKey;
+            }
+
+            async encryptMessage(plaintext, peerId) {
+                const key = this.sharedSecrets.get(peerId);
+                if (!key) throw new Error('No shared secret');
+
+                const encoder = new TextEncoder();
+                const data = encoder.encode(plaintext);
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                
+                const encrypted = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv },
+                    key,
+                    data
+                );
+
+                // Combine IV + ciphertext
+                const result = new Uint8Array(iv.length + encrypted.byteLength);
+                result.set(iv, 0);
+                result.set(new Uint8Array(encrypted), iv.length);
+                
+                return btoa(String.fromCharCode(...result));
+            }
+
+            async decryptMessage(ciphertextBase64, peerId) {
+                const key = this.sharedSecrets.get(peerId);
+                if (!key) throw new Error('No shared secret');
+
+                const combined = Uint8Array.from(atob(ciphertextBase64), c => c.charCodeAt(0));
+                const iv = combined.slice(0, 12);
+                const ciphertext = combined.slice(12);
+
+                try {
+                    const decrypted = await crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv },
+                        key,
+                        ciphertext
+                    );
+                    return new TextDecoder().decode(decrypted);
+                } catch (e) {
+                    console.error('Decryption failed:', e);
+                    return null;
+                }
+            }
+
+            exportPublicKey() {
+                return crypto.subtle.exportKey("jwk", this.keyPair.publicKey);
+            }
+        }
+
         // ==================== 配置常量 ====================
         const CONFIG = {
-            MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
-            MQTT_USERNAME: 'hajimi',
-            // 密码用 Base64 编码，防君子不防小人
-            // 原密码 258758Szh 的 Base64: MjU4NzU4U3po
-            get MQTT_PASSWORD() { 
-                try {
-                    return atob('MjU4NzU4U3po'); 
-                } catch(e) {
-                    return '258758Szh'; // 备用
-                }
-            },
+            get MQTT_URL() { return SecureConfig.MQTT_URL; },
+            get MQTT_USERNAME() { return SecureConfig.MQTT_USERNAME; },
+            get MQTT_PASSWORD() { return SecureConfig.MQTT_PASSWORD; },
             
             ICE_SERVERS: [
                 { urls: "stun:stun.relay.metered.ca:80" },
@@ -1385,19 +1630,23 @@
             ],
             MAX_PEERS: 7,
             MAX_MESSAGE_SIZE: 16384,
-            CHUNK_SIZE: 16384,
+            CHUNK_SIZE: 8192, // 减小分片大小提高可靠性
             MAX_VOICE_DURATION: 60,
             READ_RECEIPT_DELAY: 500,
-            ROOM_EXPIRY: 30 * 60 * 1000
+            ROOM_EXPIRY: 30 * 60 * 1000,
+            TYPING_TIMEOUT: 3000,
+            ICE_GATHER_TIMEOUT: 8000,
+            MAX_RECONNECT_ATTEMPTS: 3
         };
 
         // ==================== 工具类 ====================
         class Utils {
             static generateUUID() {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-                    const r = Math.random() * 16 | 0;
-                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-                });
+                return crypto.randomUUID ? crypto.randomUUID() : 
+                    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                        const r = Math.random() * 16 | 0;
+                        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                    });
             }
 
             static getAvatarColor(name) {
@@ -1409,7 +1658,9 @@
 
             static generateRoomCode() {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+                const array = new Uint8Array(6);
+                crypto.getRandomValues(array);
+                return Array.from(array, x => chars[x % chars.length]).join('');
             }
 
             static formatTime(date) {
@@ -1422,40 +1673,22 @@
                 return div.innerHTML;
             }
 
-            static async compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            let { width, height } = img;
-                            if (width > maxWidth || height > maxHeight) {
-                                const ratio = Math.min(maxWidth / width, maxHeight / height);
-                                width *= ratio;
-                                height *= ratio;
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.fillStyle = '#f5f5f7';
-                            ctx.fillRect(0, 0, width, height);
-                            ctx.drawImage(img, 0, 0, width, height);
-                            resolve(canvas.toDataURL('image/jpeg', quality));
-                        };
-                        img.onerror = reject;
-                        img.src = e.target.result;
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            }
-
             static getDataSize(base64) {
                 const bytes = Math.ceil(base64.length * 0.75);
                 if (bytes < 1024) return bytes + ' B';
                 if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
                 return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+
+            static throttle(func, limit) {
+                let inThrottle;
+                return function(...args) {
+                    if (!inThrottle) {
+                        func.apply(this, args);
+                        inThrottle = true;
+                        setTimeout(() => inThrottle = false, limit);
+                    }
+                }
             }
         }
 
@@ -1477,6 +1710,130 @@
             clear() { this.cache.clear(); }
         }
 
+        // ==================== Reliable Voice Transfer with ACK ====================
+        class ReliableVoiceTransfer {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.pendingChunks = new Map(); // chunkId -> {data, retries, timestamp}
+                this.ackCallbacks = new Map();
+                this.maxRetries = 3;
+                this.ackTimeout = 5000;
+                this.chunkWindow = 5; // 滑动窗口大小
+            }
+
+            async sendVoice(blob, duration, meta) {
+                const arrayBuffer = await blob.arrayBuffer();
+                const totalChunks = Math.ceil(arrayBuffer.byteLength / CONFIG.CHUNK_SIZE);
+                const voiceId = meta.voiceId;
+                
+                // 发送元数据
+                const metaMsg = {
+                    ...meta,
+                    type: 'voice_meta',
+                    totalChunks,
+                    totalSize: arrayBuffer.byteLength,
+                    timestamp: new Date().toISOString()
+                };
+                
+                if (this.app.broadcastMessage(metaMsg) === 0) {
+                    throw new Error('No peers connected');
+                }
+
+                // 分片发送带滑动窗口控制
+                let sentCount = 0;
+                const sendChunk = async (index) => {
+                    if (index >= totalChunks) return;
+                    
+                    const start = index * CONFIG.CHUNK_SIZE;
+                    const end = Math.min(start + CONFIG.CHUNK_SIZE, arrayBuffer.byteLength);
+                    const chunk = arrayBuffer.slice(start, end);
+                    
+                    const header = new TextEncoder().encode(`${voiceId}|${index}|${totalChunks}|`);
+                    const combined = new Uint8Array(header.length + chunk.byteLength);
+                    combined.set(header, 0);
+                    combined.set(new Uint8Array(chunk), header.length);
+                    
+                    // 等待ACK
+                    const chunkId = `${voiceId}_${index}`;
+                    await this.sendWithAck(chunkId, combined.buffer, index);
+                    sentCount++;
+                    
+                    // 进度回调
+                    if (index % 5 === 0) {
+                        this.app.showToast(`发送中 ${Math.round(sentCount/totalChunks*100)}%`);
+                    }
+                };
+
+                // 使用滑动窗口并发发送
+                const windowSize = Math.min(CONFIG.MAX_PEERS * 2, 5);
+                for (let i = 0; i < totalChunks; i += windowSize) {
+                    const batch = [];
+                    for (let j = 0; j < windowSize && (i + j) < totalChunks; j++) {
+                        batch.push(sendChunk(i + j));
+                    }
+                    await Promise.all(batch);
+                    await new Promise(r => setTimeout(r, 50)); // 流控
+                }
+
+                // 发送结束标记
+                setTimeout(() => {
+                    this.app.broadcastMessage({
+                        type: 'voice_end',
+                        voiceId: voiceId,
+                        timestamp: new Date().toISOString()
+                    });
+                }, 100);
+
+                return voiceId;
+            }
+
+            async sendWithAck(chunkId, data, index) {
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    
+                    const trySend = () => {
+                        if (attempts >= this.maxRetries) {
+                            reject(new Error(`Failed to send chunk ${index}`));
+                            return;
+                        }
+                        
+                        this.app.broadcastRaw(data);
+                        attempts++;
+                        
+                        // 设置ACK超时
+                        const timeout = setTimeout(() => {
+                            if (this.ackCallbacks.has(chunkId)) {
+                                trySend(); // 重试
+                            }
+                        }, this.ackTimeout);
+                        
+                        this.ackCallbacks.set(chunkId, () => {
+                            clearTimeout(timeout);
+                            this.ackCallbacks.delete(chunkId);
+                            resolve();
+                        });
+                    };
+                    
+                    trySend();
+                });
+            }
+
+            handleAck(voiceId, chunkIndex) {
+                const chunkId = `${voiceId}_${chunkIndex}`;
+                const callback = this.ackCallbacks.get(chunkId);
+                if (callback) callback();
+            }
+
+            sendAck(voiceId, chunkIndex) {
+                this.app.broadcastMessage({
+                    type: 'voice_ack',
+                    voiceId,
+                    chunkIndex,
+                    timestamp: Date.now()
+                });
+            }
+        }
+
         // ==================== 语音管理器 ====================
         class VoiceManager {
             constructor(chatApp) {
@@ -1489,6 +1846,24 @@
                 this.currentPlaying = null;
                 this.audioContext = null;
                 this.voiceBlobs = new Map();
+                this.reliableTransfer = new ReliableVoiceTransfer(chatApp);
+                this.cleanupInterval = setInterval(() => this.cleanup(), 60000); // 每分钟清理
+            }
+
+            cleanup() {
+                // 清理超过30分钟的语音缓存
+                const now = Date.now();
+                for (const [id, data] of this.voiceBlobs.entries()) {
+                    if (data.timestamp && (now - data.timestamp > 30 * 60 * 1000)) {
+                        this.voiceBlobs.delete(id);
+                    }
+                }
+            }
+
+            destroy() {
+                clearInterval(this.cleanupInterval);
+                this.voiceBlobs.clear();
+                this.receivingBuffers.clear();
             }
 
             initAudioContext() {
@@ -1532,7 +1907,6 @@
                     return true;
                 } catch (err) {
                     console.error('录音失败:', err);
-                    this.app.showToast('无法访问麦克风');
                     return false;
                 }
             }
@@ -1589,105 +1963,67 @@
                 }
 
                 const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                await this.sendVoiceBlob(blob, duration);
-            }
-
-            async sendVoiceBlob(blob, duration) {
                 const voiceId = `voice_${this.app.user.id}_${Date.now()}`;
-                const arrayBuffer = await blob.arrayBuffer();
                 
-                const totalChunks = Math.ceil(arrayBuffer.byteLength / CONFIG.CHUNK_SIZE) || 1;
-                
-                const meta = {
-                    id: `${this.app.user.id}_${Date.now()}`,
-                    userId: this.app.user.id,
-                    username: this.app.user.name,
-                    avatarColor: this.app.user.color,
-                    type: 'voice_meta',
-                    voiceId: voiceId,
-                    duration: duration,
-                    totalChunks: totalChunks,
-                    totalSize: arrayBuffer.byteLength,
-                    timestamp: new Date().toISOString()
-                };
-                
-                const sent = this.app.broadcastMessage(meta);
-                if (sent === 0) {
-                    this.app.showToast('发送失败：无连接');
-                    return;
-                }
-                
-                for (let i = 0; i < totalChunks; i++) {
-                    const start = i * CONFIG.CHUNK_SIZE;
-                    const end = Math.min(start + CONFIG.CHUNK_SIZE, arrayBuffer.byteLength);
-                    const chunk = arrayBuffer.slice(start, end);
-                    
-                    const header = new TextEncoder().encode(`${voiceId}|${i}|`);
-                    const combined = new Uint8Array(header.length + chunk.byteLength);
-                    combined.set(header, 0);
-                    combined.set(new Uint8Array(chunk), header.length);
-                    
-                    this.app.broadcastRaw(combined.buffer);
-                    
-                    if (i < totalChunks - 1) await new Promise(r => setTimeout(r, 10));
-                }
-                
-                setTimeout(() => {
-                    this.app.broadcastMessage({
-                        type: 'voice_end',
+                try {
+                    await this.reliableTransfer.sendVoice(blob, duration, {
+                        id: `${this.app.user.id}_${Date.now()}`,
+                        userId: this.app.user.id,
+                        username: this.app.user.name,
+                        avatarColor: this.app.user.color,
                         voiceId: voiceId,
-                        timestamp: new Date().toISOString()
+                        duration: duration
                     });
-                }, 100);
-                
-                this.app.displayVoiceMessage({ ...meta, type: 'voice', blob, local: true }, true);
-                this.app.initMessageStatus(voiceId, true);
+                    
+                    this.app.displayVoiceMessage({ 
+                        voiceId, duration, blob, local: true,
+                        userId: this.app.user.id,
+                        username: this.app.user.name,
+                        avatarColor: this.app.user.color,
+                        timestamp: new Date().toISOString()
+                    }, true);
+                    this.app.initMessageStatus(voiceId, true);
+                } catch (e) {
+                    this.app.showToast('发送失败: ' + e.message);
+                }
             }
 
             handleChunk(peerId, arrayBuffer) {
                 try {
                     const uint8 = new Uint8Array(arrayBuffer);
-                    const headerLen = Math.min(200, uint8.length);
-                    let firstPipe = -1, secondPipe = -1;
+                    const headerStr = new TextDecoder().decode(uint8.slice(0, 100));
+                    const parts = headerStr.split('|');
                     
-                    for (let i = 0; i < headerLen; i++) {
-                        if (uint8[i] === 124) {
-                            if (firstPipe === -1) firstPipe = i;
-                            else if (secondPipe === -1) {
-                                secondPipe = i;
-                                break;
-                            }
-                        }
-                    }
+                    if (parts.length < 3) return;
                     
-                    if (firstPipe === -1 || secondPipe === -1) return;
+                    const [voiceId, indexStr, totalStr] = parts;
+                    const index = parseInt(indexStr);
+                    const total = parseInt(totalStr);
                     
-                    const decoder = new TextDecoder();
-                    const voiceId = decoder.decode(uint8.slice(0, firstPipe));
-                    const index = parseInt(decoder.decode(uint8.slice(firstPipe + 1, secondPipe)));
-                    const chunkData = uint8.slice(secondPipe + 1);
-                    
-                    if (isNaN(index)) return;
+                    const headerLen = voiceId.length + indexStr.length + totalStr.length + 3; // 3个'|'分隔符
+                    const chunkData = uint8.slice(headerLen);
                     
                     if (!this.receivingBuffers.has(voiceId)) {
                         this.receivingBuffers.set(voiceId, {
-                            chunks: [],
+                            chunks: new Array(total).fill(null),
                             received: 0,
                             meta: null,
-                            timeout: setTimeout(() => this.receivingBuffers.delete(voiceId), 30000)
+                            timeout: setTimeout(() => this.receivingBuffers.delete(voiceId), 60000),
+                            lastUpdate: Date.now()
                         });
                     }
                     
                     const buffer = this.receivingBuffers.get(voiceId);
-                    while (buffer.chunks.length <= index) buffer.chunks.push(null);
-                    
                     if (buffer.chunks[index] === null) {
                         buffer.chunks[index] = chunkData;
                         buffer.received++;
+                        buffer.lastUpdate = Date.now();
+                        
+                        // 发送ACK
+                        this.reliableTransfer.sendAck(voiceId, index);
                     }
                     
                     if (buffer.meta && buffer.received >= buffer.meta.totalChunks) {
-                        clearTimeout(buffer.timeout);
                         this.assembleVoice(voiceId);
                     }
                 } catch (e) {
@@ -1698,10 +2034,11 @@
             handleVoiceMeta(peerId, data) {
                 if (!this.receivingBuffers.has(data.voiceId)) {
                     this.receivingBuffers.set(data.voiceId, {
-                        chunks: [],
+                        chunks: new Array(data.totalChunks).fill(null),
                         received: 0,
                         meta: data,
-                        timeout: setTimeout(() => this.receivingBuffers.delete(data.voiceId), 30000)
+                        timeout: setTimeout(() => this.receivingBuffers.delete(data.voiceId), 60000),
+                        lastUpdate: Date.now()
                     });
                 } else {
                     const buffer = this.receivingBuffers.get(data.voiceId);
@@ -1710,26 +2047,27 @@
                 }
             }
 
-            handleVoiceEnd(peerId, data) {
-                // 依靠数量判断
+            handleVoiceAck(peerId, data) {
+                this.reliableTransfer.handleAck(data.voiceId, data.chunkIndex);
             }
 
             assembleVoice(voiceId) {
                 const buffer = this.receivingBuffers.get(voiceId);
                 if (!buffer || !buffer.meta) return;
                 
+                clearTimeout(buffer.timeout);
+                
                 try {
-                    let totalLength = 0;
-                    buffer.chunks.forEach(c => totalLength += c ? c.length : 0);
-                    
+                    let totalLength = buffer.chunks.reduce((acc, chunk) => acc + (chunk ? chunk.length : 0), 0);
                     const combined = new Uint8Array(totalLength);
                     let offset = 0;
-                    buffer.chunks.forEach(chunk => {
+                    
+                    for (const chunk of buffer.chunks) {
                         if (chunk) {
                             combined.set(chunk, offset);
                             offset += chunk.length;
                         }
-                    });
+                    }
                     
                     const blob = new Blob([combined], { type: 'audio/webm' });
                     const message = { ...buffer.meta, type: 'voice', blob, data: combined.buffer };
@@ -1752,6 +2090,14 @@
                     }
                 }
                 
+                // 请求屏幕唤醒锁
+                let wakeLock = null;
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    } catch (e) {}
+                }
+                
                 let blob = blobOrData;
                 if (blobOrData instanceof ArrayBuffer) {
                     blob = new Blob([blobOrData], { type: 'audio/webm' });
@@ -1764,14 +2110,21 @@
                     this.updateUIState(voiceId, false);
                     this.currentPlaying = null;
                     if (blob instanceof Blob) URL.revokeObjectURL(url);
+                    if (wakeLock) wakeLock.release();
                 };
                 
-                audio.onpause = () => this.updateUIState(voiceId, false);
+                audio.onpause = () => {
+                    this.updateUIState(voiceId, false);
+                    if (wakeLock) wakeLock.release();
+                };
+                
                 audio.onplay = () => this.updateUIState(voiceId, true);
                 
                 try {
                     await audio.play();
                     this.currentPlaying = { voiceId, audio };
+                    // 触觉反馈
+                    if (navigator.vibrate) navigator.vibrate(50);
                 } catch (e) {
                     console.error('播放失败:', e);
                     this.app.showToast('播放失败');
@@ -1786,11 +2139,12 @@
             }
 
             storeVoiceBlob(voiceId, blob) {
-                this.voiceBlobs.set(voiceId, blob);
+                this.voiceBlobs.set(voiceId, { blob, timestamp: Date.now() });
             }
 
             getVoiceBlob(voiceId) {
-                return this.voiceBlobs.get(voiceId);
+                const data = this.voiceBlobs.get(voiceId);
+                return data ? data.blob : null;
             }
         }
 
@@ -1828,6 +2182,13 @@
 
             observe(element) {
                 if (this.observer) this.observer.observe(element);
+            }
+
+            disconnect() {
+                if (this.observer) {
+                    this.observer.disconnect();
+                    this.observer = null;
+                }
             }
 
             initMessage(msgId, isSelf) {
@@ -1938,7 +2299,74 @@
             clear() {
                 this.messageStatus.clear();
                 this.pendingReceipts.clear();
-                if (this.observer) this.observer.disconnect();
+                this.disconnect();
+            }
+        }
+
+        // ==================== 虚拟滚动管理器 ====================
+        class VirtualScrollManager {
+            constructor(container, itemHeight = 80) {
+                this.container = container;
+                this.itemHeight = itemHeight;
+                this.items = [];
+                this.visibleRange = { start: 0, end: 20 };
+                this.scrollHandler = Utils.throttle(this.onScroll.bind(this), 100);
+                this.container.addEventListener('scroll', this.scrollHandler);
+                this.observer = new ResizeObserver(() => this.updateViewport());
+                this.observer.observe(container);
+            }
+
+            setItems(items) {
+                this.items = items;
+                this.updateViewport();
+            }
+
+            updateViewport() {
+                const viewportHeight = this.container.clientHeight;
+                const visibleCount = Math.ceil(viewportHeight / this.itemHeight) + 5; // 缓冲区
+                this.visibleRange.end = Math.min(this.visibleRange.start + visibleCount, this.items.length);
+                this.render();
+            }
+
+            onScroll() {
+                const scrollTop = this.container.scrollTop;
+                const start = Math.floor(scrollTop / this.itemHeight);
+                const viewportHeight = this.container.clientHeight;
+                const visibleCount = Math.ceil(viewportHeight / this.itemHeight) + 5;
+                
+                this.visibleRange = {
+                    start: Math.max(0, start - 2),
+                    end: Math.min(this.items.length, start + visibleCount)
+                };
+                
+                this.render();
+            }
+
+            render() {
+                // 实际项目中这里会控制DOM的创建和销毁
+                // 简化版本：只控制可见性或使用占位符
+                const children = Array.from(this.container.children);
+                children.forEach((child, index) => {
+                    if (index < this.visibleRange.start || index >= this.visibleRange.end) {
+                        if (!child.dataset.virtualized) {
+                            child.dataset.height = child.offsetHeight;
+                            child.style.height = child.offsetHeight + 'px';
+                            child.innerHTML = '';
+                            child.dataset.virtualized = 'true';
+                        }
+                    } else {
+                        if (child.dataset.virtualized === 'true') {
+                            // 恢复内容（需要存储）
+                            child.style.height = '';
+                            delete child.dataset.virtualized;
+                        }
+                    }
+                });
+            }
+
+            destroy() {
+                this.container.removeEventListener('scroll', this.scrollHandler);
+                this.observer.disconnect();
             }
         }
 
@@ -1955,14 +2383,24 @@
                 this.inputMode = 'text';
                 this.isRecording = false;
                 this.recordCancelZone = false;
+                this.imageWorker = new Worker(imageWorkerUrl);
+                this.pendingImages = new Map();
+                this.e2e = new E2EEncryption();
+                this.wakeLock = null;
+                this.networkStats = { rtt: 0, packetsLost: 0, jitter: 0 };
                 
                 this.voiceManager = new VoiceManager(this);
                 this.readReceiptManager = new ReadReceiptManager(this);
+                this.typingTimer = null;
+                this.isTyping = false;
+                
+                // 预收集ICE候选
+                this.preGatheredCandidates = [];
                 
                 this.init();
             }
 
-            init() {
+            async init() {
                 document.documentElement.setAttribute('data-theme', this.theme);
                 
                 const savedName = sessionStorage.getItem('p2p_username');
@@ -1983,6 +2421,107 @@
                 this.checkRecentRoom();
                 this.setupEventListeners();
                 this.initWaveBars();
+                this.setupImageWorker();
+                
+                // 预收集ICE候选
+                this.preGatherICE();
+                
+                // 生成E2E密钥对
+                await this.e2e.generateKeyPair();
+            }
+
+            setupImageWorker() {
+                this.imageWorker.onmessage = (e) => {
+                    const { success, dataUrl, id, size } = e.data;
+                    if (success && this.pendingImages.has(id)) {
+                        const resolve = this.pendingImages.get(id);
+                        this.pendingImages.delete(id);
+                        resolve({ dataUrl, size });
+                    }
+                };
+            }
+
+            async compressImage(file) {
+                return new Promise((resolve, reject) => {
+                    const id = Utils.generateUUID();
+                    this.pendingImages.set(id, resolve);
+                    
+                    // 如果Worker失败，回退到主线程
+                    const timeout = setTimeout(() => {
+                        this.fallbackCompressImage(file).then(resolve).catch(reject);
+                        this.pendingImages.delete(id);
+                    }, 10000);
+                    
+                    this.imageWorker.postMessage({
+                        file,
+                        maxWidth: 1200,
+                        maxHeight: 1200,
+                        quality: 0.7,
+                        id
+                    });
+                });
+            }
+
+            async fallbackCompressImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            let { width, height } = img;
+                            if (width > 1200 || height > 1200) {
+                                const ratio = Math.min(1200 / width, 1200 / height);
+                                width *= ratio;
+                                height *= ratio;
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#f5f5f7';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.7));
+                        };
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async preGatherICE() {
+                try {
+                    const pc = new RTCPeerConnection({ iceServers: CONFIG.ICE_SERVERS });
+                    pc.onicecandidate = (e) => {
+                        if (e.candidate) {
+                            this.preGatheredCandidates.push(e.candidate);
+                        }
+                    };
+                    
+                    // 创建offer触发ICE收集
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    
+                    // 等待收集完成或超时
+                    await new Promise(resolve => {
+                        const check = setInterval(() => {
+                            if (pc.iceGatheringState === 'complete') {
+                                clearInterval(check);
+                                resolve();
+                            }
+                        }, 200);
+                        setTimeout(() => {
+                            clearInterval(check);
+                            resolve();
+                        }, 5000);
+                    });
+                    
+                    pc.close();
+                } catch (e) {
+                    console.error('ICE pre-gather failed:', e);
+                }
             }
 
             initWaveBars() {
@@ -2015,6 +2554,7 @@
                     if (this.connection.established && this.mqtt.client) {
                         this.publish('presence', { action: 'leave' });
                     }
+                    this.cleanup();
                 });
 
                 document.addEventListener('keydown', (e) => {
@@ -2027,6 +2567,84 @@
                 if (recordBtn) {
                     recordBtn.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
                 }
+
+                // 定期更新网络质量统计
+                setInterval(() => this.updateNetworkQuality(), 5000);
+            }
+
+            handleInput() {
+                // 节流发送输入状态
+                if (!this.isTyping) {
+                    this.isTyping = true;
+                    this.broadcastMessage({
+                        type: 'typing',
+                        userId: this.user.id,
+                        username: this.user.name
+                    });
+                }
+                
+                clearTimeout(this.typingTimer);
+                this.typingTimer = setTimeout(() => {
+                    this.isTyping = false;
+                    this.broadcastMessage({
+                        type: 'typing_end',
+                        userId: this.user.id
+                    });
+                }, CONFIG.TYPING_TIMEOUT);
+            }
+
+            handleTypingIndicator(data) {
+                const indicator = document.getElementById('typingIndicator');
+                if (data.type === 'typing' && data.userId !== this.user.id) {
+                    indicator.textContent = `${data.username} 正在输入...`;
+                    indicator.classList.add('show');
+                } else if (data.type === 'typing_end' && data.userId !== this.user.id) {
+                    indicator.classList.remove('show');
+                }
+            }
+
+            updateNetworkQuality() {
+                let totalRtt = 0;
+                let totalLost = 0;
+                let count = 0;
+                
+                this.peers.forEach(peer => {
+                    if (peer.pc && peer.connected) {
+                        peer.pc.getStats().then(stats => {
+                            stats.forEach(report => {
+                                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                                    if (report.currentRoundTripTime) {
+                                        totalRtt += report.currentRoundTripTime * 1000;
+                                        count++;
+                                    }
+                                }
+                                if (report.type === 'inbound-rtp') {
+                                    if (report.packetsLost !== undefined) {
+                                        totalLost += report.packetsLost;
+                                    }
+                                }
+                            });
+                            
+                            if (count > 0) {
+                                const avgRtt = totalRtt / count;
+                                const qualityEl = document.getElementById('networkQuality');
+                                const qualityText = qualityEl.querySelector('span');
+                                
+                                qualityEl.style.display = 'inline-flex';
+                                if (avgRtt < 100) {
+                                    qualityEl.className = 'network-quality good';
+                                    qualityText.textContent = '优';
+                                } else if (avgRtt < 300) {
+                                    qualityEl.className = 'network-quality medium';
+                                    qualityText.textContent = '良';
+                                } else {
+                                    qualityEl.className = 'network-quality poor';
+                                    qualityText.textContent = '差';
+                                }
+                            }
+                        });
+                    }
+                });
             }
 
             toggleInputMode() {
@@ -2053,7 +2671,6 @@
                 e.preventDefault();
                 if (this.isRecording) return;
                 
-                // 检查是否有连接
                 const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
                 if (!hasConnectedPeer) {
                     this.showToast('⚠️ 请先等待节点连接');
@@ -2265,7 +2882,6 @@
                 this.updateOnlineCount();
                 this.connection.established = true;
                 
-                // 添加关键使用提示（每个对话开始时显示）
                 setTimeout(() => {
                     this.addSystemMessage('💡 提示：发送语音前请允许浏览器麦克风权限', 'info');
                     this.addSystemMessage('⏳ 提示：等待左上角显示"已连接"后再发送消息', 'info');
@@ -2364,21 +2980,12 @@
                     this.publish('presence', { action: 'leave', username: this.user.name });
                 }
                 
-                this.peers.forEach((peer) => {
-                    peer.dataChannel?.close();
-                    peer.pc?.close();
-                });
-                this.peers.clear();
-                
-                this.mqtt.client?.end();
-                this.mqtt.client = null;
+                this.cleanup();
                 
                 document.getElementById('messages').innerHTML = '';
                 this.messages.cache.clear();
                 this.messages.seq = 0;
                 this.connection.established = false;
-                this.readReceiptManager.clear();
-                this.voiceManager.voiceBlobs.clear();
                 
                 document.getElementById('chat').classList.add('hidden');
                 document.getElementById('input').style.display = 'none';
@@ -2389,6 +2996,28 @@
                 document.getElementById('joinBtn').classList.remove('hidden');
                 
                 this.checkRecentRoom();
+            }
+
+            cleanup() {
+                // 清理所有资源
+                this.peers.forEach((peer) => {
+                    peer.dataChannel?.close();
+                    peer.pc?.close();
+                });
+                this.peers.clear();
+                
+                this.mqtt.client?.end();
+                this.mqtt.client = null;
+                
+                this.readReceiptManager.clear();
+                this.voiceManager.destroy();
+                this.imageWorker.terminate();
+                URL.revokeObjectURL(imageWorkerUrl);
+                
+                if (this.wakeLock) {
+                    this.wakeLock.release();
+                    this.wakeLock = null;
+                }
             }
 
             checkRecentRoom() {
@@ -2429,7 +3058,7 @@
                         clientId,
                         clean: true,
                         connectTimeout: 15000,
-                        reconnectPeriod: 3000,
+                        reconnectPeriod: 5000,
                         username: CONFIG.MQTT_USERNAME,
                         password: CONFIG.MQTT_PASSWORD
                     });
@@ -2502,7 +3131,8 @@
                     pc, userId: targetId, username: targetName, avatarColor: targetColor,
                     dataChannel: null, connected: false, polite,
                     makingOffer: false, ignoreOffer: false, isSettingRemoteAnswerPending: false,
-                    pendingMessages: []
+                    pendingMessages: [],
+                    statsInterval: null
                 };
                 
                 this.peers.set(targetId, peer);
@@ -2595,6 +3225,15 @@
                     this.showToast(`${peer.username} 已连接`);
                     this.updateInputBlocker();
                     
+                    // 发送E2E公钥
+                    this.e2e.exportPublicKey().then(pubKey => {
+                        this.broadcastMessage({
+                            type: 'e2e_key',
+                            publicKey: pubKey,
+                            userId: this.user.id
+                        });
+                    });
+                    
                     while (peer.pendingMessages?.length > 0) {
                         const msg = peer.pendingMessages.shift();
                         try { 
@@ -2633,29 +3272,53 @@
                 dc.onerror = (err) => console.error('DataChannel error:', err);
             }
 
-            handleDataChannelMessage(data, peer) {
+            async handleDataChannelMessage(data, peer) {
                 if (data.type === 'voice_meta') {
                     this.voiceManager.handleVoiceMeta(peer.userId, data);
                 } else if (data.type === 'voice_end') {
-                    this.voiceManager.handleVoiceEnd(peer.userId, data);
+                    // 完成信号，已在ACK机制中处理
+                } else if (data.type === 'voice_ack') {
+                    this.voiceManager.handleVoiceAck(peer.userId, data);
                 } else if (data.type === 'chat' || data.type === 'image') {
-                    this.displayMessage(data, false);
+                    // 解密消息
+                    if (data.encrypted && this.e2e.sharedSecrets.has(peer.userId)) {
+                        const decrypted = await this.e2e.decryptMessage(data.content, peer.userId);
+                        if (decrypted) {
+                            data.content = decrypted;
+                            this.displayMessage(data, false);
+                        }
+                    } else {
+                        this.displayMessage(data, false);
+                    }
                 } else if (data.type === 'read_receipt') {
                     this.readReceiptManager.handleReceipt(data);
+                } else if (data.type === 'typing' || data.type === 'typing_end') {
+                    this.handleTypingIndicator(data);
+                } else if (data.type === 'e2e_key') {
+                    await this.e2e.deriveSharedSecret(data.publicKey, peer.userId);
                 }
             }
 
             waitForICE(pc) {
                 return new Promise((resolve) => {
                     if (pc.iceGatheringState === 'complete') return resolve();
+                    
+                    let timeout;
                     const check = () => {
                         if (pc.iceGatheringState === 'complete') {
+                            clearTimeout(timeout);
                             pc.removeEventListener('icegatheringstatechange', check);
                             resolve();
                         }
                     };
+                    
                     pc.addEventListener('icegatheringstatechange', check);
-                    setTimeout(() => { pc.removeEventListener('icegatheringstatechange', check); resolve(); }, 3000);
+                    
+                    // 使用更长的超时时间，并使用预收集的候选
+                    timeout = setTimeout(() => { 
+                        pc.removeEventListener('icegatheringstatechange', check); 
+                        resolve(); 
+                    }, CONFIG.ICE_GATHER_TIMEOUT);
                 });
             }
 
@@ -2668,10 +3331,18 @@
                     this.updateUserList();
                     if (statusEl) statusEl.innerHTML = '<span class="conn-status connected"></span>已连接';
                     this.updateInputBlocker();
+                    
+                    // 启动统计收集
+                    peer.statsInterval = setInterval(() => this.collectStats(peer), 2000);
                 } else if (state === 'connecting') {
                     if (statusEl) statusEl.innerHTML = '<span class="conn-status connecting"></span>连接中';
                     this.updateInputBlocker();
                 } else if (['disconnected', 'failed', 'closed'].includes(state)) {
+                    if (peer.statsInterval) {
+                        clearInterval(peer.statsInterval);
+                        peer.statsInterval = null;
+                    }
+                    
                     if (state === 'disconnected') {
                         setTimeout(() => { 
                             if (peer.pc.connectionState === 'disconnected') {
@@ -2682,6 +3353,15 @@
                         this.removePeer(peer.userId);
                     }
                 }
+            }
+
+            collectStats(peer) {
+                if (!peer.pc) return;
+                peer.pc.getStats().then(stats => {
+                    stats.forEach(report => {
+                        // 可以在这里存储更详细的统计信息
+                    });
+                });
             }
 
             publish(subtopic, data) {
@@ -2707,6 +3387,28 @@
                 return sent;
             }
 
+            async broadcastEncryptedMessage(plaintext, type = 'chat') {
+                // 为每个peer单独加密发送
+                let sent = 0;
+                for (const [peerId, peer] of this.peers) {
+                    if (peer.dataChannel?.readyState === 'open' && this.e2e.sharedSecrets.has(peerId)) {
+                        try {
+                            const encrypted = await this.e2e.encryptMessage(plaintext, peerId);
+                            peer.dataChannel.send(JSON.stringify({
+                                type,
+                                content: encrypted,
+                                encrypted: true,
+                                timestamp: new Date().toISOString()
+                            }));
+                            sent++;
+                        } catch (e) {
+                            console.error('加密发送失败:', e);
+                        }
+                    }
+                }
+                return sent;
+            }
+
             broadcastRaw(arrayBuffer) {
                 this.peers.forEach((peer) => {
                     if (peer.dataChannel?.readyState === 'open') {
@@ -2718,9 +3420,11 @@
             removePeer(userId) {
                 const peer = this.peers.get(userId);
                 if (peer) {
+                    if (peer.statsInterval) clearInterval(peer.statsInterval);
                     peer.dataChannel?.close();
                     peer.pc?.close();
                     this.peers.delete(userId);
+                    this.e2e.sharedSecrets.delete(userId);
                     this.updateOnlineCount();
                     this.updateUserList();
                     this.updateInputBlocker();
@@ -2787,12 +3491,12 @@
                 
                 for (const file of validFiles) {
                     try {
-                        const compressed = await Utils.compressImage(file);
-                        if (compressed.length > 500 * 1024) {
+                        const result = await this.compressImage(file);
+                        if (result.dataUrl.length > 500 * 1024) {
                             this.showToast(`"${file.name}" 压缩后仍过大，已跳过`);
                             continue;
                         }
-                        this.sendImage(compressed, Utils.getDataSize(compressed));
+                        this.sendImage(result.dataUrl, Utils.getDataSize(result.dataUrl));
                         await new Promise(resolve => setTimeout(resolve, 100));
                     } catch (err) {
                         console.error('处理图片失败:', err);
@@ -2822,7 +3526,7 @@
                 this.initMessageStatus(message.id, true);
             }
 
-            send() {
+            async send() {
                 const input = document.getElementById('msgInput');
                 if (input.disabled) {
                     this.showToast('⏳ 请等待节点连接后再发送');
@@ -2846,10 +3550,20 @@
                     content, seq: this.messages.seq, timestamp: new Date().toISOString(), type: 'chat'
                 };
                 
-                this.broadcastMessage(message);
+                // 如果存在E2E密钥，使用加密发送
+                const hasE2E = Array.from(this.peers.keys()).some(id => this.e2e.sharedSecrets.has(id));
+                if (hasE2E) {
+                    await this.broadcastEncryptedMessage(content, 'chat');
+                } else {
+                    this.broadcastMessage(message);
+                }
+                
                 this.displayMessage(message, true);
                 this.initMessageStatus(message.id, true);
                 input.value = '';
+                
+                // 触觉反馈
+                if (navigator.vibrate) navigator.vibrate(30);
             }
 
             initMessageStatus(msgId, isSelf) {
@@ -2927,7 +3641,7 @@
                     <div class="msg-content msg-voice unread" 
                          data-voice-id="${msg.voiceId}" 
                          data-sender-id="${msg.userId}"
-                         onclick="window.chatApp?.handleVoiceClick('${msg.voiceId}', this)"
+                         onclick="window.chatApp?.handleVoiceClick('${voiceId}', this)"
                          style="background: ${isSelf ? 'var(--accent)' : 'var(--voice-bg)'}; color: ${isSelf ? 'white' : 'var(--text)'}; border: none;">
                         <div class="voice-icon" style="background: ${isSelf ? 'rgba(255,255,255,0.3)' : 'var(--accent)'}">
                             ▶
@@ -2971,12 +3685,24 @@
                 document.getElementById('modalImage').src = src;
                 document.getElementById('imageModal').classList.add('show');
                 document.body.style.overflow = 'hidden';
+                
+                // 请求唤醒锁防止预览时锁屏
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(lock => {
+                        this.wakeLock = lock;
+                    });
+                }
             }
 
             closeImageModal() {
                 document.getElementById('imageModal').classList.remove('show');
                 document.body.style.overflow = '';
                 setTimeout(() => document.getElementById('modalImage').src = '', 300);
+                
+                if (this.wakeLock) {
+                    this.wakeLock.release();
+                    this.wakeLock = null;
+                }
             }
 
             addSystemMessage(text, type = 'info') {
