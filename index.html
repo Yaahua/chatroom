@@ -100,6 +100,7 @@
             padding: 40px;
             width: 100%;
             max-width: 420px;
+            position: relative;
         }
         h1 { font-size: 24px; margin-bottom: 8px; color: #f5e0dc; }
         .subtitle { color: var(--sub); font-size: 14px; margin-bottom: 24px; }
@@ -177,6 +178,8 @@
             margin: 0;
         }
 
+        .header-actions { display: flex; gap: 8px; }
+
         .messages {
             flex: 1;
             overflow-y: auto;
@@ -227,6 +230,59 @@
         .input-area input { flex: 1; }
         .input-area button { width: auto; padding: 12px 24px; margin: 0; }
 
+        /* 诊断面板 */
+        .diagnostic-panel {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+        }
+        .diagnostic-panel.active { display: flex; }
+        .diagnostic-header {
+            background: #2d2d44;
+            padding: 16px 20px;
+            padding-top: calc(16px + env(safe-area-inset-top, 0px));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .diagnostic-title { font-size: 18px; font-weight: bold; color: var(--accent); }
+        .diagnostic-close {
+            background: none; border: none; color: var(--text); 
+            font-size: 24px; cursor: pointer; padding: 0; width: auto;
+        }
+        .diagnostic-log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            background: #0d0d12;
+            color: #a6e3a1;
+        }
+        .log-entry { margin-bottom: 4px; padding: 2px 0; border-bottom: 1px solid #222; }
+        .log-time { color: #6c7086; margin-right: 8px; }
+        .log-error { color: var(--error); }
+        .log-warn { color: var(--warn); }
+        .log-info { color: var(--accent); }
+        .log-success { color: var(--success); }
+        
+        .diagnostic-actions {
+            padding: 16px;
+            background: #2d2d44;
+            border-top: 1px solid #444;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .diagnostic-actions button {
+            flex: 1; min-width: 120px; margin: 0; font-size: 13px; padding: 12px;
+        }
+
         @media (max-width: 768px) {
             .container { padding: 0; }
             .login-box { 
@@ -257,8 +313,12 @@
 
         <div id="login">
             <div class="login-box">
+                <div style="position: absolute; top: 20px; right: 20px;">
+                    <button class="icon-btn" onclick="app.openDiagnostic()" style="font-size: 12px; padding: 6px 12px;">🔍 诊断</button>
+                </div>
+                
                 <h1>🔐 Secure Room</h1>
-                <p class="subtitle">端到端加密 · P2P直连 · 支持跨网络通信</p>
+                <p class="subtitle">端到端加密 · 强制TCP中继模式 · 支持跨网络</p>
                 
                 <div class="input-group">
                     <label>房间标识</label>
@@ -280,6 +340,10 @@
                 </div>
                 
                 <button onclick="app.join()" id="joinBtn">进入安全频道</button>
+                
+                <div style="margin-top: 16px; font-size: 11px; color: var(--sub); text-align: center; opacity: 0.8;">
+                    当前模式：强制TCP中继（绕过UDP封锁）
+                </div>
             </div>
         </div>
 
@@ -292,9 +356,10 @@
                         <span id="peerCount">连接中...</span>
                     </div>
                 </div>
-                <div>
+                <div class="header-actions">
+                    <button class="icon-btn" onclick="app.openDiagnostic()">🔍 诊断</button>
                     <button class="icon-btn" onclick="app.copyLink()">分享</button>
-                    <button class="icon-btn" onclick="app.leave()" style="margin-left: 8px;">退出</button>
+                    <button class="icon-btn" onclick="app.leave()">退出</button>
                 </div>
             </div>
             
@@ -307,6 +372,23 @@
         </div>
     </div>
 
+    <!-- 诊断面板 -->
+    <div class="diagnostic-panel" id="diagnosticPanel">
+        <div class="diagnostic-header">
+            <div class="diagnostic-title">🔍 网络诊断中心</div>
+            <button class="diagnostic-close" onclick="app.closeDiagnostic()">✕</button>
+        </div>
+        <div class="diagnostic-log" id="diagnosticLog">
+            <div class="log-entry"><span class="log-time">[系统]</span>点击"开始完整检测"进行网络环境分析</div>
+        </div>
+        <div class="diagnostic-actions">
+            <button onclick="app.diagnostic.testNetwork()" style="background: var(--accent);">检测网络状态</button>
+            <button onclick="app.diagnostic.testWebRTC()" style="background: var(--warn); color: #000;">测试WebRTC连通</button>
+            <button onclick="app.diagnostic.testTURN()" style="background: var(--success); color: #000;">验证TURN中继</button>
+            <button onclick="app.diagnostic.clear()" style="background: #45475a;">清空日志</button>
+        </div>
+    </div>
+
     <script type="module">
         import { joinRoom } from 'https://cdn.jsdelivr.net/npm/trystero@0.20.0/+esm';
 
@@ -316,10 +398,191 @@
             'wss://relay.snort.social',
             'wss://nos.lol',
             'wss://relay.nostr.band',
-            'wss://nostr.wine',           // 欧洲
-            'wss://relay.nostr.bg',       // 东欧
-            'wss://nostr.oxtr.dev'        // 备选
+            'wss://nostr.wine',
+            'wss://relay.nostr.bg',
+            'wss://nostr.oxtr.dev'
         ];
+
+        // 诊断工具类
+        class Diagnostic {
+            constructor(app) {
+                this.app = app;
+                this.logEl = document.getElementById('diagnosticLog');
+            }
+            
+            log(msg, type = 'info') {
+                const time = new Date().toLocaleTimeString();
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${msg}</span>`;
+                this.logEl.appendChild(div);
+                this.logEl.scrollTop = this.logEl.scrollHeight;
+                console.log(`[Diagnostic]`, msg);
+            }
+            
+            error(msg) { this.log(msg, 'error'); }
+            warn(msg) { this.log(msg, 'warn'); }
+            success(msg) { this.log(msg, 'success'); }
+            info(msg) { this.log(msg, 'info'); }
+            
+            clear() {
+                this.logEl.innerHTML = '<div class="log-entry"><span class="log-time">[系统]</span>日志已清空</div>';
+            }
+
+            async testNetwork() {
+                this.info('=== 开始网络状态检测 ===');
+                
+                // 检测是否在线
+                if (!navigator.onLine) {
+                    this.error('❌ 设备处于离线状态');
+                    return;
+                }
+                this.success('✅ 设备在线');
+                
+                // 检测网络类型
+                const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                if (conn) {
+                    this.info(`网络类型: ${conn.effectiveType || 'unknown'}`);
+                    this.info(`下行速度: ${conn.downlink}Mbps`);
+                    this.info(`RTT延迟: ${conn.rtt}ms`);
+                    if (conn.saveData) this.warn('⚠️ 用户开启了省流量模式');
+                } else {
+                    this.warn('⚠️ 无法获取网络信息（浏览器不支持）');
+                }
+                
+                // 检测WebRTC支持
+                if (!window.RTCPeerConnection) {
+                    this.error('❌ 浏览器不支持 WebRTC');
+                    return;
+                }
+                this.success('✅ WebRTC API 可用');
+            }
+
+            async testWebRTC() {
+                this.info('=== 开始WebRTC连通性测试 ===');
+                
+                const pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                let candidateCount = 0;
+                let hasSrflx = false;
+                let hasRelay = false;
+                
+                pc.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        candidateCount++;
+                        const c = e.candidate.candidate;
+                        this.info(`候选 #${candidateCount}: ${c.substring(0, 60)}...`);
+                        
+                        if (c.includes('typ srflx')) {
+                            hasSrflx = true;
+                            this.success('✅ 获取到公网IP（srflx）');
+                        } else if (c.includes('typ relay')) {
+                            hasRelay = true;
+                            this.success('✅ TURN服务器可用（relay）');
+                        } else if (c.includes('typ host')) {
+                            this.info('ℹ️ 本地地址（host）');
+                        }
+                    }
+                };
+                
+                pc.onicegatheringstatechange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        if (candidateCount === 0) {
+                            this.error('❌ 未获取到任何ICE候选');
+                            this.error('可能原因：防火墙阻断或WebRTC被禁用');
+                        } else {
+                            this.info(`总计获取 ${candidateCount} 个候选`);
+                            if (!hasSrflx && !hasRelay) {
+                                this.warn('⚠️ 仅有本地候选，跨网络通信将失败');
+                            }
+                        }
+                        pc.close();
+                    }
+                };
+                
+                try {
+                    pc.createDataChannel('test');
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    this.info('SDP创建成功，正在收集候选（等待10秒）...');
+                    
+                    setTimeout(() => {
+                        if (pc.iceGatheringState !== 'complete') {
+                            this.warn('⏱️ ICE收集超时');
+                            pc.close();
+                        }
+                    }, 10000);
+                } catch (err) {
+                    this.error(`测试失败: ${err.message}`);
+                }
+            }
+
+            async testTURN() {
+                this.info('=== 开始TURN中继专项测试 ===');
+                this.info('使用强制中继模式（iceTransportPolicy: relay）');
+                
+                // 方案A的TURN配置
+                const iceServers = [
+                    {
+                        urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+                        username: 'webrtc',
+                        credential: 'webrtc'
+                    },
+                    {
+                        urls: 'turn:turn01.hubl.in?transport=tcp',
+                        username: 'webrtc',
+                        credential: 'webrtc'
+                    }
+                ];
+                
+                const pc = new RTCPeerConnection({
+                    iceServers: iceServers,
+                    iceTransportPolicy: 'relay'  // 强制使用中继
+                });
+                
+                let relayFound = false;
+                
+                pc.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        const c = e.candidate.candidate;
+                        if (c.includes('typ relay')) {
+                            relayFound = true;
+                            this.success('✅ TURN中继连接成功: ' + e.candidate.address);
+                        }
+                    }
+                };
+                
+                pc.onicegatheringstatechange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        if (!relayFound) {
+                            this.error('❌ 无法连接到TURN服务器');
+                            this.error('请检查443端口是否被防火墙阻断');
+                        } else {
+                            this.success('✅ TURN中继验证通过');
+                        }
+                        pc.close();
+                    }
+                };
+                
+                try {
+                    pc.createDataChannel('test');
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    this.info('正在连接TURN服务器（使用TCP 443端口）...');
+                    
+                    setTimeout(() => {
+                        if (!relayFound) {
+                            this.error('⏱️ TURN连接超时');
+                            pc.close();
+                        }
+                    }, 8000);
+                } catch (err) {
+                    this.error(`TURN测试失败: ${err.message}`);
+                }
+            }
+        }
 
         class SecureChannel {
             constructor(password) {
@@ -334,14 +597,12 @@
                     'raw', encoder.encode(this.password), 'PBKDF2', false, ['deriveKey', 'deriveBits']
                 );
                 
-                // 主密钥
                 const salt = encoder.encode('secure-room-v1');
                 this.key = await crypto.subtle.deriveKey(
                     { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
                     keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
                 );
 
-                // 指纹（使用 deriveBits 避免 exportKey 限制）
                 const fpBits = await crypto.subtle.deriveBits(
                     { name: 'PBKDF2', salt: encoder.encode('fp-salt'), iterations: 1000, hash: 'SHA-256' },
                     keyMaterial, 128
@@ -391,6 +652,7 @@
                 this.maxRetries = 2;
                 this.offlineMode = false;
                 this.reconnectTimer = null;
+                this.diagnostic = new Diagnostic(this);
                 
                 if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                     document.getElementById('networkTip').classList.add('show');
@@ -400,31 +662,26 @@
                     try { document.getElementById('roomInput').value = atob(decodeURIComponent(location.hash.substring(1))); } catch {}
                 }
 
-                // 监听网络状态变化
                 window.addEventListener('online', () => this.handleNetworkChange(true));
                 window.addEventListener('offline', () => this.handleNetworkChange(false));
             }
 
+            openDiagnostic() {
+                document.getElementById('diagnosticPanel').classList.add('active');
+                this.diagnostic.info('诊断面板已打开');
+                this.diagnostic.info('当前使用方案A：强制TCP中继模式');
+            }
+
+            closeDiagnostic() {
+                document.getElementById('diagnosticPanel').classList.remove('active');
+            }
+
             handleNetworkChange(isOnline) {
-                if (!this.room) return; // 未进入房间时不处理
-                
+                if (!this.room) return;
                 if (isOnline) {
-                    console.log('网络已恢复');
-                    this.displayMsg('系统', '📡 网络已恢复，如消息无法发送请刷新页面', Date.now(), true);
-                    // 可选：自动尝试重连
-                    if (this.peers.size === 0 && !this.reconnectTimer) {
-                        this.reconnectTimer = setTimeout(() => {
-                            this.displayMsg('系统', '🔄 尝试重新连接...', Date.now(), true);
-                            // 这里可以添加实际的重连逻辑
-                        }, 2000);
-                    }
+                    this.displayMsg('系统', '📡 网络已恢复', Date.now(), true);
                 } else {
-                    console.log('网络已断开');
-                    this.displayMsg('系统', '⚠️ 网络已断开，消息可能无法发送', Date.now(), true);
-                    if (this.reconnectTimer) {
-                        clearTimeout(this.reconnectTimer);
-                        this.reconnectTimer = null;
-                    }
+                    this.displayMsg('系统', '⚠️ 网络已断开', Date.now(), true);
                 }
             }
 
@@ -455,15 +712,12 @@
 
                     const roomId = await this.channel.deriveRoomId(roomInput);
                     
-                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '正在寻找对等节点（含TURN中继）');
+                    this.updateLoading(`连接网络 (尝试 ${this.connectionAttempt}/${this.maxRetries + 1})...`, '强制TCP中继模式');
                     
-                    // 延长超时到 30 秒，并显示跳过按钮
                     const skipBtn = document.getElementById('retryBtn');
-                    let skipShown = false;
                     const showSkipTimer = setTimeout(() => {
-                        skipShown = true;
                         skipBtn.classList.add('show');
-                        this.updateLoading('连接较慢...', '可点击上方按钮进入离线模式（仅自己可见）');
+                        this.updateLoading('连接较慢...', 'TURN中继连接中，请耐心等待');
                     }, 8000);
 
                     await this.connectWithTimeout(roomId, 30000);
@@ -492,261 +746,13 @@
             connectWithTimeout(roomId, timeout) {
                 return new Promise((resolve, reject) => {
                     const timer = setTimeout(() => {
-                        reject(new Error('连接超时：部分中继节点无响应'));
+                        reject(new Error('连接超时：TURN中继连接失败'));
                     }, timeout);
 
                     try {
-                        console.log('正在初始化房间，使用TURN服务器配置...');
+                        console.log('[方案A] 使用强制TCP中继模式');
                         
                         this.room = joinRoom({
-                            appId: 'secure-room-v2',
+                            appId: 'secure-room-v2-tcp',
                             relayUrls: RELAY_URLS,
-                            password: roomId,
-                            maxPeers: 5,
-                            // 关键配置：WebRTC ICE 服务器（含TURN中继）
-                            rtcConfig: {
-                                iceServers: [
-                                    // STUN 服务器（用于发现公网IP）
-                                    { urls: 'stun:stun.l.google.com:19302' },
-                                    { urls: 'stun:stun.miwifi.com' },
-                                    { urls: 'stun:stun.qq.com' },
-                                    
-                                    // TURN 服务器（关键：用于中继转发，解决NAT穿透失败）
-                                    {
-                                        urls: 'turn:openrelay.metered.ca:80',
-                                        username: 'openrelayproject',
-                                        credential: 'openrelayproject'
-                                    },
-                                    {
-                                        urls: 'turn:openrelay.metered.ca:443',
-                                        username: 'openrelayproject',
-                                        credential: 'openrelayproject'
-                                    },
-                                    {
-                                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                                        username: 'openrelayproject',
-                                        credential: 'openrelayproject'
-                                    },
-                                    // 备选 TURN
-                                    {
-                                        urls: 'turn:turn.anyfirewall.com:443',
-                                        username: 'webrtc',
-                                        credential: 'webrtc'
-                                    }
-                                ],
-                                iceCandidatePoolSize: 10,
-                                iceTransportPolicy: 'all'  // 'all' 优先P2P，失败自动走中继；'relay' 强制走中继
-                            }
-                        }, roomId);
-
-                        // 延长检查时间到8秒，给TURN连接留足时间
-                        const checkTimer = setTimeout(() => {
-                            console.log('基础连接检查通过（8秒），进入房间...');
-                            clearTimeout(timer);
-                            resolve();
-                        }, 8000);
-
-                        this.room.onPeerJoin((peerId) => {
-                            console.log('对等节点加入:', peerId);
-                            clearTimeout(timer);
-                            clearTimeout(checkTimer);
-                            this.peers.add(peerId);
-                            this.updateStatus();
-                            this.displayMsg('系统', `👤 新成员加入房间 (${this.peers.size}/6)`, Date.now(), true);
-                        });
-
-                        this.setupRoomHandlers();
-                        
-                    } catch (err) {
-                        clearTimeout(timer);
-                        reject(err);
-                    }
-                });
-            }
-
-            setupRoomHandlers() {
-                const [sendMsg, getMsg] = this.room.makeAction('msg');
-                this.sendMsg = sendMsg;
-
-                getMsg(async (data, peerId) => {
-                    if (!data.payload) return;
-                    const decrypted = await this.channel.decrypt(data.payload);
-                    if (!decrypted) {
-                        console.warn('消息解密失败，可能密钥不匹配');
-                        return;
-                    }
-                    
-                    try {
-                        const msg = JSON.parse(decrypted);
-                        // 防止重复消息（简单去重）
-                        this.displayMsg(msg.name, msg.text, msg.ts, false, msg.fingerprint);
-                    } catch (e) {
-                        console.error('消息解析失败:', e);
-                    }
-                });
-
-                this.room.onPeerLeave((peerId) => {
-                    console.log('对等节点离开:', peerId);
-                    this.peers.delete(peerId);
-                    this.updateStatus();
-                    this.displayMsg('系统', `👋 有成员离开 (${this.peers.size}/6)`, Date.now(), true);
-                });
-
-                // 监听错误（如果库支持）
-                if (this.room.onError) {
-                    this.room.onError((err) => {
-                        console.error('房间错误:', err);
-                    });
-                }
-            }
-
-            enterRoom() {
-                document.getElementById('loadingOverlay').classList.remove('active');
-                document.getElementById('login').style.display = 'none';
-                document.getElementById('chat').style.display = 'flex';
-                document.getElementById('displayRoom').innerHTML = 
-                    `🔐 ${this.escapeHtml(this.roomName)} <span style="font-size:12px;opacity:0.6">#${this.userFingerprint.substring(0,4)}</span>`;
-                
-                this.updateStatus();
-                
-                // 显示连接模式提示
-                const connectionTip = this.peers.size > 0 ? '已连接到其他成员' : '等待其他成员加入...';
-                this.displayMsg('系统', 
-                    `✅ 已进入房间 "${this.roomName}"\n` +
-                    `🆔 你的身份: ...${this.userFingerprint.substring(4)}\n` +
-                    `👥 当前在线: ${this.peers.size + 1}/6 人\n` +
-                    `💡 ${connectionTip}`, 
-                    Date.now(), true
-                );
-            }
-
-            forceContinue() {
-                // 离线模式进入（仅本地，不连接P2P）
-                this.offlineMode = true;
-                this.enterRoom();
-                this.displayMsg('系统', '⚠️ 离线模式：消息仅自己可见，刷新后重试连接', Date.now(), true);
-            }
-
-            async send() {
-                if (this.offlineMode) {
-                    alert('当前为离线模式，无法发送消息给其他人');
-                    return;
-                }
-                
-                if (this.sendingLock || !this.sendMsg) return;
-                
-                const input = document.getElementById('msgInput');
-                const text = input.value.trim();
-                if (!text) return;
-
-                // 检查是否在线
-                if (!navigator.onLine) {
-                    alert('当前处于离线状态，请检查网络连接');
-                    return;
-                }
-
-                this.sendingLock = true;
-                document.getElementById('sendBtn').disabled = true;
-
-                try {
-                    this.vectorClock++;
-                    const msg = {
-                        name: this.myName, 
-                        text, 
-                        ts: Date.now(),
-                        vc: this.vectorClock, 
-                        fingerprint: this.userFingerprint
-                    };
-                    
-                    const encrypted = await this.channel.encrypt(JSON.stringify(msg));
-                    this.sendMsg({ payload: encrypted });
-                    
-                    // 本地显示（标记为自己发送的）
-                    this.displayMsg(this.myName, text, msg.ts, false, this.userFingerprint, true);
-                    input.value = '';
-                    
-                    console.log('消息已发送（含TURN中继支持）');
-                } catch (err) {
-                    console.error('发送失败:', err);
-                    alert('发送失败：' + (err.message || '网络错误'));
-                } finally {
-                    this.sendingLock = false;
-                    document.getElementById('sendBtn').disabled = false;
-                }
-            }
-
-            displayMsg(user, text, ts, isSystem, fingerprint = null, isSelf = false) {
-                const container = document.getElementById('messages');
-                const div = document.createElement('div');
-                div.className = `message ${isSystem ? 'system' : (isSelf ? 'self' : 'other')}`;
-                
-                if (isSystem) {
-                    div.innerHTML = `<div style="white-space:pre-line">${this.escapeHtml(text)}</div>`;
-                } else {
-                    const time = new Date(ts).toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
-                    const fp = fingerprint ? `<span style="opacity:0.6;font-family:monospace;font-size:11px"> #${fingerprint.substring(0,4)}</span>` : '';
-                    div.innerHTML = `
-                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;opacity:0.8">
-                            <span style="font-weight:700">${this.escapeHtml(user)}${fp}</span>
-                            <span style="font-size:11px">${time}</span>
-                        </div>
-                        <div>${this.escapeHtml(text)}</div>
-                    `;
-                }
-                
-                container.appendChild(div);
-                container.scrollTop = container.scrollHeight;
-                
-                // 限制消息数量，防止内存溢出
-                while (container.children.length > 50) container.removeChild(container.firstChild);
-            }
-
-            updateStatus() {
-                const count = this.peers.size + 1;
-                const dot = document.getElementById('statusDot');
-                const text = document.getElementById('peerCount');
-                
-                text.textContent = `${count}/6 在线`;
-                
-                if (count === 1) { 
-                    dot.className = 'status-dot offline'; 
-                    text.style.color = 'var(--sub)'; 
-                }
-                else if (count < 6) { 
-                    dot.className = 'status-dot connecting'; 
-                    text.style.color = 'var(--warn)'; 
-                }
-                else { 
-                    dot.className = 'status-dot'; 
-                    text.style.color = 'var(--success)'; 
-                }
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            async copyLink() {
-                const url = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(btoa(this.roomName))}`;
-                try { 
-                    await navigator.clipboard.writeText(url); 
-                    alert('链接已复制，分享给好友即可加入同一房间');
-                } catch { 
-                    prompt('复制链接:', url); 
-                }
-            }
-
-            leave() { 
-                if (confirm('离开房间？')) { 
-                    if (this.room) this.room.leave(); 
-                    location.reload(); 
-                } 
-            }
-        }
-
-        window.app = new ChatApp();
-    </script>
-</body>
-</html>
+   
