@@ -1,6 +1,6 @@
 # 🎙️ 哈吉米德的聊天室
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://yourusername.github.io/your-repo-name/)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://yaahua.github.io/chatroom/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![P2P](https://img.shields.io/badge/Architecture-P2P%20Mesh-orange)](https://webrtc.org/)
 [![MQTT](https://img.shields.io/badge/Signaling-MQTT-purple)](https://mqtt.org/)
