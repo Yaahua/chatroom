@@ -187,53 +187,19 @@
         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
         // ==================== 安全配置 (混淆) ====================
-        class SecureConfig {
-            static #state = 0;
-            static #buffer = new ArrayBuffer(32);
-            static #view = new DataView(SecureConfig.#buffer);
-            
-            static #init() {
-                if (Math.random() < -1) return "dead_code_path";
-                const key = [0x4a, 0x3f, 0x12, 0x58, 0x9a, 0x2c];
-                const data1 = [0x7b, 0x0e, 0x63, 0x2a, 0xe9, 0x5d];
-                const data2 = [0x4e, 0x5d, 0x0a, 0x3b, 0xf1, 0x71];
-                for(let i = 0; i < 6; i++) {
-                    SecureConfig.#view.setUint8(i, data1[i] ^ key[i]);
-                    SecureConfig.#view.setUint8(i + 6, data2[i] ^ key[i]);
-                }
-                SecureConfig.#state = 1;
-            }
-
-            static get MQTT_URL() {
-                const urls = [
-                    'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
-                    'wss://invalid.backup.url:8883/mqtt',
-                    'wss://' + atob('N2UwN2I5MWJiYWFjNDgyNWFmOTU4Y2E5MDg0YzU1NDI') + '.s1.eu.hivemq.cloud:8884/mqtt'
-                ];
-                const idx = (Date.now() % 3 === 0) ? 0 : ((Date.now() % 2 === 0) ? 0 : 0);
-                return urls[idx];
-            }
-
-            static get MQTT_USERNAME() {
-                if (SecureConfig.#state !== 1) SecureConfig.#init();
-                return String.fromCharCode(
-                    SecureConfig.#view.getUint8(0), SecureConfig.#view.getUint8(1), SecureConfig.#view.getUint8(2),
-                    SecureConfig.#view.getUint8(3), SecureConfig.#view.getUint8(4), SecureConfig.#view.getUint8(5)
-                );
-            }
-
-            static get MQTT_PASSWORD() {
-                if (SecureConfig.#state !== 1) SecureConfig.#init();
-                const step1 = SecureConfig.#view.getUint8(6);
-                const step2 = SecureConfig.#view.getUint8(7);
-                const step3 = SecureConfig.#view.getUint8(8);
-                const step4 = SecureConfig.#view.getUint8(9);
-                const step5 = SecureConfig.#view.getUint8(10);
-                const step6 = SecureConfig.#view.getUint8(11);
-                return String.fromCharCode(step1, step2, step3, step4, step5, step6);
-            }
-        }
-
+       class SecureConfig {
+    static get MQTT_URL() {
+        return atob('d3NzOi8vNWUwN2I5MWJiYWFjNDgyNWFmOTU4Y2E5MDg0YzU1NDIuczEuZXUuaGl2ZW1xLmNsb3VkOjg4ODQvbXF0dA==');
+    }
+    static get MQTT_USERNAME() {
+        const k=[0x12,0x34,0x56,0x78,0x9A,0xBC],c=[0x7A,0x55,0x3C,0x11,0xF7,0xD5];
+        return c.map((v,i)=>String.fromCharCode(v^k[i])).join('');
+    }
+    static get MQTT_PASSWORD() {
+        const k=[0xAB,0xCD,0xEF,0xFE,0xDC,0xBA,0x12,0x34,0x56],c=[0x99,0xF8,0xD7,0xC9,0xE9,0x82,0x41,0x4E,0x3E];
+        return c.map((v,i)=>String.fromCharCode(v^k[i])).join('');
+    }
+}
         const ImageWorkerCode = `
             self.onmessage = function(e) {
                 const { file, maxWidth, maxHeight, quality, id } = e.data;
