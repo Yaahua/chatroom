@@ -1065,22 +1065,34 @@
 
             // ==================== 核心逻辑改造：处理信令 (含密钥交换) ====================
                        // A. 密钥交换：房主处理申请
+                         async handleSignal(data) {
+                // A. 密钥交换：房主处理申请
                 if (this.room.isHost && data.type === 'request_room_key') {
-                    const tempKey = await this.e2e.deriveSharedSecret(data.pubKey);
-                    const rawRoomKey = await this.e2e.exportRoomKey();
-                    const iv = crypto.getRandomValues(new Uint8Array(12));
-                    const encryptedRoomKey = await crypto.subtle.encrypt(
-                        { name: "AES-GCM", iv: iv },
-                        tempKey,
-                        rawRoomKey
-                    );
-                    this.publish('signal', {
-                        targetUserId: data.userId,  // ✅ 修改：fromUserId → userId
-                        type: 'response_room_key',
-                        encryptedKey: Utils.arrayBufferToBase64(encryptedRoomKey),
-                        iv: Utils.arrayBufferToBase64(iv.buffer),
-                        hostPubKey: await this.e2e.exportPublicKey()
-                    });
+                    if (!data.pubKey) return;
+                    
+                    try {
+                        const tempKey = await this.e2e.deriveSharedSecret(data.pubKey);
+                        const rawRoomKey = await this.e2e.exportRoomKey();
+                        const iv = crypto.getRandomValues(new Uint8Array(12));
+                        const encryptedRoomKey = await crypto.subtle.encrypt(
+                            { name: "AES-GCM", iv: iv },
+                            tempKey,
+                            rawRoomKey
+                        );
+                        
+                        this.publish('signal', {
+                            targetUserId: data.userId,  // 修复：从 fromUserId 改为 userId
+                            type: 'response_room_key',
+                            encryptedKey: Utils.arrayBufferToBase64(encryptedRoomKey),
+                            iv: Utils.arrayBufferToBase64(iv.buffer),
+                            hostPubKey: await this.e2e.exportPublicKey()
+                        });
+                        
+                        this.log(`已向 ${data.username || data.userId?.substr(0,6)} 发送房间密钥`);
+                    } catch(e) {
+                        console.error("密钥分发失败:", e);
+                    }
+                    return;
                 }
                 
                 // B. 密钥交换：新成员接收密钥
@@ -1094,10 +1106,11 @@
                         );
                         await this.e2e.importRoomKey(rawRoomKey);
                         this.showToast("加密通道已建立 ✅");
-                        this.updateInputBlocker(); // 解锁
+                        this.updateInputBlocker();
+                        this.log("已接收并解密房间密钥");
                     } catch(e) {
                         console.error("密钥协商失败", e);
-                        this.showToast("密钥协商失败");
+                        this.showToast("密钥协商失败，请刷新重试");
                     }
                     return;
                 }
@@ -1123,10 +1136,12 @@
                         await peer.pc.setLocalDescription(answer);
                         this.publish('signal', { targetUserId: data.fromUserId, type: 'answer', sdp: peer.pc.localDescription, fromUserId: this.user.id, fromName: this.user.name, fromColor: this.user.color });
                     } catch(e) {} finally { peer.isSettingRemoteAnswerPending = false; }
-                } else if (data.type === 'answer' && peer) { try { await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); } catch(e) {} }
-                else if (data.type === 'ice' && peer) { try { await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {} }
+                } else if (data.type === 'answer' && peer) { 
+                    try { await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); } catch(e) {} 
+                } else if (data.type === 'ice' && peer) { 
+                    try { await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {} 
+                }
             }
-
             setupDataChannel(dc, peer) {
                 peer.dataChannel = dc;
                 dc.onopen = () => {
