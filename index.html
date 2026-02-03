@@ -200,39 +200,7 @@
         return c.map((v,i)=>String.fromCharCode(v^k[i])).join('');
     }
 }
-        const ImageWorkerCode = `
-            self.onmessage = function(e) {
-                const { file, maxWidth, maxHeight, quality, id } = e.data;
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = function() {
-                        let { width, height } = img;
-                        if (width > maxWidth || height > maxHeight) {
-                            const ratio = Math.min(maxWidth / width, maxHeight / height);
-                            width *= ratio;
-                            height *= ratio;
-                        }
-                        const canvas = new OffscreenCanvas(width, height);
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#f5f5f7';
-                        ctx.fillRect(0, 0, width, height);
-                        ctx.drawImage(img, 0, 0, width, height);
-                        canvas.convertToBlob({ type: 'image/jpeg', quality: quality }).then(blob => {
-                            const reader2 = new FileReader();
-                            reader2.onloadend = () => {
-                                self.postMessage({ success: true, dataUrl: reader2.result, id, size: blob.size });
-                            };
-                            reader2.readAsDataURL(blob);
-                        });
-                    };
-                    img.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            };
-        `;
-        const imageWorkerBlob = new Blob([ImageWorkerCode], { type: 'application/javascript' });
-        const imageWorkerUrl = URL.createObjectURL(imageWorkerBlob);
+        
 
         class Utils {
             static generateUUID() {
@@ -654,7 +622,6 @@
                 this.theme = localStorage.getItem('theme') || 'light';
                 this.inputMode = 'text';
                 this.isRecording = false;
-                this.imageWorker = new Worker(imageWorkerUrl);
                 this.pendingImages = new Map();
                 this.e2e = new E2EEncryption(); // 使用新版加密类
                 this.voiceManager = new VoiceManager(this);
@@ -679,26 +646,40 @@
                 this.checkRecentRoom();
                 this.setupEventListeners();
                 this.initWaveBars();
-                this.setupImageWorker();
                 await this.e2e.generateKeyPair(); // 1. 生成我的身份密钥
             }
 
-            setupImageWorker() {
-                this.imageWorker.onmessage = (e) => {
-                    const { success, dataUrl, id, size } = e.data;
-                    if (success && this.pendingImages.has(id)) {
-                        const resolve = this.pendingImages.get(id);
-                        this.pendingImages.delete(id);
-                        resolve({ dataUrl, size });
-                    }
-                };
-            }
+         
 
-            async compressImage(file) {
+       async compressImage(file) {
                 return new Promise((resolve, reject) => {
-                    const id = Utils.generateUUID();
-                    this.pendingImages.set(id, resolve);
-                    this.imageWorker.postMessage({ file, maxWidth: 1200, maxHeight: 1200, quality: 0.7, id });
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const maxWidth = 1200;
+                            const maxHeight = 1200;
+                            let width = img.width;
+                            let height = img.height;
+                            if (width > maxWidth || height > maxHeight) {
+                                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                                width *= ratio;
+                                height *= ratio;
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.7) });
+                        };
+                        img.onerror = () => reject(new Error("图片加载失败"));
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = () => reject(new Error("读取失败"));
+                    reader.readAsDataURL(file);
                 });
             }
 
@@ -978,7 +959,6 @@
                 this.mqtt.client = null;
                 this.readReceiptManager.clear();
                 this.voiceManager.destroy();
-                this.imageWorker.terminate();
                 URL.revokeObjectURL(imageWorkerUrl);
             }
 
