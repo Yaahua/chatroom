@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>加密 即时通讯 (E2E Hybrid)</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js" type="module"></script>
+    <style>
+        /* ================= UI 样式 (保持一致) ================= */
+        :root{--bg:#f5f5f7;--bg-secondary:rgba(255,255,255,0.72);--surface:rgba(255,255,255,0.6);--text:#1d1d1f;--text-secondary:#6e6e73;--accent:#00c8aa;--accent-hover:#00b89c;--error:#ff3b30;--warning:#ff9500;--info:#007aff;--glass-border:rgba(255,255,255,0.4);--shadow:rgba(0,0,0,0.08);--input-bg:rgba(0,0,0,0.04);--code-bg:rgba(0,200,170,0.08);--system-bg:rgba(0,0,0,0.03);--hover-bg:rgba(0,0,0,0.05);--voice-bg:rgba(0,200,170,0.12);--network-good:#34c759;--network-medium:#ff9500;--network-poor:#ff3b30}[data-theme="dark"]{--bg:#0a0a0a;--bg-secondary:rgba(28,28,30,0.85);--surface:rgba(30,30,30,0.7);--text:#f5f5f7;--text-secondary:#8e8e93;--accent:#00d084;--accent-hover:#00b871;--error:#ff453a;--warning:#ff9f0a;--info:#0a84ff;--glass-border:rgba(255,255,255,0.1);--shadow:rgba(0,0,0,0.4);--input-bg:rgba(255,255,255,0.08);--code-bg:rgba(0,208,132,0.1);--system-bg:rgba(255,255,255,0.05);--hover-bg:rgba(255,255,255,0.08);--voice-bg:rgba(0,208,132,0.15)}*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent;transition:background-color .3s ease,color .3s ease}body{background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;position:relative;line-height:1.5;user-select:none}.hidden{display:none!important}.glass{background:var(--bg-secondary);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid var(--glass-border);box-shadow:0 8px 32px 0 var(--shadow)}.glass-strong{background:var(--bg-secondary);backdrop-filter:blur(30px) saturate(200%);-webkit-backdrop-filter:blur(30px) saturate(200%);border:1px solid var(--glass-border)}#userSetup{position:fixed;inset:0;background:var(--bg);backdrop-filter:blur(10px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}#setup{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}.card{padding:40px;border-radius:24px;max-width:460px;width:100%;position:relative;overflow:hidden}.user-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#00a8ff);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:white;margin:0 auto 20px;box-shadow:0 4px 20px rgba(0,200,170,.3);border:3px solid var(--bg)}h1{font-size:28px;font-weight:700;margin-bottom:12px;background:linear-gradient(135deg,var(--text) 0%,var(--text-secondary) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;letter-spacing:-.5px}.info{font-size:13px;color:var(--text-secondary);margin-bottom:28px;line-height:1.6;text-align:center;font-weight:400}button{width:100%;padding:16px;margin:8px 0;background:var(--accent);border:none;border-radius:14px;color:white;font-weight:600;cursor:pointer;font-size:15px;touch-action:manipulation;transition:all .3s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 12px rgba(0,200,170,.25)}button:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,200,170,.35);background:var(--accent-hover)}button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}button.secondary{background:var(--hover-bg);color:var(--text);box-shadow:none}button.secondary:hover{background:var(--hover-bg);box-shadow:0 2px 12px var(--shadow)}button.danger{background:var(--error);box-shadow:0 2px 12px rgba(255,59,48,.25)}.code-display{font-size:32px;font-weight:700;color:var(--accent);letter-spacing:8px;text-align:center;padding:24px;background:var(--code-bg);border-radius:16px;margin:20px 0;border:2px dashed var(--accent);font-family:"SF Mono",Monaco,monospace}.recent-room{border-radius:16px;padding:20px;margin:20px 0;text-align:center;animation:slideIn .4s cubic-bezier(.4,0,.2,1)}@keyframes slideIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}.recent-room-label{font-size:11px;color:var(--accent);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px}.recent-room-code{font-size:28px;font-weight:700;color:var(--text);font-family:"SF Mono",monospace;letter-spacing:4px;margin:12px 0}.recent-room-actions{display:flex;gap:10px;margin-top:16px}.recent-room-actions button{margin:0;padding:12px;font-size:14px;border-radius:12px}.copy-btn{background:var(--hover-bg)!important;color:var(--text)!important;box-shadow:none!important}#chat{height:100dvh;overflow:hidden;display:flex;flex-direction:column;max-width:900px;margin:0 auto;position:relative;background:var(--bg)}#header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;margin:12px 16px 8px;border-radius:20px;flex-shrink:0;z-index:10;gap:12px}#roomInfo{display:flex;align-items:center;gap:16px;flex:1;min-width:0;position:relative}#roomTitle{font-size:18px;font-weight:700;color:var(--text);letter-spacing:1px;white-space:nowrap;overflow:visible;cursor:pointer;padding:4px 8px;margin:-4px;border-radius:8px;transition:background .2s;position:relative}#roomTitle:hover{background:var(--hover-bg)}#roomTitle:active{transform:scale(.95)}#onlineCount{background:var(--code-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--glass-border);white-space:nowrap;flex-shrink:0}.theme-toggle{width:40px!important;height:40px;padding:0!important;margin:0!important;border-radius:50%!important;background:var(--hover-bg)!important;border:1px solid var(--glass-border)!important;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;box-shadow:none!important;flex-shrink:0}.theme-toggle:hover{transform:scale(1.1) rotate(15deg);background:var(--accent)!important}.theme-toggle:hover svg{color:white!important}.theme-toggle svg{width:22px;height:22px;color:var(--text-secondary);transition:all .3s ease}#userList{display:flex;gap:8px;overflow-x:auto;padding:4px;max-width:200px;scrollbar-width:none}#userList::-webkit-scrollbar{display:none}.user-chip{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--input-bg);border-radius:20px;font-size:12px;font-weight:500;white-space:nowrap;border:1px solid var(--glass-border);color:var(--text)}.user-chip.me{background:var(--code-bg);border-color:var(--accent);color:var(--accent)}.user-chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}#messages{flex:1;overflow-y:auto;padding:20px;padding-bottom:140px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;contain:layout style paint}.msg{max-width:80%;animation:messageIn .3s cubic-bezier(.4,0,.2,1);position:relative;contain:layout style}@keyframes messageIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}.msg-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;color:var(--text-secondary);padding:0 4px;position:relative}.msg-author{font-weight:600;color:var(--text)}.msg-time{font-size:11px;opacity:.7;font-family:"SF Mono",monospace;display:inline-flex;align-items:center;gap:4px}.msg-status{display:inline-flex;align-items:center;gap:2px;margin-left:4px;font-size:11px;color:var(--text-secondary);opacity:.6}.msg-status.read{color:var(--accent);opacity:1}.msg.self .msg-status{color:rgba(255,255,255,.7)}.msg.self .msg-status.read{color:white;opacity:1}.msg-status svg{width:14px;height:14px}.read-details{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--bg-secondary);border:1px solid var(--glass-border);border-radius:12px;padding:10px 14px;font-size:12px;white-space:nowrap;box-shadow:0 8px 24px var(--shadow);opacity:0;visibility:hidden;transform:translateY(5px) scale(.95);transition:all .2s cubic-bezier(.4,0,.2,1);z-index:100;pointer-events:none;min-width:120px}.msg-header:hover .read-details{opacity:1;visibility:visible;transform:translateY(0) scale(1)}.read-details-title{font-weight:600;margin-bottom:6px;color:var(--text);border-bottom:1px solid var(--glass-border);padding-bottom:4px}.read-details-name{color:var(--text-secondary);padding:2px 0;display:flex;align-items:center;gap:6px}.read-details-name::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--accent)}.msg-content{padding:14px 18px;border-radius:20px;word-break:break-all;line-height:1.5;font-size:15px;color:var(--text);background:var(--bg-secondary);border:1px solid var(--glass-border);box-shadow:0 2px 12px var(--shadow)}.msg.self{margin-left:auto;align-items:flex-end}.msg.self .msg-content{background:var(--accent);color:white;border:none;box-shadow:0 4px 16px rgba(0,200,170,.25)}.msg.system{align-self:center;max-width:90%}.msg.system .msg-content{background:var(--system-bg);border:1px solid var(--glass-border);color:var(--text-secondary);font-size:13px;padding:10px 20px;border-radius:16px}.msg-image{max-width:280px;max-height:280px;border-radius:16px;cursor:pointer;display:block;margin-top:4px;object-fit:cover;box-shadow:0 4px 16px rgba(0,0,0,.1);transition:transform .2s}.msg-image:hover{transform:scale(1.02)}.msg.self .msg-image{box-shadow:0 4px 16px rgba(0,0,0,.2)}.msg-voice{display:flex;align-items:center;gap:12px;padding:12px 16px;min-width:140px;max-width:280px;cursor:pointer;position:relative;overflow:hidden}.msg-voice .voice-icon{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;flex-shrink:0;position:relative}.msg-voice .voice-icon::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--accent);opacity:.3;animation:voicePulse 2s infinite;display:none}.msg-voice.playing .voice-icon::after{display:block}@keyframes voicePulse{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(1.5);opacity:0}}.msg-voice .voice-info{flex:1;display:flex;flex-direction:column;gap:4px}.msg-voice .voice-duration{font-weight:600;font-size:15px;color:var(--text)}.msg-voice .voice-wave{display:flex;align-items:center;gap:2px;height:20px}.msg-voice .wave-bar{width:3px;background:var(--accent);border-radius:2px;opacity:.4;transition:height .3s}.msg-voice.playing .wave-bar{animation:wave 1s ease-in-out infinite}@keyframes wave{0%,100%{height:4px}50%{height:16px}}.msg.self .msg-voice{flex-direction:row-reverse}.msg.self .msg-voice .voice-duration{text-align:right}.msg-voice .voice-status{position:absolute;top:50%;transform:translateY(-50%);width:6px;height:6px;background:var(--error);border-radius:50%;display:none}.msg:not(.self) .msg-voice .voice-status{right:8px}.msg.self .msg-voice .voice-status{left:8px}.msg-voice.unread .voice-status{display:block}#input{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:900px;padding:16px 24px;padding-bottom:calc(20px + env(safe-area-inset-bottom,20px));border-top:1px solid var(--glass-border);display:none;z-index:999;gap:12px;align-items:center;background:var(--bg-secondary);backdrop-filter:blur(20px)}.input-mode-text #input{display:flex}#inputWrapper{flex:1;display:flex;gap:10px;align-items:center;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:24px;padding:6px;transition:all .3s}#inputWrapper:focus-within{background:var(--bg-secondary);border-color:var(--accent);box-shadow:0 0 0 4px rgba(0,200,170,.1)}#input input[type="text"]{flex:1;padding:10px 16px;background:transparent;border:none;color:var(--text);font-size:16px;outline:none}#input input[type="text"]::placeholder{color:var(--text-secondary);opacity:.6}#input input[type="text"]:disabled{opacity:.5;cursor:not-allowed}.input-btn{width:40px!important;height:40px;padding:0!important;margin:0!important;border-radius:50%!important;background:var(--bg-secondary)!important;border:1px solid var(--glass-border)!important;color:var(--text)!important;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px var(--shadow)!important;transition:all .3s ease!important}.input-btn:hover:not(:disabled){transform:scale(1.05)!important;background:var(--accent)!important;color:white!important}.input-btn:active:not(:disabled){transform:scale(.95)!important}.input-btn:disabled{opacity:.4!important;cursor:not-allowed!important;transform:none;box-shadow:none!important}#input button.send-btn{width:auto;padding:12px 24px;margin:0;border-radius:20px;white-space:nowrap;font-weight:600}#input button.send-btn:disabled{opacity:.4;cursor:not-allowed}.voice-record-btn{flex:1;height:44px;border-radius:22px;background:var(--input-bg);border:1px solid var(--glass-border);color:var(--text);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;touch-action:none;transition:all .2s;position:relative;overflow:hidden}.voice-record-btn:active:not(:disabled),.voice-record-btn.recording{background:var(--voice-bg);border-color:var(--accent);color:var(--accent);transform:scale(.98)}.voice-record-btn.recording{animation:recordingPulse 1.5s infinite}@keyframes recordingPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,170,.4)}50%{box-shadow:0 0 0 10px rgba(0,200,170,0)}}.voice-record-btn:disabled{opacity:.4;cursor:not-allowed}.voice-record-btn .record-hint{position:absolute;font-size:12px;opacity:.7;bottom:4px}#recordOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:40px;opacity:0;transition:opacity .3s}#recordOverlay.show{display:flex;opacity:1}.record-wave-container{width:200px;height:200px;border-radius:50%;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 20px 60px var(--shadow)}.record-wave{width:160px;height:60px;display:flex;align-items:center;justify-content:center;gap:4px}.record-wave-bar{width:4px;background:var(--accent);border-radius:2px;transition:height .1s;height:10px}.record-timer{font-size:48px;font-weight:700;color:var(--text);font-family:"SF Mono",monospace;font-variant-numeric:tabular-nums}.record-hint-text{color:var(--text-secondary);font-size:14px;font-weight:500}.record-cancel-zone{position:absolute;bottom:100px;width:200px;height:200px;border-radius:50%;border:2px dashed var(--error);display:flex;align-items:center;justify-content:center;color:var(--error);font-size:14px;font-weight:600;opacity:0;transform:scale(.8);transition:all .3s}.record-cancel-zone.danger{opacity:1;transform:scale(1);background:rgba(255,59,48,.1)}input[type="text"].setup-input{width:100%;padding:16px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:16px;color:var(--text);font-size:16px;text-align:center;letter-spacing:2px;margin:16px 0;outline:none;transition:all .3s;font-family:"SF Mono",monospace}input[type="text"].setup-input:focus{border-color:var(--accent);background:var(--bg-secondary);box-shadow:0 0 0 4px rgba(0,200,170,.1)}#fileInput{display:none}.loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--warning);margin:16px 0;font-size:13px;font-weight:500}.spinner{width:18px;height:18px;border:2px solid var(--warning);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.log{margin-top:16px;padding:12px;background:var(--input-bg);border-radius:12px;font-size:11px;color:var(--text-secondary);font-family:"SF Mono",monospace;max-height:120px;overflow-y:auto;border:1px solid var(--glass-border)}.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);background:var(--bg-secondary);backdrop-filter:blur(20px);color:var(--text);padding:16px 28px;border-radius:16px;z-index:2000;font-size:14px;font-weight:500;opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);pointer-events:none;box-shadow:0 20px 60px var(--shadow);border:1px solid var(--glass-border)}.toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}#imageModal{position:fixed;inset:0;background:rgba(0,0,0,.95);backdrop-filter:blur(20px);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}#imageModal.show{display:flex}#imageModal img{max-width:100%;max-height:90vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)}#imageModal .close-modal{position:absolute;top:24px;right:24px;background:var(--bg-secondary);backdrop-filter:blur(10px);border:1px solid var(--glass-border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;transition:all .3s}#imageModal .close-modal:hover{transform:rotate(90deg);background:var(--accent);color:white}.image-progress{font-size:11px;color:var(--accent);margin-top:6px;font-weight:500;opacity:.8}.conn-status{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}.conn-status.connecting{background:var(--warning);animation:pulse 2s infinite}.conn-status.connected{background:var(--accent);box-shadow:0 0 8px var(--accent)}.conn-status.failed{background:var(--error)}@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.9)}}.network-quality{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-left:6px;padding:2px 6px;border-radius:10px;background:var(--hover-bg);font-weight:600}.network-quality.good{color:var(--network-good)}.network-quality.medium{color:var(--network-medium)}.network-quality.poor{color:var(--network-poor)}.network-quality svg{width:12px;height:12px}.virtual-scroll-container{position:relative;overflow-y:auto;flex:1}.message-sentinel{height:1px;width:100%}#imageSourceModal{touch-action:none}#imageSourceModal .glass-strong button{transition:background-color .2s}#imageSourceModal .glass-strong button:active{background:var(--hover-bg)!important;transform:scale(.98)!important}#inputBlocker{position:absolute;top:-40px;left:0;right:0;text-align:center;font-size:13px;color:var(--warning);font-weight:600;pointer-events:none;text-shadow:0 1px 2px var(--bg);animation:pulse 2s infinite}.typing-indicator{position:absolute;bottom:100%;left:20px;background:var(--bg-secondary);padding:6px 12px;border-radius:12px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;border:1px solid var(--glass-border)}.typing-indicator.show{opacity:1;transform:translateY(0)}@media (max-width:600px){.card{padding:28px 24px}h1{font-size:24px}.msg{max-width:90%}.msg-content{padding:12px 16px;border-radius:18px}.msg-image{max-width:200px;max-height:200px}#header{margin:8px;padding:12px 16px;border-radius:16px;gap:8px;flex-wrap:nowrap}#input{padding:12px 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom,34px))!important}.code-display{font-size:26px;letter-spacing:4px}#userList{max-width:120px}#roomTitle{font-size:16px;max-width:100px;letter-spacing:.5px}.theme-toggle{width:36px!important;height:36px!important}.theme-toggle svg{width:18px;height:18px}.record-timer{font-size:36px}.record-wave-container{width:160px;height:160px}button,.input-btn{min-height:44px;min-width:44px}.send-btn{padding:10px 18px!important}@supports (padding-bottom:env(safe-area-inset-bottom)){#input{padding-bottom:calc(24px + env(safe-area-inset-bottom))!important}}}.touch-device button,.touch-device .input-btn{min-height:44px;min-width:44px}.voice-record-btn{touch-action:none;user-select:none;-webkit-user-select:none}
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast"></div>
+
+    <div id="recordOverlay" onclick="window.chatApp?.cancelRecord()">
+        <div class="record-timer" id="recordTimer">00:00</div>
+        <div class="record-wave-container" id="waveContainer">
+            <div class="record-wave" id="recordWave"></div>
+        </div>
+        <div class="record-hint-text" id="recordHint">松开发送，上滑取消</div>
+        <div class="record-cancel-zone" id="cancelZone">
+            <span>松开取消</span>
+        </div>
+    </div>
+
+    <div id="imageSourceModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 2500; display: flex; align-items: flex-end; justify-content: center; padding: 20px; opacity: 0; transition: opacity 0.3s;">
+        <div class="glass-strong" style="width: 100%; max-width: 400px; border-radius: 24px; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+            <div style="padding: 12px 0; text-align: center; border-bottom: 1px solid var(--glass-border);">
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: 600;">选择图片来源</span>
+            </div>
+            <button onclick="window.chatApp?.selectImageSource('camera')" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--text); font-size: 17px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; margin: 0; box-shadow: none;">
+                <span style="font-size: 20px;">📷</span> 拍照
+            </button>
+            <div style="height: 1px; background: var(--glass-border); margin: 0 20px;"></div>
+            <button onclick="window.chatApp?.selectImageSource('gallery')" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--text); font-size: 17px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; margin: 0; box-shadow: none;">
+                <span style="font-size: 20px;">🖼️</span> 从相册选择
+            </button>
+            <div style="height: 8px; background: var(--glass-border); opacity: 0.5;"></div>
+            <button onclick="window.chatApp?.closeImageSourceModal()" style="width: 100%; padding: 18px; background: transparent; border: none; color: var(--error); font-size: 17px; font-weight: 600; cursor: pointer; border-radius: 0; margin: 0; box-shadow: none;">
+                取消
+            </button>
+        </div>
+    </div>
+
+    <div id="imageModal" onclick="window.chatApp?.closeImageModal()">
+        <button class="close-modal" onclick="event.stopPropagation(); window.chatApp?.closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="预览">
+    </div>
+
+    <div id="userSetup">
+        <div class="card glass-strong" style="max-width:400px">
+            <div class="user-avatar" id="avatarPreview">?</div>
+            <h2 style="text-align:center;margin-bottom:8px;font-weight:700;color:var(--text)">设置身份</h2>
+            <input type="text" id="usernameInput" placeholder="昵称 (2-12字)" maxlength="12" class="setup-input" style="text-transform:none;letter-spacing:0;font-family:inherit">
+            <div style="font-size:12px;color:var(--text-secondary);text-align:center;margin-bottom:20px;font-weight:500">
+                进入后无法修改
+            </div>
+            <button onclick="window.chatApp?.setUsername()" id="confirmUserBtn" style="border-radius:16px">进入</button>
+        </div>
+    </div>
+
+    <div id="setup">
+        <div class="card glass">
+            <h1>E2E 加密聊天室</h1>
+            <div class="info">
+                Hybrid 极速模式 · 信令層 AES 加密<br>
+                文字秒達 · 隱私無憂
+            </div>
+            
+            <div id="userInfo" class="glass" style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:16px;border-radius:16px;background:var(--surface)">
+                <div class="user-avatar" style="width:44px;height:44px;font-size:18px;margin:0" id="displayAvatar">?</div>
+                <div style="flex:1">
+                    <div style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">当前身份</div>
+                    <div style="font-weight:700;color:var(--text);font-size:16px" id="displayUsername">未设置</div>
+                </div>
+            </div>
+            
+            <div id="recentRoomPanel" class="recent-room glass hidden">
+                <div class="recent-room-label">最近访问</div>
+                <div class="recent-room-code" id="recentRoomCode">-</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;font-weight:500" id="recentRoomTime">-</div>
+                <div class="recent-room-actions">
+                    <button onclick="window.chatApp?.rejoinRoom()" style="flex:1;background:var(--accent);color:white">重新进入</button>
+                    <button onclick="window.chatApp?.copyRoomCode()" class="copy-btn" style="flex:1">复制</button>
+                </div>
+            </div>
+            
+            <button onclick="window.chatApp?.createRoom()" id="createBtn" style="border-radius:16px">创建房间</button>
+            <button onclick="window.chatApp?.showJoin()" id="joinBtn" class="secondary" style="border-radius:16px">加入房间</button>
+            
+            <div id="createPanel" class="hidden">
+                <div class="loading" id="createLoading">
+                    <div class="spinner"></div>
+                    <span>生成房间密钥 & 混合通道...</span>
+                </div>
+                <div class="code-display hidden" id="roomCodeDisplay"></div>
+                <div class="log hidden" id="log"></div>
+            </div>
+            
+            <div id="joinPanel" class="hidden" style="margin-top:24px">
+                <label style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:8px;display:block">房间代码</label>
+                <input type="text" id="joinCode" placeholder="ABC123" maxlength="6" autocomplete="off" autocapitalize="characters" class="setup-input" style="border-radius:16px">
+                <button onclick="window.chatApp?.joinRoom()" id="connectBtn" style="border-radius:16px;margin-top:8px">加入</button>
+                <div id="joinLoading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <span>正在进行 ECDH 密钥协商...</span>
+                </div>
+                <div class="log hidden" id="joinLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat" class="hidden">
+        <div id="header" class="glass-strong">
+            <div id="roomInfo">
+                <div style="min-width:0; flex:1; overflow:visible;">
+                    <div id="roomTitle" onclick="window.chatApp?.copyCurrentRoomCode()" title="点击复制房间号">房间</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;font-weight:500;display:flex;align-items:center;flex-wrap:wrap;gap:4px" id="connectionStatus">
+                        <span class="conn-status connecting"></span>初始化
+                        <span class="network-quality" id="networkQuality" style="display:none">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 14h4v8H1zM8 10h4v12H8zM15 6h4v16h-4zM22 2h4v20h-4z"/></svg>
+                            <span>-</span>
+                        </span>
+                    </div>
+                </div>
+                <div id="onlineCount" style="flex-shrink:0;">1人</div>
+            </div>
+            
+            <button class="theme-toggle" onclick="window.chatApp?.toggleTheme()" title="切换主题">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5" fill="currentColor" fill-opacity="0.2"></circle>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"></path>
+                    <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" stroke-opacity="0.3" stroke-dasharray="4 4"></path>
+                    <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+                </svg>
+            </button>
+            
+            <div id="userList">
+                <div class="user-chip me">
+                    <span class="dot"></span>
+                    <span id="myChipName">我</span>
+                </div>
+            </div>
+            <button onclick="window.chatApp?.confirmLeave()" class="danger" style="width:auto;padding:8px 16px;font-size:12px;margin:0;border-radius:12px">退出</button>
+        </div>
+        
+        <div id="messages"></div>
+        <div class="typing-indicator" id="typingIndicator">对方正在输入...</div>
+        
+        <div id="input" class="glass-strong input-mode-text">
+            <div id="inputBlocker" class="hidden">
+                🔒 正在同步密钥...
+            </div>
+            
+            <input type="file" id="fileInput" accept="image/*" onchange="window.chatApp?.handleImageSelect(event)">
+            
+            <button class="input-btn" onclick="window.chatApp?.toggleInputMode()" title="切换语音/文字" id="modeToggleBtn">
+                🎙️
+            </button>
+            
+            <div id="textInputWrapper" style="flex:1;display:flex;gap:10px;align-items:center; position: relative;">
+                <div id="inputWrapper" style="flex:1;">
+                    <input type="text" id="msgInput" placeholder="发送加密消息..." maxlength="1000" autocomplete="off" enterkeyhint="send" onkeypress="if(event.key==='Enter' && !this.disabled) window.chatApp?.send()" oninput="window.chatApp?.handleInput()">
+                </div>
+                <button class="input-btn" onclick="window.chatApp?.triggerImageSelect()" title="发送图片" style="font-size:16px;">
+                    📷
+                </button>
+                <button onclick="window.chatApp?.send()" class="send-btn" style="border-radius:20px;padding:10px 20px;width:auto;">发送</button>
+            </div>
+            
+            <div id="voiceInputWrapper" class="hidden" style="flex:1;">
+                <button class="voice-record-btn" id="recordBtn" 
+                    onmousedown="window.chatApp?.startRecord(event)" 
+                    ontouchstart="window.chatApp?.startRecord(event)"
+                    onmouseup="window.chatApp?.stopRecord(event)"
+                    ontouchend="window.chatApp?.stopRecord(event)"
+                    onmousemove="window.chatApp?.handleRecordMove(event)"
+                    ontouchmove="window.chatApp?.handleRecordMove(event)">
+                    <span id="recordBtnText">按住说话</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+
+        // ==================== 安全配置 (混淆) ====================
+        class SecureConfig {
+            static #state = 0;
+            static #buffer = new ArrayBuffer(32);
+            static #view = new DataView(SecureConfig.#buffer);
+            
+            static #init() {
+                if (Math.random() < -1) return "dead_code_path";
+                const key = [0x4a, 0x3f, 0x12, 0x58, 0x9a, 0x2c];
+                const data1 = [0x7b, 0x0e, 0x63, 0x2a, 0xe9, 0x5d];
+                const data2 = [0x4e, 0x5d, 0x0a, 0x3b, 0xf1, 0x71];
+                for(let i = 0; i < 6; i++) {
+                    SecureConfig.#view.setUint8(i, data1[i] ^ key[i]);
+                    SecureConfig.#view.setUint8(i + 6, data2[i] ^ key[i]);
+                }
+                SecureConfig.#state = 1;
+            }
+
+            static get MQTT_URL() {
+                const urls = [
+                    'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
+                    'wss://invalid.backup.url:8883/mqtt',
+                    'wss://' + atob('N2UwN2I5MWJiYWFjNDgyNWFmOTU4Y2E5MDg0YzU1NDI') + '.s1.eu.hivemq.cloud:8884/mqtt'
+                ];
+                const idx = (Date.now() % 3 === 0) ? 0 : ((Date.now() % 2 === 0) ? 0 : 0);
+                return urls[idx];
+            }
+
+            static get MQTT_USERNAME() {
+                if (SecureConfig.#state !== 1) SecureConfig.#init();
+                return String.fromCharCode(
+                    SecureConfig.#view.getUint8(0), SecureConfig.#view.getUint8(1), SecureConfig.#view.getUint8(2),
+                    SecureConfig.#view.getUint8(3), SecureConfig.#view.getUint8(4), SecureConfig.#view.getUint8(5)
+                );
+            }
+
+            static get MQTT_PASSWORD() {
+                if (SecureConfig.#state !== 1) SecureConfig.#init();
+                const step1 = SecureConfig.#view.getUint8(6);
+                const step2 = SecureConfig.#view.getUint8(7);
+                const step3 = SecureConfig.#view.getUint8(8);
+                const step4 = SecureConfig.#view.getUint8(9);
+                const step5 = SecureConfig.#view.getUint8(10);
+                const step6 = SecureConfig.#view.getUint8(11);
+                return String.fromCharCode(step1, step2, step3, step4, step5, step6);
+            }
+        }
+
+        const ImageWorkerCode = `
+            self.onmessage = function(e) {
+                const { file, maxWidth, maxHeight, quality, id } = e.data;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        let { width, height } = img;
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width *= ratio;
+                            height *= ratio;
+                        }
+                        const canvas = new OffscreenCanvas(width, height);
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#f5f5f7';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.convertToBlob({ type: 'image/jpeg', quality: quality }).then(blob => {
+                            const reader2 = new FileReader();
+                            reader2.onloadend = () => {
+                                self.postMessage({ success: true, dataUrl: reader2.result, id, size: blob.size });
+                            };
+                            reader2.readAsDataURL(blob);
+                        });
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+        `;
+        const imageWorkerBlob = new Blob([ImageWorkerCode], { type: 'application/javascript' });
+        const imageWorkerUrl = URL.createObjectURL(imageWorkerBlob);
+
+        class Utils {
+            static generateUUID() {
+                return crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+            }
+            static getAvatarColor(name) {
+                const colors = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#ff2d55', '#5ac8fa'];
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                return colors[Math.abs(hash) % colors.length];
+            }
+            static generateRoomCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                const array = new Uint8Array(6);
+                crypto.getRandomValues(array);
+                return Array.from(array, x => chars[x % chars.length]).join('');
+            }
+            static formatTime(date) { return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }); }
+            static escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+            static getDataSize(base64) {
+                const bytes = Math.ceil(base64.length * 0.75);
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+            static arrayBufferToBase64(buffer) {
+                let binary = '';
+                const bytes = new Uint8Array(buffer);
+                const len = bytes.byteLength;
+                for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+                return window.btoa(binary);
+            }
+            static base64ToArrayBuffer(base64) {
+                const binary_string = window.atob(base64);
+                const len = binary_string.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = binary_string.charCodeAt(i);
+                return bytes.buffer;
+            }
+        }
+
+        // ==================== 增强版加密类 (支持房间密钥) ====================
+        class E2EEncryption {
+            constructor() {
+                this.keyPair = null; // 我的 ECDH 身份密钥
+                this.roomKey = null; // AES-GCM 房间共享密钥
+            }
+
+            async generateKeyPair() {
+                this.keyPair = await crypto.subtle.generateKey(
+                    { name: "ECDH", namedCurve: "P-256" },
+                    true, ["deriveKey"]
+                );
+                return this.keyPair;
+            }
+
+            // 房主生成房间密钥
+            async generateRoomKey() {
+                this.roomKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 },
+                    true, ["encrypt", "decrypt"]
+                );
+                return this.roomKey;
+            }
+
+            // 导出房间密钥 (用于加密后发给新成员)
+            async exportRoomKey() {
+                if (!this.roomKey) return null;
+                return await crypto.subtle.exportKey("raw", this.roomKey);
+            }
+
+            // 导入房间密钥 (新成员收到后)
+            async importRoomKey(rawKey) {
+                this.roomKey = await crypto.subtle.importKey(
+                    "raw", rawKey,
+                    { name: "AES-GCM" },
+                    true, ["encrypt", "decrypt"]
+                );
+            }
+
+            // 协商临时密钥 (用于保护房间密钥的传输)
+            async deriveSharedSecret(peerPublicKeyJwk) {
+                const peerKey = await crypto.subtle.importKey(
+                    "jwk", peerPublicKeyJwk,
+                    { name: "ECDH", namedCurve: "P-256" },
+                    false, []
+                );
+                return await crypto.subtle.deriveKey(
+                    { name: "ECDH", public: peerKey },
+                    this.keyPair.privateKey,
+                    { name: "AES-GCM", length: 256 },
+                    false, ["encrypt", "decrypt"]
+                );
+            }
+
+            async encryptGroupMessage(text) {
+                if (!this.roomKey) throw new Error("等待密钥同步...");
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const encoded = new TextEncoder().encode(text);
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv: iv },
+                    this.roomKey,
+                    encoded
+                );
+                const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+                combined.set(iv);
+                combined.set(new Uint8Array(ciphertext), iv.length);
+                return Utils.arrayBufferToBase64(combined.buffer);
+            }
+
+            async decryptGroupMessage(base64) {
+                if (!this.roomKey) return "[等待密钥...]";
+                try {
+                    const combined = Utils.base64ToArrayBuffer(base64);
+                    const iv = combined.slice(0, 12);
+                    const data = combined.slice(12);
+                    const decrypted = await crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv: new Uint8Array(iv) },
+                        this.roomKey,
+                        data
+                    );
+                    return new TextDecoder().decode(decrypted);
+                } catch (e) {
+                    console.error("解密失败", e);
+                    return "[解密失败]";
+                }
+            }
+
+            async exportPublicKey() {
+                return crypto.subtle.exportKey("jwk", this.keyPair.publicKey);
+            }
+        }
+
+        const CONFIG = {
+            get MQTT_URL() { return SecureConfig.MQTT_URL; },
+            get MQTT_USERNAME() { return SecureConfig.MQTT_USERNAME; },
+            get MQTT_PASSWORD() { return SecureConfig.MQTT_PASSWORD; },
+            ICE_SERVERS: [{ urls: "stun:stun.relay.metered.ca:80" }, { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" }, { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }],
+            MAX_PEERS: 7,
+            CHUNK_SIZE: 8192,
+            MAX_VOICE_DURATION: 60,
+            READ_RECEIPT_DELAY: 500,
+            ROOM_EXPIRY: 30 * 60 * 1000,
+            TYPING_TIMEOUT: 3000
+        };
+
+        class LRUCache {
+            constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); }
+            has(key) { return this.cache.has(key); }
+            add(key) {
+                if (this.cache.has(key)) this.cache.delete(key);
+                this.cache.set(key, true);
+                if (this.cache.size > this.maxSize) this.cache.delete(this.cache.keys().next().value);
+            }
+            clear() { this.cache.clear(); }
+        }
+
+        class ReliableVoiceTransfer {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.ackCallbacks = new Map();
+                this.maxRetries = 3;
+            }
+            async sendVoice(blob, duration, meta) {
+                const arrayBuffer = await blob.arrayBuffer();
+                const totalChunks = Math.ceil(arrayBuffer.byteLength / CONFIG.CHUNK_SIZE);
+                const voiceId = meta.voiceId;
+                const metaMsg = { ...meta, type: 'voice_meta', totalChunks, totalSize: arrayBuffer.byteLength, timestamp: new Date().toISOString() };
+                if (this.app.broadcastMessage(metaMsg) === 0) throw new Error('需P2P连接以发送语音');
+                const sendChunk = async (index) => {
+                    if (index >= totalChunks) return;
+                    const start = index * CONFIG.CHUNK_SIZE;
+                    const end = Math.min(start + CONFIG.CHUNK_SIZE, arrayBuffer.byteLength);
+                    const chunk = arrayBuffer.slice(start, end);
+                    const header = new TextEncoder().encode(`${voiceId}|${index}|${totalChunks}|`);
+                    const combined = new Uint8Array(header.length + chunk.byteLength);
+                    combined.set(header, 0);
+                    combined.set(new Uint8Array(chunk), header.length);
+                    this.app.broadcastRaw(combined.buffer);
+                };
+                for (let i = 0; i < totalChunks; i++) {
+                    await sendChunk(i);
+                    if (i % 3 === 0) await new Promise(r => setTimeout(r, 10)); // 简单流控
+                }
+                setTimeout(() => {
+                    this.app.broadcastMessage({ type: 'voice_end', voiceId: voiceId, timestamp: new Date().toISOString() });
+                }, 100);
+                return voiceId;
+            }
+        }
+
+        class VoiceManager {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.recorder = null;
+                this.audioChunks = [];
+                this.recordStartTime = 0;
+                this.recordTimer = null;
+                this.receivingBuffers = new Map();
+                this.currentPlaying = null;
+                this.voiceBlobs = new Map();
+                this.reliableTransfer = new ReliableVoiceTransfer(chatApp);
+            }
+            destroy() { this.voiceBlobs.clear(); this.receivingBuffers.clear(); }
+            async startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
+                    this.audioChunks = [];
+                    this.recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+                    this.recorder.ondataavailable = (e) => { if (e.data.size > 0) this.audioChunks.push(e.data); };
+                    this.recorder.onstop = () => { this.finalizeRecording(); stream.getTracks().forEach(track => track.stop()); };
+                    this.recorder.start(100);
+                    this.recordStartTime = Date.now();
+                    this.startRecordTimer();
+                    return true;
+                } catch (err) { console.error('录音失败:', err); return false; }
+            }
+            startRecordTimer() {
+                const updateTimer = () => {
+                    const elapsed = Math.floor((Date.now() - this.recordStartTime) / 1000);
+                    if (CONFIG.MAX_VOICE_DURATION - elapsed <= 0) { this.stopRecording(); return; }
+                    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const secs = (elapsed % 60).toString().padStart(2, '0');
+                    const timerEl = document.getElementById('recordTimer');
+                    if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+                    this.updateWaveAnimation();
+                };
+                updateTimer();
+                this.recordTimer = setInterval(updateTimer, 1000);
+            }
+            updateWaveAnimation() { document.querySelectorAll('.record-wave-bar').forEach(bar => { bar.style.height = `${10 + Math.random() * 40}px`; }); }
+            stopRecording(canceled = false) {
+                if (this.recordTimer) { clearInterval(this.recordTimer); this.recordTimer = null; }
+                if (this.recorder && this.recorder.state !== 'inactive') { this.recorder.stop(); this.canceled = canceled; }
+            }
+            async finalizeRecording() {
+                if (this.canceled || this.audioChunks.length === 0) return;
+                const duration = Math.floor((Date.now() - this.recordStartTime) / 1000);
+                if (duration < 1) { this.app.showToast('录音时间太短'); return; }
+                const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                const voiceId = `voice_${this.app.user.id}_${Date.now()}`;
+                try {
+                    await this.reliableTransfer.sendVoice(blob, duration, {
+                        id: `${this.app.user.id}_${Date.now()}`, userId: this.app.user.id, username: this.app.user.name,
+                        avatarColor: this.app.user.color, voiceId: voiceId, duration: duration
+                    });
+                    this.app.displayVoiceMessage({ voiceId, duration, blob, local: true, userId: this.app.user.id, username: this.app.user.name, avatarColor: this.app.user.color, timestamp: new Date().toISOString() }, true);
+                } catch (e) { this.app.showToast('发送失败: ' + e.message); }
+            }
+            handleChunk(peerId, arrayBuffer) {
+                try {
+                    const uint8 = new Uint8Array(arrayBuffer);
+                    const headerStr = new TextDecoder().decode(uint8.slice(0, 100));
+                    const parts = headerStr.split('|');
+                    if (parts.length < 3) return;
+                    const [voiceId, indexStr, totalStr] = parts;
+                    const index = parseInt(indexStr);
+                    const total = parseInt(totalStr);
+                    const headerLen = voiceId.length + indexStr.length + totalStr.length + 3;
+                    const chunkData = uint8.slice(headerLen);
+                    
+                    if (!this.receivingBuffers.has(voiceId)) {
+                        this.receivingBuffers.set(voiceId, { chunks: new Array(total).fill(null), received: 0, meta: null, timeout: setTimeout(() => this.receivingBuffers.delete(voiceId), 60000) });
+                    }
+                    const buffer = this.receivingBuffers.get(voiceId);
+                    if (buffer.chunks[index] === null) {
+                        buffer.chunks[index] = chunkData;
+                        buffer.received++;
+                    }
+                    if (buffer.meta && buffer.received >= buffer.meta.totalChunks) this.assembleVoice(voiceId);
+                } catch (e) { }
+            }
+            handleVoiceMeta(peerId, data) {
+                if (!this.receivingBuffers.has(data.voiceId)) {
+                    this.receivingBuffers.set(data.voiceId, { chunks: new Array(data.totalChunks).fill(null), received: 0, meta: data, timeout: setTimeout(() => this.receivingBuffers.delete(data.voiceId), 60000) });
+                } else {
+                    const buffer = this.receivingBuffers.get(data.voiceId);
+                    buffer.meta = data;
+                    if (buffer.received >= data.totalChunks) this.assembleVoice(data.voiceId);
+                }
+            }
+            assembleVoice(voiceId) {
+                const buffer = this.receivingBuffers.get(voiceId);
+                if (!buffer || !buffer.meta) return;
+                clearTimeout(buffer.timeout);
+                try {
+                    let totalLength = buffer.chunks.reduce((acc, chunk) => acc + (chunk ? chunk.length : 0), 0);
+                    const combined = new Uint8Array(totalLength);
+                    let offset = 0;
+                    for (const chunk of buffer.chunks) { if (chunk) { combined.set(chunk, offset); offset += chunk.length; } }
+                    const blob = new Blob([combined], { type: 'audio/webm' });
+                    const message = { ...buffer.meta, type: 'voice', blob, data: combined.buffer };
+                    this.app.displayVoiceMessage(message, false);
+                    this.receivingBuffers.delete(voiceId);
+                } catch (e) { console.error('组装语音失败:', e); }
+            }
+            async playVoice(voiceId, blobOrData) {
+                if (this.currentPlaying) {
+                    this.currentPlaying.audio.pause();
+                    this.currentPlaying.audio.currentTime = 0;
+                    this.updateUIState(this.currentPlaying.voiceId, false);
+                    if (this.currentPlaying.voiceId === voiceId) { this.currentPlaying = null; return; }
+                }
+                let blob = blobOrData;
+                if (blobOrData instanceof ArrayBuffer) blob = new Blob([blobOrData], { type: 'audio/webm' });
+                const url = blob instanceof Blob ? URL.createObjectURL(blob) : blob;
+                const audio = new Audio(url);
+                audio.onended = () => { this.updateUIState(voiceId, false); this.currentPlaying = null; if (blob instanceof Blob) URL.revokeObjectURL(url); };
+                audio.onpause = () => { this.updateUIState(voiceId, false); };
+                audio.onplay = () => this.updateUIState(voiceId, true);
+                try { await audio.play(); this.currentPlaying = { voiceId, audio }; } catch (e) { this.app.showToast('播放失败'); }
+            }
+            updateUIState(voiceId, isPlaying) {
+                document.querySelectorAll(`[data-voice-id="${voiceId}"]`).forEach(el => { el.classList.toggle('playing', isPlaying); el.classList.remove('unread'); });
+            }
+            storeVoiceBlob(voiceId, blob) { this.voiceBlobs.set(voiceId, { blob, timestamp: Date.now() }); }
+            getVoiceBlob(voiceId) { const data = this.voiceBlobs.get(voiceId); return data ? data.blob : null; }
+        }
+
+        class ReadReceiptManager {
+            constructor(chatApp) {
+                this.app = chatApp;
+                this.messageStatus = new Map();
+                this.pendingReceipts = new Set();
+                this.sendTimer = null;
+                this.observer = null;
+                this.initObserver();
+            }
+            initObserver() {
+                if (!('IntersectionObserver' in window)) return;
+                this.observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const msgEl = entry.target;
+                            const msgId = msgEl.dataset.msgId;
+                            const senderId = msgEl.dataset.senderId;
+                            if (msgId && senderId && senderId !== this.app.user.id) this.markAsRead(msgId);
+                        }
+                    });
+                }, { root: document.getElementById('messages'), threshold: 0.6 });
+            }
+            observe(element) { if (this.observer) this.observer.observe(element); }
+            disconnect() { if (this.observer) { this.observer.disconnect(); this.observer = null; } }
+            initMessage(msgId, isSelf) {
+                if (!isSelf) return;
+                this.messageStatus.set(msgId, { delivered: false, readBy: new Set(), readNames: new Set(), timestamp: Date.now() });
+                this.checkDelivery(msgId);
+            }
+            checkDelivery(msgId) {
+                const check = setInterval(() => {
+                    const status = this.messageStatus.get(msgId);
+                    if (!status) return clearInterval(check);
+                    if (this.app.mqtt.client?.connected && !status.delivered) {
+                        status.delivered = true;
+                        this.updateUI(msgId);
+                        clearInterval(check);
+                    }
+                }, 1000);
+            }
+            markAsRead(msgId) {
+                if (this.pendingReceipts.has(msgId)) return;
+                this.pendingReceipts.add(msgId);
+                clearTimeout(this.sendTimer);
+                this.sendTimer = setTimeout(() => this.sendBatch(), CONFIG.READ_RECEIPT_DELAY);
+            }
+            sendBatch() {
+                if (this.pendingReceipts.size === 0) return;
+                const receipts = Array.from(this.pendingReceipts);
+                this.pendingReceipts.clear();
+                this.app.publish('broadcast', {
+                    type: 'read_receipt',
+                    messageIds: receipts,
+                    readerId: this.app.user.id,
+                    readerName: this.app.user.name,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            handleReceipt(data) {
+                const { messageIds, readerId, readerName } = data;
+                if (readerId === this.app.user.id) return;
+                messageIds.forEach(msgId => {
+                    const status = this.messageStatus.get(msgId);
+                    if (status) {
+                        status.readBy.add(readerId);
+                        status.readNames.add(readerName);
+                        this.updateUI(msgId);
+                    }
+                });
+            }
+            updateUI(msgId) {
+                const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
+                if (!msgEl) return;
+                const statusEl = msgEl.querySelector('.msg-status');
+                if (!statusEl) return;
+                const status = this.messageStatus.get(msgId);
+                const readCount = status.readBy.size;
+                if (readCount > 0) {
+                    statusEl.classList.add('read');
+                    statusEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L7 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 6L11 17l-2-2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6"/></svg>${readCount > 1 ? readCount : ''}`;
+                } else if (status.delivered) {
+                    statusEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                }
+            }
+            clear() { this.messageStatus.clear(); this.pendingReceipts.clear(); this.disconnect(); }
+        }
+
+        class ChatApplication {
+            constructor() {
+                this.user = { name: null, id: null, color: null };
+                this.room = { code: null, isHost: false };
+                this.mqtt = { client: null };
+                this.peers = new Map();
+                this.messages = { seq: 0, cache: new LRUCache(1000) };
+                this.connection = { established: false };
+                this.theme = localStorage.getItem('theme') || 'light';
+                this.inputMode = 'text';
+                this.isRecording = false;
+                this.imageWorker = new Worker(imageWorkerUrl);
+                this.pendingImages = new Map();
+                this.e2e = new E2EEncryption(); // 使用新版加密类
+                this.voiceManager = new VoiceManager(this);
+                this.readReceiptManager = new ReadReceiptManager(this);
+                this.typingTimer = null;
+                this.isTyping = false;
+                this.init();
+            }
+
+            async init() {
+                document.documentElement.setAttribute('data-theme', this.theme);
+                const savedName = sessionStorage.getItem('p2p_username');
+                const savedId = sessionStorage.getItem('p2p_userid');
+                const savedColor = sessionStorage.getItem('p2p_color');
+                if (savedName && savedId) {
+                    this.user.name = savedName;
+                    this.user.id = savedId;
+                    this.user.color = savedColor || Utils.getAvatarColor(savedName);
+                    this.updateUserDisplay();
+                }
+                if ('ontouchstart' in window) document.body.classList.add('touch-device');
+                this.checkRecentRoom();
+                this.setupEventListeners();
+                this.initWaveBars();
+                this.setupImageWorker();
+                await this.e2e.generateKeyPair(); // 1. 生成我的身份密钥
+            }
+
+            setupImageWorker() {
+                this.imageWorker.onmessage = (e) => {
+                    const { success, dataUrl, id, size } = e.data;
+                    if (success && this.pendingImages.has(id)) {
+                        const resolve = this.pendingImages.get(id);
+                        this.pendingImages.delete(id);
+                        resolve({ dataUrl, size });
+                    }
+                };
+            }
+
+            async compressImage(file) {
+                return new Promise((resolve, reject) => {
+                    const id = Utils.generateUUID();
+                    this.pendingImages.set(id, resolve);
+                    this.imageWorker.postMessage({ file, maxWidth: 1200, maxHeight: 1200, quality: 0.7, id });
+                });
+            }
+
+            initWaveBars() {
+                const container = document.getElementById('recordWave');
+                if (container) container.innerHTML = Array(20).fill(0).map(() => '<div class="record-wave-bar" style="height:10px"></div>').join('');
+            }
+
+            setupEventListeners() {
+                document.getElementById('usernameInput')?.addEventListener('input', (e) => {
+                    const val = e.target.value.trim();
+                    const avatar = document.getElementById('avatarPreview');
+                    avatar.textContent = val ? val.charAt(0).toUpperCase() : '?';
+                    if (val) avatar.style.background = Utils.getAvatarColor(val);
+                });
+                window.addEventListener('beforeunload', () => { if (this.connection.established && this.mqtt.client) this.publish('presence', { action: 'leave' }); this.cleanup(); });
+                document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !document.getElementById('chat').classList.contains('hidden')) this.send(); });
+                setInterval(() => this.updateNetworkQuality(), 5000);
+            }
+
+            handleInput() {
+                if (!this.isTyping) {
+                    this.isTyping = true;
+                    this.publish('broadcast', { type: 'typing', userId: this.user.id, username: this.user.name });
+                }
+                clearTimeout(this.typingTimer);
+                this.typingTimer = setTimeout(() => {
+                    this.isTyping = false;
+                    this.publish('broadcast', { type: 'typing_end', userId: this.user.id });
+                }, CONFIG.TYPING_TIMEOUT);
+            }
+
+            handleTypingIndicator(data) {
+                const indicator = document.getElementById('typingIndicator');
+                if (data.type === 'typing' && data.userId !== this.user.id) {
+                    indicator.textContent = `${data.username} 正在输入...`;
+                    indicator.classList.add('show');
+                } else if (data.type === 'typing_end' && data.userId !== this.user.id) {
+                    indicator.classList.remove('show');
+                }
+            }
+
+            updateNetworkQuality() {
+                let totalRtt = 0;
+                let count = 0;
+                this.peers.forEach(peer => {
+                    if (peer.pc && peer.connected) {
+                        peer.pc.getStats().then(stats => {
+                            stats.forEach(report => {
+                                if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+                                    totalRtt += report.currentRoundTripTime * 1000;
+                                    count++;
+                                }
+                            });
+                            if (count > 0) {
+                                const avgRtt = totalRtt / count;
+                                const qualityEl = document.getElementById('networkQuality');
+                                const qualityText = qualityEl.querySelector('span');
+                                qualityEl.style.display = 'inline-flex';
+                                if (avgRtt < 100) { qualityEl.className = 'network-quality good'; qualityText.textContent = '优'; }
+                                else if (avgRtt < 300) { qualityEl.className = 'network-quality medium'; qualityText.textContent = '良'; }
+                                else { qualityEl.className = 'network-quality poor'; qualityText.textContent = '差'; }
+                            }
+                        });
+                    }
+                });
+            }
+
+            toggleInputMode() {
+                const textWrapper = document.getElementById('textInputWrapper');
+                const voiceWrapper = document.getElementById('voiceInputWrapper');
+                const btn = document.getElementById('modeToggleBtn');
+                if (this.inputMode === 'text') {
+                    this.inputMode = 'voice';
+                    textWrapper.classList.add('hidden');
+                    voiceWrapper.classList.remove('hidden');
+                    btn.textContent = '⌨️';
+                } else {
+                    this.inputMode = 'text';
+                    textWrapper.classList.remove('hidden');
+                    voiceWrapper.classList.add('hidden');
+                    btn.textContent = '🎙️';
+                }
+            }
+
+            async startRecord(e) {
+                e.preventDefault();
+                if (this.isRecording) return;
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                if (!hasConnectedPeer) { this.showToast('⚠️ 语音传输需要 P2P 连接'); return; }
+                if (this.voiceManager.startRecording()) {
+                    this.isRecording = true;
+                    this.recordCancelZone = false;
+                    document.getElementById('recordOverlay').classList.add('show');
+                    document.getElementById('recordBtn').classList.add('recording');
+                    document.getElementById('recordBtnText').textContent = '松开结束';
+                }
+            }
+
+            stopRecord(e) {
+                e.preventDefault();
+                if (!this.isRecording) return;
+                this.isRecording = false;
+                document.getElementById('recordOverlay').classList.remove('show');
+                document.getElementById('recordBtn').classList.remove('recording');
+                document.getElementById('recordBtnText').textContent = '按住说话';
+                this.voiceManager.stopRecording(this.recordCancelZone);
+                if (this.recordCancelZone) this.showToast('已取消');
+            }
+
+            handleRecordMove(e) {
+                if (!this.isRecording) return;
+                e.preventDefault();
+                const touch = e.touches ? e.touches[0] : e;
+                if (touch.clientY < window.innerHeight * 0.5) {
+                    this.recordCancelZone = true;
+                    document.getElementById('cancelZone').classList.add('danger');
+                    document.getElementById('recordHint').textContent = '松开取消发送';
+                } else {
+                    this.recordCancelZone = false;
+                    document.getElementById('cancelZone').classList.remove('danger');
+                    document.getElementById('recordHint').textContent = '松开发送，上滑取消';
+                }
+            }
+
+            cancelRecord() { if (this.isRecording) { this.recordCancelZone = true; this.stopRecord({ preventDefault: () => {}, stopPropagation: () => {} }); } }
+            toggleTheme() {
+                this.theme = this.theme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', this.theme);
+                localStorage.setItem('theme', this.theme);
+                this.showToast(this.theme === 'light' ? '已切换至浅色模式' : '已切换至深色模式');
+            }
+            updateUserDisplay() {
+                document.getElementById('displayUsername').textContent = this.user.name;
+                const avatar = document.getElementById('displayAvatar');
+                avatar.textContent = this.user.name.charAt(0).toUpperCase();
+                avatar.style.background = this.user.color;
+                document.getElementById('myChipName').textContent = this.user.name;
+                document.getElementById('usernameInput').value = this.user.name;
+                const preview = document.getElementById('avatarPreview');
+                preview.textContent = this.user.name.charAt(0).toUpperCase();
+                preview.style.background = this.user.color;
+            }
+            setUsername() {
+                const input = document.getElementById('usernameInput');
+                const name = input.value.trim();
+                if (!name || name.length < 2) return alert('请输入至少2个字符');
+                this.user.name = name;
+                this.user.id = Utils.generateUUID();
+                this.user.color = Utils.getAvatarColor(name);
+                sessionStorage.setItem('p2p_username', this.user.name);
+                sessionStorage.setItem('p2p_userid', this.user.id);
+                sessionStorage.setItem('p2p_color', this.user.color);
+                this.updateUserDisplay();
+                document.getElementById('userSetup').classList.add('hidden');
+            }
+
+            async createRoom() {
+                if (!this.user.name) { document.getElementById('userSetup').classList.remove('hidden'); return; }
+                this.room.isHost = true;
+                this.room.code = Utils.generateRoomCode();
+                
+                // 2. 房主生成房间密钥
+                await this.e2e.generateRoomKey();
+                
+                document.getElementById('createBtn').classList.add('hidden');
+                document.getElementById('joinBtn').classList.add('hidden');
+                document.getElementById('createPanel').classList.remove('hidden');
+                try {
+                    await this.connectMQTT();
+                    document.getElementById('createLoading').classList.add('hidden');
+                    document.getElementById('roomCodeDisplay').classList.remove('hidden');
+                    document.getElementById('roomCodeDisplay').textContent = this.room.code;
+                    this.switchToChat();
+                    this.addSystemMessage('房间已创建，E2E 加密就绪', 'join');
+                    this.updateInputBlocker(); // 房主自带密钥，直接解锁
+                } catch(e) { this.log('错误: ' + e.message, true); alert('创建失败'); }
+            }
+
+            showJoin() {
+                if (!this.user.name) { document.getElementById('userSetup').classList.remove('hidden'); return; }
+                document.getElementById('joinPanel').classList.remove('hidden');
+                document.getElementById('joinBtn').classList.add('hidden');
+                document.getElementById('createBtn').classList.add('hidden');
+                document.getElementById('recentRoomPanel')?.classList.add('hidden');
+                setTimeout(() => document.getElementById('joinCode').focus(), 100);
+            }
+
+            async joinRoom() {
+                const code = document.getElementById('joinCode').value.trim().toUpperCase();
+                if (code.length !== 6) return alert('请输入6位房间码');
+                this.room.isHost = false;
+                this.room.code = code;
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('joinLoading').classList.remove('hidden');
+                
+                try {
+                    await this.connectMQTT();
+                    this.switchToChat();
+                    
+                    // 3. 加入者向房主申请密钥
+                    const myPubKey = await this.e2e.exportPublicKey();
+                    this.publish('signal', {
+                        type: 'request_room_key',
+                        pubKey: myPubKey
+                    });
+                    
+                    this.publish('presence', { action: 'join', username: this.user.name, avatarColor: this.user.color });
+                    this.showToast("正在与房主进行密钥协商...");
+                } catch(e) { this.log('错误: ' + e.message, true); alert('加入失败'); }
+            }
+
+            switchToChat() {
+                sessionStorage.setItem('p2p_last_room', this.room.code);
+                sessionStorage.setItem('p2p_last_room_time', Date.now().toString());
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('chat').classList.remove('hidden');
+                document.getElementById('roomTitle').textContent = this.room.code;
+                document.getElementById('input').style.display = 'flex';
+                setTimeout(() => { this.scrollToBottom(); if (!this.room.isHost) document.getElementById('msgInput').focus(); }, 100);
+                this.updateOnlineCount();
+                this.connection.established = true;
+                this.updateInputBlocker();
+            }
+
+            copyCurrentRoomCode() { if (this.room.code) navigator.clipboard.writeText(this.room.code).then(() => this.showToast(`已复制: ${this.room.code}`)); }
+            confirmLeave() { if (confirm('确定退出？')) this.leaveRoom(); }
+            leaveRoom() {
+                if (this.mqtt.client?.connected) this.publish('presence', { action: 'leave', username: this.user.name });
+                this.cleanup();
+                document.getElementById('messages').innerHTML = '';
+                this.messages.cache.clear();
+                this.messages.seq = 0;
+                this.connection.established = false;
+                document.getElementById('chat').classList.add('hidden');
+                document.getElementById('input').style.display = 'none';
+                document.getElementById('setup').classList.remove('hidden');
+                document.getElementById('createPanel').classList.add('hidden');
+                document.getElementById('joinPanel').classList.add('hidden');
+                document.getElementById('createBtn').classList.remove('hidden');
+                document.getElementById('joinBtn').classList.remove('hidden');
+                this.checkRecentRoom();
+            }
+
+            cleanup() {
+                this.peers.forEach((peer) => { peer.dataChannel?.close(); peer.pc?.close(); });
+                this.peers.clear();
+                this.mqtt.client?.end();
+                this.mqtt.client = null;
+                this.readReceiptManager.clear();
+                this.voiceManager.destroy();
+                this.imageWorker.terminate();
+                URL.revokeObjectURL(imageWorkerUrl);
+            }
+
+            checkRecentRoom() {
+                const room = sessionStorage.getItem('p2p_last_room');
+                const time = sessionStorage.getItem('p2p_last_room_time');
+                if (room && time && (Date.now() - parseInt(time)) < CONFIG.ROOM_EXPIRY) {
+                    document.getElementById('recentRoomCode').textContent = room;
+                    document.getElementById('recentRoomTime').textContent = new Date(parseInt(time)).toLocaleTimeString('zh-CN');
+                    document.getElementById('recentRoomPanel').classList.remove('hidden');
+                } else {
+                    sessionStorage.removeItem('p2p_last_room');
+                    sessionStorage.removeItem('p2p_last_room_time');
+                    document.getElementById('recentRoomPanel').classList.add('hidden');
+                }
+            }
+            copyRoomCode() { const code = sessionStorage.getItem('p2p_last_room'); if (code) navigator.clipboard.writeText(code).then(() => this.showToast('已复制')); }
+            rejoinRoom() { const code = sessionStorage.getItem('p2p_last_room'); if (code) { document.getElementById('joinCode').value = code; this.showJoin(); setTimeout(() => this.joinRoom(), 100); } }
+
+            async connectMQTT() {
+                return new Promise((resolve, reject) => {
+                    const clientId = `hajimide-${this.user.id.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
+                    this.mqtt.client = mqtt.connect(CONFIG.MQTT_URL, { clientId, clean: true, connectTimeout: 15000, reconnectPeriod: 5000, username: CONFIG.MQTT_USERNAME, password: CONFIG.MQTT_PASSWORD });
+                    const timeout = setTimeout(() => reject(new Error('超时')), 15000);
+                    this.mqtt.client.on('connect', () => {
+                        clearTimeout(timeout);
+                        const topics = [`p2p-multi/${this.room.code}/presence`, `p2p-multi/${this.room.code}/signal`, `p2p-multi/${this.room.code}/broadcast`];
+                        this.mqtt.client.subscribe(topics, (err) => { if (err) reject(err); else resolve(); });
+                    });
+                    this.mqtt.client.on('message', (topic, message) => {
+                        try {
+                            const data = JSON.parse(message.toString());
+                            if (data.userId === this.user.id) return;
+                            if (topic.includes('presence')) this.handlePresence(data);
+                            else if (topic.includes('signal')) this.handleSignal(data);
+                            else if (topic.includes('broadcast')) this.handleBroadcast(data);
+                        } catch(e) {}
+                    });
+                    this.mqtt.client.on('error', reject);
+                });
+            }
+
+            // ==================== 核心逻辑改造：处理广播消息 ====================
+            async handleBroadcast(data) {
+                if (data.userId === this.user.id) return;
+                
+                // 处理加密的文本消息
+                if (data.type === 'chat' && data.encrypted) {
+                    try {
+                        const plaintext = await this.e2e.decryptGroupMessage(data.content);
+                        data.content = plaintext;
+                        this.displayMessage(data, false);
+                        
+                        if (document.hidden && Notification.permission === "granted") {
+                           new Notification(data.username, { body: data.content });
+                        }
+                    } catch(e) {
+                        data.content = "[加密消息，解密失败]";
+                        this.displayMessage(data, false);
+                    }
+                }
+                else if (data.type === 'read_receipt') {
+                    this.readReceiptManager.handleReceipt(data);
+                } 
+                else if (data.type === 'typing' || data.type === 'typing_end') {
+                    this.handleTypingIndicator(data);
+                }
+            }
+
+            async handlePresence(data) {
+                const { username, userId, avatarColor, action } = data;
+                if (action === 'join') {
+                    this.log(`${username} 加入`);
+                    this.addSystemMessage(`${username} 加入`, 'join');
+                    const amPolite = this.user.id < userId;
+                    setTimeout(() => {
+                        if (!this.peers.has(userId) || ['failed', 'closed'].includes(this.peers.get(userId)?.pc?.connectionState)) {
+                            this.initiateConnection(userId, username, avatarColor, amPolite);
+                        }
+                    }, 500);
+                } else if (action === 'leave') {
+                    this.log(`${username} 离开`);
+                    this.addSystemMessage(`${username} 离开`, 'leave');
+                    this.removePeer(userId);
+                }
+            }
+
+            async initiateConnection(targetId, targetName, targetColor, polite = false) {
+                if (this.peers.has(targetId)) this.removePeer(targetId);
+                const pc = new RTCPeerConnection({ iceServers: CONFIG.ICE_SERVERS });
+                const peer = { pc, userId: targetId, username: targetName, avatarColor: targetColor, dataChannel: null, connected: false, polite, makingOffer: false, ignoreOffer: false, isSettingRemoteAnswerPending: false };
+                this.peers.set(targetId, peer);
+
+                if (!polite) {
+                    const dc = pc.createDataChannel('chat', { ordered: true });
+                    dc.binaryType = 'arraybuffer';
+                    this.setupDataChannel(dc, peer);
+                } else {
+                    pc.ondatachannel = (e) => { e.channel.binaryType = 'arraybuffer'; this.setupDataChannel(e.channel, peer); };
+                }
+
+                pc.onicecandidate = (e) => { if (e.candidate) this.publish('signal', { targetUserId: targetId, type: 'ice', candidate: e.candidate, fromUserId: this.user.id }); };
+                pc.onconnectionstatechange = () => { this.updateConnectionStatus(pc.connectionState, peer); };
+
+                if (!polite) {
+                    try {
+                        peer.makingOffer = true;
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        this.publish('signal', { targetUserId: targetId, type: 'offer', sdp: pc.localDescription, fromUserId: this.user.id, fromName: this.user.name, fromColor: this.user.color });
+                    } catch(e) {} finally { peer.makingOffer = false; }
+                }
+            }
+
+            // ==================== 核心逻辑改造：处理信令 (含密钥交换) ====================
+            async handleSignal(data) {
+                // A. 密钥交换：房主处理申请
+                if (this.room.isHost && data.type === 'request_room_key') {
+                    const tempKey = await this.e2e.deriveSharedSecret(data.pubKey);
+                    const rawRoomKey = await this.e2e.exportRoomKey();
+                    const iv = crypto.getRandomValues(new Uint8Array(12));
+                    const encryptedRoomKey = await crypto.subtle.encrypt(
+                        { name: "AES-GCM", iv: iv },
+                        tempKey,
+                        rawRoomKey
+                    );
+                    this.publish('signal', {
+                        targetUserId: data.fromUserId,
+                        type: 'response_room_key',
+                        encryptedKey: Utils.arrayBufferToBase64(encryptedRoomKey),
+                        iv: Utils.arrayBufferToBase64(iv.buffer),
+                        hostPubKey: await this.e2e.exportPublicKey()
+                    });
+                }
+                
+                // B. 密钥交换：新成员接收密钥
+                else if (data.targetUserId === this.user.id && data.type === 'response_room_key') {
+                    try {
+                        const tempKey = await this.e2e.deriveSharedSecret(data.hostPubKey);
+                        const rawRoomKey = await crypto.subtle.decrypt(
+                            { name: "AES-GCM", iv: new Uint8Array(Utils.base64ToArrayBuffer(data.iv)) },
+                            tempKey,
+                            Utils.base64ToArrayBuffer(data.encryptedKey)
+                        );
+                        await this.e2e.importRoomKey(rawRoomKey);
+                        this.showToast("加密通道已建立 ✅");
+                        this.updateInputBlocker(); // 解锁
+                    } catch(e) {
+                        console.error("密钥协商失败", e);
+                        this.showToast("密钥协商失败");
+                    }
+                    return;
+                }
+
+                if (data.targetUserId !== this.user.id) return;
+
+                // WebRTC 信令逻辑
+                let peer = this.peers.get(data.fromUserId);
+                if (data.type === 'offer') {
+                    if (!peer) {
+                        const amPolite = this.user.id < data.fromUserId;
+                        await this.initiateConnection(data.fromUserId, data.fromName, data.fromColor, amPolite);
+                        peer = this.peers.get(data.fromUserId);
+                    }
+                    if (!peer) return;
+                    const readyForOffer = !peer.makingOffer && (peer.pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
+                    peer.ignoreOffer = !readyForOffer && !peer.polite;
+                    if (peer.ignoreOffer) return;
+                    peer.isSettingRemoteAnswerPending = true;
+                    try {
+                        await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                        const answer = await peer.pc.createAnswer();
+                        await peer.pc.setLocalDescription(answer);
+                        this.publish('signal', { targetUserId: data.fromUserId, type: 'answer', sdp: peer.pc.localDescription, fromUserId: this.user.id, fromName: this.user.name, fromColor: this.user.color });
+                    } catch(e) {} finally { peer.isSettingRemoteAnswerPending = false; }
+                } else if (data.type === 'answer' && peer) { try { await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); } catch(e) {} }
+                else if (data.type === 'ice' && peer) { try { await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {} }
+            }
+
+            setupDataChannel(dc, peer) {
+                peer.dataChannel = dc;
+                dc.onopen = () => {
+                    peer.connected = true;
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                    this.updateInputBlocker();
+                };
+                dc.onmessage = (e) => {
+                    if (e.data instanceof ArrayBuffer) this.voiceManager.handleChunk(peer.userId, e.data);
+                    else if (typeof e.data === 'string') {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data.type === 'image') this.displayMessage(data, false);
+                            else if (data.type === 'voice_meta') this.voiceManager.handleVoiceMeta(peer.userId, data);
+                        } catch(err) {}
+                    }
+                };
+                dc.onclose = () => { peer.connected = false; this.updateOnlineCount(); this.updateUserList(); this.updateInputBlocker(); };
+            }
+
+            updateConnectionStatus(state, peer) {
+                const statusEl = document.getElementById('connectionStatus');
+                if (state === 'connected') {
+                    peer.connected = true;
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                    if (statusEl) statusEl.innerHTML = '<span class="conn-status connected"></span>已连接';
+                    this.updateInputBlocker();
+                } else if (state === 'connecting') {
+                    if (statusEl) statusEl.innerHTML = '<span class="conn-status connecting"></span>连接中';
+                    this.updateInputBlocker();
+                } else if (['disconnected', 'failed', 'closed'].includes(state)) {
+                    this.removePeer(peer.userId);
+                }
+            }
+
+            publish(subtopic, data) {
+                if (this.mqtt.client?.connected) {
+                    const topic = `p2p-multi/${this.room.code}/${subtopic}`;
+                    this.mqtt.client.publish(topic, JSON.stringify({ ...data, userId: this.user.id, timestamp: Date.now() }));
+                }
+            }
+
+            broadcastMessage(message) {
+                let sent = 0;
+                this.peers.forEach((peer) => {
+                    if (peer.dataChannel?.readyState === 'open') {
+                        try { peer.dataChannel.send(JSON.stringify(message)); sent++; } catch(e) {}
+                    }
+                });
+                return sent;
+            }
+
+            broadcastRaw(arrayBuffer) {
+                this.peers.forEach((peer) => { if (peer.dataChannel?.readyState === 'open') try { peer.dataChannel.send(arrayBuffer); } catch(e) {} });
+            }
+
+            removePeer(userId) {
+                const peer = this.peers.get(userId);
+                if (peer) {
+                    peer.dataChannel?.close();
+                    peer.pc?.close();
+                    this.peers.delete(userId);
+                    this.updateOnlineCount();
+                    this.updateUserList();
+                    this.updateInputBlocker();
+                }
+            }
+
+            updateInputBlocker() {
+                const input = document.getElementById('msgInput');
+                const sendBtn = document.querySelector('#textInputWrapper .send-btn');
+                const isMqttConnected = this.mqtt.client && this.mqtt.client.connected;
+                
+                // 核心改动：必须同时满足 MQTT 连接 + 拥有房间密钥
+                const hasRoomKey = !!this.e2e.roomKey;
+                
+                if (!isMqttConnected) {
+                    input.disabled = true;
+                    input.placeholder = '正在连接服务器...';
+                    if (sendBtn) sendBtn.disabled = true;
+                } else if (!hasRoomKey) {
+                    input.disabled = true;
+                    input.placeholder = '等待密钥协商...';
+                    if (sendBtn) sendBtn.disabled = true;
+                    document.getElementById('inputBlocker').classList.remove('hidden');
+                } else {
+                    input.disabled = false;
+                    input.placeholder = '发送加密消息...';
+                    if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; sendBtn.style.cursor = 'pointer'; }
+                    document.getElementById('inputBlocker').classList.add('hidden');
+                    
+                    // 语音/图片仍需 P2P
+                    const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                    const imageBtn = document.querySelector('button[title="发送图片"]');
+                    const recordBtn = document.getElementById('recordBtn');
+                    
+                    if (imageBtn) {
+                        imageBtn.disabled = !hasConnectedPeer;
+                        imageBtn.style.opacity = hasConnectedPeer ? '1' : '0.4';
+                    }
+                    if (recordBtn) {
+                        if (!hasConnectedPeer) {
+                            recordBtn.disabled = true;
+                            document.getElementById('recordBtnText').textContent = '需P2P';
+                        } else {
+                            recordBtn.disabled = false;
+                            document.getElementById('recordBtnText').textContent = '按住说话';
+                        }
+                    }
+                }
+            }
+
+            triggerImageSelect() {
+                const modal = document.getElementById('imageSourceModal');
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => { modal.style.opacity = '1'; modal.querySelector('.glass-strong').style.transform = 'translateY(0)'; });
+            }
+            selectImageSource(source) {
+                const fileInput = document.getElementById('fileInput');
+                if (source === 'camera') { fileInput.setAttribute('capture', 'environment'); fileInput.removeAttribute('multiple'); }
+                else { fileInput.removeAttribute('capture'); if (!/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) fileInput.setAttribute('multiple', 'multiple'); }
+                this.closeImageSourceModal();
+                setTimeout(() => { fileInput.click(); }, 100);
+            }
+            closeImageSourceModal() {
+                const modal = document.getElementById('imageSourceModal');
+                modal.style.opacity = '0';
+                modal.querySelector('.glass-strong').style.transform = 'translateY(20px)';
+                setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            }
+            async handleImageSelect(event) {
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
+                const validFiles = files.filter(f => f.size <= 10 * 1024 * 1024);
+                this.showToast(`正在处理 ${validFiles.length} 张图片...`);
+                for (const file of validFiles) {
+                    try {
+                        const result = await this.compressImage(file);
+                        this.sendImage(result.dataUrl, Utils.getDataSize(result.dataUrl));
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    } catch (err) { console.error('处理图片失败:', err); }
+                }
+                event.target.value = '';
+            }
+
+            sendImage(dataUrl, sizeHint) {
+                const hasConnectedPeer = Array.from(this.peers.values()).some(p => p.connected);
+                if (!hasConnectedPeer) { this.showToast('⚠️ P2P未连接，无法发送图片'); return; }
+                this.messages.seq++;
+                const message = { id: `${this.user.id}_${Date.now()}_${this.messages.seq}`, userId: this.user.id, username: this.user.name, avatarColor: this.user.color, content: dataUrl, seq: this.messages.seq, timestamp: new Date().toISOString(), type: 'image', sizeHint };
+                this.broadcastMessage(message);
+                this.displayMessage(message, true);
+            }
+
+            // ==================== 核心逻辑改造：发送加密消息 ====================
+            async send() {
+                const input = document.getElementById('msgInput');
+                const content = input.value.trim();
+                if (!content) return;
+                
+                let contentToSend = content;
+                try {
+                    // 加密
+                    contentToSend = await this.e2e.encryptGroupMessage(content);
+                } catch(e) {
+                    this.showToast("加密未就绪: " + e.message);
+                    return;
+                }
+
+                this.messages.seq++;
+                const message = {
+                    id: `${this.user.id}_${Date.now()}_${this.messages.seq}`,
+                    userId: this.user.id, username: this.user.name, avatarColor: this.user.color,
+                    content: contentToSend, // 密文
+                    encrypted: true, // 标记
+                    seq: this.messages.seq, timestamp: new Date().toISOString(), type: 'chat'
+                };
+                
+                // 走 MQTT
+                this.publish('broadcast', message);
+
+                // 本地显示明文
+                this.displayMessage({ ...message, content: content }, true);
+                
+                input.value = '';
+                if (navigator.vibrate) navigator.vibrate(30);
+            }
+
+            displayMessage(msg, isSelf = false) {
+                if (this.messages.cache.has(msg.id)) return;
+                this.messages.cache.add(msg.id);
+                const time = Utils.formatTime(msg.timestamp);
+                const div = document.createElement('div');
+                div.className = `msg ${isSelf ? 'self' : ''}`;
+                div.dataset.msgId = msg.id;
+                div.dataset.senderId = msg.userId;
+                let statusHtml = '';
+                if (isSelf) statusHtml = `<span class="msg-status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:0.3"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+                const content = msg.type === 'image' ? `<img src="${msg.content}" class="msg-image" onclick="window.chatApp?.openImageModal('${msg.content}')" loading="lazy">${msg.sizeHint ? `<div class="image-progress">${msg.sizeHint}</div>` : ''}` : `<div class="msg-content">${Utils.escapeHtml(msg.content)}</div>`;
+                div.innerHTML = `<div class="msg-header"><span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || 'var(--text)')}">${isSelf ? '我' : msg.username}</span><span class="msg-time">${time}${statusHtml}</span></div>${content}`;
+                document.getElementById('messages').appendChild(div);
+                this.scrollToBottom();
+                if (!isSelf) this.readReceiptManager.observe(div);
+                if (isSelf) this.readReceiptManager.initMessage(msg.id, true);
+            }
+
+            displayVoiceMessage(msg, isSelf = false) {
+                if (!msg.local && this.messages.cache.has(msg.voiceId)) return;
+                this.messages.cache.add(msg.voiceId);
+                const time = Utils.formatTime(msg.timestamp);
+                const div = document.createElement('div');
+                div.className = `msg ${isSelf ? 'self' : ''}`;
+                div.dataset.msgId = msg.voiceId;
+                div.dataset.senderId = msg.userId;
+                const duration = msg.duration || 0;
+                let statusHtml = isSelf ? `<span class="msg-status" style="margin-left:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:0.3"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : '';
+                div.innerHTML = `<div class="msg-header"><span class="msg-author" style="color:${isSelf ? 'var(--accent)' : (msg.avatarColor || 'var(--text)')}">${isSelf ? '我' : msg.username}</span><span class="msg-time">${time}${statusHtml}</span></div><div class="msg-content msg-voice unread" data-voice-id="${msg.voiceId}" data-sender-id="${msg.userId}" onclick="window.chatApp?.handleVoiceClick('${msg.voiceId}', this)" style="background: ${isSelf ? 'var(--accent)' : 'var(--voice-bg)'}; color: ${isSelf ? 'white' : 'var(--text)'}; border: none;"><div class="voice-icon" style="background: ${isSelf ? 'rgba(255,255,255,0.3)' : 'var(--accent)'}">▶</div><div class="voice-info"><div class="voice-duration">${duration}"</div><div class="voice-wave">${Array(12).fill(0).map((_, i) => `<div class="wave-bar" style="height:${4 + Math.random() * 12}px;animation-delay:${i * 0.05}s;background:${isSelf ? 'rgba(255,255,255,0.8)' : 'var(--accent)'}"></div>`).join('')}</div></div><div class="voice-status"></div></div>`;
+                if (msg.blob) this.voiceManager.storeVoiceBlob(msg.voiceId, msg.blob);
+                document.getElementById('messages').appendChild(div);
+                this.scrollToBottom();
+            }
+
+            handleVoiceClick(voiceId, element) {
+                const blob = this.voiceManager.getVoiceBlob(voiceId);
+                if (blob) this.voiceManager.playVoice(voiceId, blob);
+                if (element.classList.contains('unread')) {
+                    element.classList.remove('unread');
+                    const senderId = element.dataset.senderId;
+                    if (senderId && senderId !== this.user.id) { this.readReceiptManager.markAsRead(voiceId); this.readReceiptManager.sendBatch(); }
+                }
+            }
+
+            openImageModal(src) { document.getElementById('modalImage').src = src; document.getElementById('imageModal').classList.add('show'); }
+            closeImageModal() { document.getElementById('imageModal').classList.remove('show'); setTimeout(() => document.getElementById('modalImage').src = '', 300); }
+            addSystemMessage(text, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `msg system ${type}`;
+                div.innerHTML = `<div class="msg-content">${text}</div>`;
+                document.getElementById('messages').appendChild(div);
+                this.scrollToBottom();
+            }
+
+            updateOnlineCount() {
+                const connected = Array.from(this.peers.values()).filter(p => p.connected).length;
+                const total = connected + 1;
+                document.getElementById('onlineCount').textContent = `${total}人在线`;
+                const statusEl = document.getElementById('connectionStatus');
+                if (!statusEl) return;
+                if (connected > 0) statusEl.innerHTML = `<span class="conn-status connected"></span>已连接 ${connected} 节点`;
+                else if (this.peers.size > 0) statusEl.innerHTML = `<span class="conn-status connecting"></span>建立连接...`;
+                else statusEl.innerHTML = `<span class="conn-status connecting"></span>等待成员...`;
+            }
+
+            updateUserList() {
+                const list = document.getElementById('userList');
+                list.innerHTML = `<div class="user-chip me"><span class="dot"></span><span>${this.user.name}</span></div>`;
+                this.peers.forEach((peer) => {
+                    if (peer.connected) {
+                        const chip = document.createElement('div');
+                        chip.className = 'user-chip';
+                        chip.innerHTML = `<span class="dot" style="background:${peer.avatarColor}"></span><span>${peer.username}</span>`;
+                        list.appendChild(chip);
+                    }
+                });
+            }
+
+            showToast(msg) {
+                const toast = document.getElementById('toast');
+                toast.textContent = msg;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            log(msg, isError = false) {
+                console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+                const logEl = document.getElementById(this.room.isHost ? 'log' : 'joinLog');
+                if (logEl) {
+                    logEl.classList.remove('hidden');
+                    const div = document.createElement('div');
+                    div.style.color = isError ? 'var(--error)' : 'var(--text-secondary)';
+                    div.textContent = msg;
+                    logEl.appendChild(div);
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+            }
+            scrollToBottom() { const messages = document.getElementById('messages'); messages.scrollTop = messages.scrollHeight; }
+        }
+
+        window.chatApp = new ChatApplication();
+    </script>
+</body>
+</html>
