@@ -337,9 +337,8 @@
       /* 🟢 找到 const CONFIG，把里面的 ICE_SERVERS 替换成下面这个样子 */
 
 const CONFIG = {
-    // MQTT_URL 保持你原来的不变，不要动它
-    MQTT_URL: 'wss://your-id.s1.eu.hivemq.cloud:8884/mqtt', 
-
+    // MQTT_URL 保持你
+    MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
     // ✅ 重点修改这里：国内优化版 ICE 服务器列表
     ICE_SERVERS: [
         // --- 第一梯队：国内极速 STUN (无需梯子，延迟 < 30ms) ---
@@ -999,6 +998,17 @@ const CONFIG = {
             rejoinRoom() { const code = sessionStorage.getItem('p2p_last_room'); if (code) { document.getElementById('joinCode').value = code; this.showJoin(); setTimeout(() => this.joinRoom(), 100); } }
 
             async connectMQTT() {
+                if (this.mqtt.client) return; // 避免重复连接
+
+                const options = {
+                    clean: true,
+                    connectTimeout: 10000, // 稍微延长一点超时时间
+                    clientId: 'client_' + Math.random().toString(16).substr(2, 8),
+                    
+                    // ✅ 这里填入你的账号和密码
+                    username: "hajimi",
+                    password: "258758Szh",
+                };
                 return new Promise((resolve, reject) => {
                     const clientId = `hajimide-${this.user.id.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
                     this.mqtt.client = mqtt.connect(CONFIG.MQTT_URL, { clientId, clean: true, connectTimeout: 15000, reconnectPeriod: 5000, username: CONFIG.MQTT_USERNAME, password: CONFIG.MQTT_PASSWORD });
