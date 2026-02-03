@@ -737,18 +737,20 @@
                 }
             }
 
-            updateNetworkQuality() {
-                let totalRtt = 0;
-                let count = 0;
-                this.peers.forEach(peer => {
-                    if (peer.pc && peer.connected) {
-                        peer.pc.getStats().then(stats => {
-                            stats.forEach(report => {
-                                if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
-                                    totalRtt += report.currentRoundTripTime * 1000;
-                                    count++;
-                                }
-                            });
+        updateNetworkQuality() {
+    // 检查元素是否存在（不在聊天室时不执行）
+    const qualityEl = document.getElementById('networkQuality');
+    if (!qualityEl) return;
+    
+    let totalRtt = 0;
+    let count = 0;
+    // ... 省略 ...
+    if (count > 0) {
+        const avgRtt = totalRtt / count;
+        const qualityText = qualityEl.querySelector('span');
+        // ...
+    }
+}
                             if (count > 0) {
                                 const avgRtt = totalRtt / count;
                                 const qualityEl = document.getElementById('networkQuality');
@@ -1062,8 +1064,7 @@
             }
 
             // ==================== 核心逻辑改造：处理信令 (含密钥交换) ====================
-            async handleSignal(data) {
-                // A. 密钥交换：房主处理申请
+                       // A. 密钥交换：房主处理申请
                 if (this.room.isHost && data.type === 'request_room_key') {
                     const tempKey = await this.e2e.deriveSharedSecret(data.pubKey);
                     const rawRoomKey = await this.e2e.exportRoomKey();
@@ -1074,7 +1075,7 @@
                         rawRoomKey
                     );
                     this.publish('signal', {
-                        targetUserId: data.fromUserId,
+                        targetUserId: data.userId,  // ✅ 修改：fromUserId → userId
                         type: 'response_room_key',
                         encryptedKey: Utils.arrayBufferToBase64(encryptedRoomKey),
                         iv: Utils.arrayBufferToBase64(iv.buffer),
