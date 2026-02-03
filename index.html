@@ -754,6 +754,7 @@
                             if (count > 0) {
                                 const avgRtt = totalRtt / count;
                                 const qualityEl = document.getElementById('networkQuality');
+                                if (!qualityEl) return; 
                                 const qualityText = qualityEl.querySelector('span');
                                 qualityEl.style.display = 'inline-flex';
                                 if (avgRtt < 100) { qualityEl.className = 'network-quality good'; qualityText.textContent = '优'; }
@@ -1064,8 +1065,8 @@
             }
 
             // ==================== 核心逻辑改造：处理信令 (含密钥交换) ====================
-                       // A. 密钥交换：房主处理申请
-                         async handleSignal(data) {
+                    
+            async handleSignal(data) {
                 // A. 密钥交换：房主处理申请
                 if (this.room.isHost && data.type === 'request_room_key') {
                     if (!data.pubKey) return;
@@ -1088,7 +1089,8 @@
                             hostPubKey: await this.e2e.exportPublicKey()
                         });
                         
-                        this.log(`已向 ${data.username || data.userId?.substr(0,6)} 发送房间密钥`);
+                        const displayName = data.username ? data.username : (data.userId ? data.userId.substr(0,6) : '用户');
+                        this.log('已向 ' + displayName + ' 发送房间密钥');
                     } catch(e) {
                         console.error("密钥分发失败:", e);
                     }
