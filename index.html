@@ -341,29 +341,17 @@ const CONFIG = {
     MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
     // ✅ 重点修改这里：国内优化版 ICE 服务器列表
     ICE_SERVERS: [
-        // --- 第一梯队：国内极速 STUN (无需梯子，延迟 < 30ms) ---
-        // 腾讯服务器 (最稳)
-        { urls: "stun:stun.qq.com:8000" },
-        // 小米服务器 (备用)
-        { urls: "stun:stun.miwifi.com:3478" },
-        
-        // --- 第二梯队：国际通用 STUN (兼容性好) ---
-        // Google (虽然在国外，但全球识别率最高，作为保底)
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun.12voip.com:3478" },
+    { urls: "stun:stunserver.stunprotocol.org:3478" },
+    { urls: "stun:stun.nextcloud.com:443" }, // 防火墙友好
+    
+    // Cloudflare（国内有节点，最快）
+    { urls: "stun:stun.cloudflare.com:3478" },
+    
+    // Google备用
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" }
 
-        // --- 第三梯队：公共 TURN (尝试穿透 4G，但不保证 100% 可用) ---
-        // OpenRelay 免费公共节点 (可能不稳定，但在没有付费 TURN 前是唯一选择)
-        {
-            urls: "turn:openrelay.metered.ca:80",
-            username: "openrelayproject",
-            credential: "openrelayproject"
-        },
-        {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject"
-        }
     ],
 
     // 其他配置保持不变...
@@ -1061,15 +1049,32 @@ const CONFIG = {
                 }
             }
 
-            async handlePresence(data) {
+async handlePresence(data) {
                 const { username, userId, avatarColor, action } = data;
+                
                 if (action === 'join') {
-                    this.log(`${username} 加入`);
-                    this.addSystemMessage(`${username} 加入`, 'join');
+                    // 日志只显示一次，避免刷屏
+                    if (!this.peers.has(userId)) {
+                        this.log(`${username} 加入`);
+                        this.addSystemMessage(`${username} 加入`, 'join');
+                    }
+
                     const amPolite = this.user.id < userId;
-                        if (!this.peers.has(userId) || ['failed', 'closed'].includes(this.peers.get(userId)?.pc?.connectionState)) {
-                            this.initiateConnection(userId, username, avatarColor, amPolite);
-                        }
+                    const peer = this.peers.get(userId);
+
+                    // ✅ 核心修复：更严谨的状态检查
+                    // 只有当 Peer 不存在，或者连接彻底失败/关闭时，才发起新连接。
+                    // 如果状态是 'new', 'checking', 'connected'，则忽略后续重复的加入广播。
+                    const shouldInit = !peer || 
+                                     !peer.pc || 
+                                     ['failed', 'closed', 'disconnected'].includes(peer.pc.connectionState);
+
+                    if (shouldInit) {
+                        console.log(`[P2P] 发起连接: ${username} (Polite: ${amPolite})`);
+                        this.initiateConnection(userId, username, avatarColor, amPolite);
+                    } else {
+                        console.log(`[P2P] 跳过连接初始化，当前状态: ${peer.pc.connectionState}`);
+                    }
                 } else if (action === 'leave') {
                     this.log(`${username} 离开`);
                     this.addSystemMessage(`${username} 离开`, 'leave');
