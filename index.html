@@ -997,21 +997,24 @@ const CONFIG = {
             copyRoomCode() { const code = sessionStorage.getItem('p2p_last_room'); if (code) navigator.clipboard.writeText(code).then(() => this.showToast('已复制')); }
             rejoinRoom() { const code = sessionStorage.getItem('p2p_last_room'); if (code) { document.getElementById('joinCode').value = code; this.showJoin(); setTimeout(() => this.joinRoom(), 100); } }
 
-            async connectMQTT() {
+           async connectMQTT() {
                 if (this.mqtt.client) return; // 避免重复连接
 
-                const options = {
-                    clean: true,
-                    connectTimeout: 10000, // 稍微延长一点超时时间
-                    clientId: 'client_' + Math.random().toString(16).substr(2, 8),
-                    
-                    // ✅ 这里填入你的账号和密码
-                    username: "hajimi",
-                    password: "258758Szh",
-                };
+                // ❌ 删除：之前定义的 const options = { ... } 这段代码没有被用到，删掉以防混淆
+
                 return new Promise((resolve, reject) => {
                     const clientId = `hajimide-${this.user.id.substr(0,8)}-${Math.random().toString(36).substr(2,4)}`;
-                    this.mqtt.client = mqtt.connect(CONFIG.MQTT_URL, { clientId, clean: true, connectTimeout: 15000, reconnectPeriod: 5000, username: CONFIG.MQTT_USERNAME, password: CONFIG.MQTT_PASSWORD });
+                    
+                    // ✅ 修正：直接在这里把 username 和 password 改成你的字符串
+                    this.mqtt.client = mqtt.connect(CONFIG.MQTT_URL, { 
+                        clientId, 
+                        clean: true, 
+                        connectTimeout: 15000, 
+                        reconnectPeriod: 5000, 
+                        username: "hajimi",      // <--- 这里必须手动填入
+                        password: "258758Szh"    // <--- 这里必须手动填入
+                    });
+
                     const timeout = setTimeout(() => reject(new Error('超时')), 15000);
                     this.mqtt.client.on('connect', () => {
                         clearTimeout(timeout);
