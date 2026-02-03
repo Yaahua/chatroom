@@ -370,7 +370,11 @@
             get MQTT_URL() { return SecureConfig.MQTT_URL; },
             get MQTT_USERNAME() { return SecureConfig.MQTT_USERNAME; },
             get MQTT_PASSWORD() { return SecureConfig.MQTT_PASSWORD; },
-            ICE_SERVERS: [{ urls: "stun:stun.relay.metered.ca:80" }, { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" }, { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" }],
+          ICE_SERVERS: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
+                { urls: "stun:stun2.l.google.com:19302" }
+            ],
             MAX_PEERS: 7,
             CHUNK_SIZE: 8192,
             MAX_VOICE_DURATION: 60,
@@ -887,7 +891,7 @@
                 setTimeout(() => document.getElementById('joinCode').focus(), 100);
             }
 
-            async joinRoom() {
+           async joinRoom() {
                 const code = document.getElementById('joinCode').value.trim().toUpperCase();
                 if (code.length !== 6) return alert('请输入6位房间码');
                 this.room.isHost = false;
@@ -899,18 +903,42 @@
                     await this.connectMQTT();
                     this.switchToChat();
                     
-                    // 3. 加入者向房主申请密钥
+                    // --- 1. 申请密钥 (保持不变) ---
                     const myPubKey = await this.e2e.exportPublicKey();
                     this.publish('signal', {
                         type: 'request_room_key',
                         pubKey: myPubKey
                     });
                     
-                    this.publish('presence', { action: 'join', username: this.user.name, avatarColor: this.user.color });
-                    this.showToast("正在与房主进行密钥协商...");
-                } catch(e) { this.log('错误: ' + e.message, true); alert('加入失败'); }
-            }
+                    // --- 2. 握手触发机制 (✅ 修改了这里) ---
+                    // 定义一个广播函数，方便重复调用
+                    const announcePresence = () => {
+                        this.publish('presence', { 
+                            action: 'join', 
+                            username: this.user.name, 
+                            avatarColor: this.user.color 
+                        });
+                        console.log("已发送加入广播..."); // 方便调试
+                    };
 
+                    // 第一次：立即发送
+                    announcePresence();
+
+                    // 第二次：延迟 1.5秒 发送 (防止刚连接时网络拥堵)
+                    setTimeout(announcePresence, 1500);
+
+                    // 第三次：延迟 3秒 发送 (作为最后的保险)
+                    setTimeout(announcePresence, 3000);
+                    
+                    this.showToast("正在与房主进行密钥协商...");
+                } catch(e) { 
+                    this.log('错误: ' + e.message, true); 
+                    alert('加入失败'); 
+                    // 失败后恢复按钮状态
+                    document.getElementById('connectBtn').classList.remove('hidden');
+                    document.getElementById('joinLoading').classList.add('hidden');
+                }
+            }
             switchToChat() {
                 sessionStorage.setItem('p2p_last_room', this.room.code);
                 sessionStorage.setItem('p2p_last_room_time', Date.now().toString());
@@ -1026,11 +1054,9 @@
                     this.log(`${username} 加入`);
                     this.addSystemMessage(`${username} 加入`, 'join');
                     const amPolite = this.user.id < userId;
-                    setTimeout(() => {
                         if (!this.peers.has(userId) || ['failed', 'closed'].includes(this.peers.get(userId)?.pc?.connectionState)) {
                             this.initiateConnection(userId, username, avatarColor, amPolite);
                         }
-                    }, 500);
                 } else if (action === 'leave') {
                     this.log(`${username} 离开`);
                     this.addSystemMessage(`${username} 离开`, 'leave');
@@ -1040,7 +1066,10 @@
 
             async initiateConnection(targetId, targetName, targetColor, polite = false) {
                 if (this.peers.has(targetId)) this.removePeer(targetId);
-                const pc = new RTCPeerConnection({ iceServers: CONFIG.ICE_SERVERS });
+               const pc = new RTCPeerConnection({ 
+    iceServers: CONFIG.ICE_SERVERS,
+    iceCandidatePoolSize: 2  // ✅ 新增：预先准备2个候选连接路径，极大减少握手等待时间
+});
                 const peer = { pc, userId: targetId, username: targetName, avatarColor: targetColor, dataChannel: null, connected: false, polite, makingOffer: false, ignoreOffer: false, isSettingRemoteAnswerPending: false };
                 this.peers.set(targetId, peer);
 
@@ -1058,7 +1087,12 @@
                 if (!polite) {
                     try {
                         peer.makingOffer = true;
-                        const offer = await pc.createOffer();
+                     // ✅ 告诉浏览器如果你有预存的候选者，立刻重启，不要等待新的收集
+const offer = await pc.createOffer({
+    offerToReceiveAudio: true,
+    offerToReceiveVideo: false,
+    iceRestart: false
+});
                         await pc.setLocalDescription(offer);
                         this.publish('signal', { targetUserId: targetId, type: 'offer', sdp: pc.localDescription, fromUserId: this.user.id, fromName: this.user.name, fromColor: this.user.color });
                     } catch(e) {} finally { peer.makingOffer = false; }
