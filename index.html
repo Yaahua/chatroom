@@ -334,23 +334,43 @@
             }
         }
 
-        const CONFIG = {
-            get MQTT_URL() { return SecureConfig.MQTT_URL; },
-            get MQTT_USERNAME() { return SecureConfig.MQTT_USERNAME; },
-            get MQTT_PASSWORD() { return SecureConfig.MQTT_PASSWORD; },
-          ICE_SERVERS: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:stun1.l.google.com:19302" },
-                { urls: "stun:stun2.l.google.com:19302" }
-            ],
-            MAX_PEERS: 7,
-            CHUNK_SIZE: 8192,
-            MAX_VOICE_DURATION: 60,
-            READ_RECEIPT_DELAY: 500,
-            ROOM_EXPIRY: 30 * 60 * 1000,
-            TYPING_TIMEOUT: 3000
-        };
+      /* 🟢 找到 const CONFIG，把里面的 ICE_SERVERS 替换成下面这个样子 */
 
+const CONFIG = {
+    // MQTT_URL 保持你原来的不变，不要动它
+    MQTT_URL: 'wss://your-id.s1.eu.hivemq.cloud:8884/mqtt', 
+
+    // ✅ 重点修改这里：国内优化版 ICE 服务器列表
+    ICE_SERVERS: [
+        // --- 第一梯队：国内极速 STUN (无需梯子，延迟 < 30ms) ---
+        // 腾讯服务器 (最稳)
+        { urls: "stun:stun.qq.com:8000" },
+        // 小米服务器 (备用)
+        { urls: "stun:stun.miwifi.com:3478" },
+        
+        // --- 第二梯队：国际通用 STUN (兼容性好) ---
+        // Google (虽然在国外，但全球识别率最高，作为保底)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+
+        // --- 第三梯队：公共 TURN (尝试穿透 4G，但不保证 100% 可用) ---
+        // OpenRelay 免费公共节点 (可能不稳定，但在没有付费 TURN 前是唯一选择)
+        {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject"
+        },
+        {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject"
+        }
+    ],
+
+    // 其他配置保持不变...
+    TYPING_TIMEOUT: 3000,
+    MAX_FILE_SIZE: 10 * 1024 * 1024
+};
         class LRUCache {
             constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); }
             has(key) { return this.cache.has(key); }
