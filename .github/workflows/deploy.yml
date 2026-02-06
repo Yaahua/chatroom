@@ -1,0 +1,30 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Inject Secrets
+        env:
+          MQTT_URL: ${{ secrets.MQTT_URL }}
+          MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+          MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
+        run: |
+          sed -i "s|{{MQTT_URL}}|$MQTT_URL|g" index.html
+          sed -i "s|{{MQTT_USERNAME}}|$MQTT_USERNAME|g" index.html
+          sed -i "s|{{MQTT_PASSWORD}}|$MQTT_PASSWORD|g" index.html
+          echo "Secrets injected successfully"
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
