@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>E2E 加密通讯终端 (HiveMQ Secure)</title>
+    <title>哈吉米德的聊天室</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root{
@@ -127,7 +127,7 @@
         <div class="setup-card glass">
             <div class="logo">🔐</div>
             <h2 style="margin-bottom:8px">安全加密会话</h2>
-            <div class="subtitle">HiveMQ 私有集群<br>ECDH P-256 密钥协商 + AES-GCM 端到端加密<br>已读回执 · 智能重连 · 极速连接</div>
+            <div class="subtitle">哈吉米德的聊天室<br>完全加密不用担心你的黑屁DDSQ<br>你想合出怎样的意味</div>
             
             <input type="text" id="username" class="input-box" placeholder="你的昵称" maxlength="12" style="margin-bottom:12px;text-align:center">
             <div style="display:flex;gap:10px">
@@ -152,7 +152,7 @@
         <header class="glass">
             <div class="room-tag" onclick="app.copyRoomCode()" title="点击复制房间码">
                 <div class="status-dot" id="conn-dot"></div>
-                <span id="room-title">初始化...</span>
+                <span id="room-title">正在杀妈中...</span>
                 <span class="key-badge" id="key-badge" title="已建立端到端加密">E2E</span>
             </div>
             <div style="display:flex;gap:8px">
@@ -167,7 +167,7 @@
         <div class="toolbar" style="position:relative">
             <div id="input-overlay"></div>
             <button class="tool-btn" onclick="document.getElementById('file-input').click()" title="发送文件">📎</button>
-            <textarea id="chat-input" class="input-box" rows="1" placeholder="等待加密通道建立..." disabled></textarea>
+            <textarea id="chat-input" class="input-box" rows="1" placeholder="正在屠杀支那猪..." disabled></textarea>
             <button id="send-btn" class="btn" onclick="app.sendText()" disabled>发送</button>
         </div>
         
@@ -179,9 +179,9 @@
  * 核心配置 - HiveMQ Cloud 私有集群 (MQTT v5)
  */
 const CONFIG = {
-    MQTT_URL: 'wss://fddd45a42e524b8795daf3247546b5ca.s1.eu.hivemq.cloud:8884/mqtt',
-    MQTT_USER: 'hajimi',
-    MQTT_PASS: '258758Szh',
+    MQTT_URL: '{{MQTT_URL}}',
+    MQTT_USER: '{{MQTT_USERNAME}}',
+    MQTT_PASS: '{{MQTT_PASSWORD}}',
     
     CHUNK_SIZE: 32 * 1024,
     ENCRYPT_CHUNK_SIZE: 16 * 1024,
@@ -1291,4 +1291,5 @@ const app = new App();
 app.init();
 </script>
 </body>
+
 </html>
