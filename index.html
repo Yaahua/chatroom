@@ -178,19 +178,28 @@
 /**
  * 核心配置 - HiveMQ Cloud 私有集群 (MQTT v5)
  */
-  const CONFIG = {
-            MQTT_URL: 'wss://5e07b91bbaac4825af958ca9084c5542.s1.eu.hivemq.cloud:8884/mqtt',
-            MQTT_USERNAME: 'hajimi',
-            MQTT_PASSWORD: '258758Szh',
+const CONFIG = {
+    // 更新后的 HiveMQ 服务器（WebSocket TLS）
+    MQTT_URL: 'wss://fddd45a42e524b8795daf3247546b5ca.s1.eu.hivemq.cloud:8884/mqtt',
+    MQTT_USERNAME: 'hajimi',
+    MQTT_PASSWORD: '258758Szh',
     
-    CHUNK_SIZE: 32 * 1024,
-    ENCRYPT_CHUNK_SIZE: 16 * 1024,
-    RETRY_DELAY: 3000,
-    TIMEOUT: 300000,
-    KEY_EXCHANGE_TIMEOUT: 30000,
-    RECONNECT_BASE_DELAY: 2000,
-    MAX_RECONNECT_ATTEMPTS: 10,
-    SESSION_EXPIRY: 3600 // 1小时会话过期
+    // 分片大小（80KB，适配 HiveMQ 免费版限制）
+    CHUNK_SIZE: 80 * 1024,
+    
+    // 文件大小限制 20MB
+    MAX_FILE_SIZE: 20 * 1024 * 1024,
+    
+    // 语音最大时长 60秒
+    MAX_VOICE_DURATION: 60,
+    
+    // 密钥交换重试配置
+    KEY_EXCHANGE: {
+        MAX_RETRIES: 5,
+        INITIAL_DELAY: 500,
+        BACKOFF_MULTIPLIER: 1.5,
+        MAX_DELAY: 5000
+    }
 };
 
 /**
@@ -1293,5 +1302,6 @@ app.init();
 </body>
 
 </html>
+
 
 
