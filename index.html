@@ -2,39 +2,510 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>哈吉米德的聊天室</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root{
-            --bg:#f5f5f7; --bg-sec:#fff; --surface:#f0f0f0;
-            --text:#1d1d1f; --text-sec:#86868b; --accent:#0071e3;
-            --error:#ff3b30; --success:#34c759; --warn:#ff9f0a;
-            --border:#e0e0e0; --msg-bg:#fff; --msg-self:#0071e3;
+            --bg:#f5f5f7; --bg-sec:rgba(255,255,255,0.85); --surface:rgba(255,255,255,0.7);
+            --text:#1d1d1f; --text-sec:#86868b; --accent:#0071e3; --accent-hover:#0077ED;
+            --error:#ff3b30; --success:#34c759; --warn:#ff9f0a; --info:#5856d6;
+            --border:rgba(0,0,0,0.1); --shadow:rgba(0,0,0,0.05);
+            --msg-bg:#ffffff; --msg-self:#0071e3;
         }
         [data-theme="dark"]{
-            --bg:#000; --bg-sec:#1c1c1e; --surface:#2c2c2e;
-            --text:#f5f5f7; --text-sec:#86868b; --accent:#0a84ff;
-            --border:#3a3a3c; --msg-bg:#1c1c1e; --msg-self:#0a84ff;
+            --bg:#000000; --bg-sec:rgba(28,28,30,0.9); --surface:rgba(30,30,30,0.8);
+            --text:#f5f5f7; --text-sec:#86868b; --accent:#0a84ff; --accent-hover:#0077ED;
+            --border:rgba(255,255,255,0.15); --shadow:rgba(0,0,0,0.5);
+            --msg-bg:#1c1c1e; --msg-self:#0a84ff;
         }
-        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+        
+        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
         body{background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;display:flex;flex-direction:column}
         .hidden{display:none!important}
-        .glass{background:var(--bg-sec);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
-        .btn{padding:12px 20px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
-        .btn:disabled{opacity:0.5;cursor:not-allowed}
-        .btn.sec{background:var(--surface);color:var(--text);border:1px solid var(--border)}
-        .input-box{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none}
-        .input-box:focus{border-color:var(--accent)}
         
-        #setup-view,#chat-view{height:100%;display:flex;flex-direction:column}
-        .setup-card{width:90%;max-width:380px;margin:auto;padding:30px;border-radius:20px;background:var(--bg-sec);box-shadow:0 10px 40px rgba(0,0,0,0.1);text-align:center}
-        .logo{font-size:48px;margin-bottom:10px}
-        header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
-        .room-tag{font-size:13px;font-weight:600;padding:6px 12px;background:var(--surface);border-radius:20px;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
-        .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-sec);transition:0.3s}
+        .glass{background:var(--bg-sec);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border)}
+        .btn{padding:12px 20px;border-radius:12px;border:none;background:var(--accent);color:white;font-weight:600;font-size:15px;cursor:pointer;transition:all .2s}
+        .btn:disabled{opacity:0.5;cursor:not-allowed}
+        .btn:active:not(:disabled){opacity:0.7}
+        .btn.sec{background:var(--bg-sec);color:var(--text);border:1px solid var(--border)}
+        .btn.danger{background:var(--error)}
+        .input-box{width:100%;padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;transition:border .2s}
+        .input-box:focus{border-color:var(--accent)}
+        .input-box:disabled{opacity:0.6;background:var(--bg)}
+
+        #setup-view, #chat-view{width:100%;height:100%;position:absolute;inset:0;display:flex;flex-direction:column;transition:transform .3s ease}
+        
+        .setup-card{width:90%;max-width:400px;margin:auto;padding:30px;border-radius:24px;box-shadow:0 10px 40px var(--shadow);text-align:center}
+        .logo{font-size:40px;margin-bottom:10px}
+        .subtitle{color:var(--text-sec);font-size:13px;margin-bottom:30px;line-height:1.5}
+        
+        header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:10;flex-shrink:0}
+        .room-tag{font-size:12px;font-weight:700;padding:4px 10px;background:var(--bg-sec);border-radius:20px;border:1px solid var(--border);display:flex;align-items:center;gap:6px;cursor:pointer}
+        .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-sec);transition:background .3s}
+        .status-dot.connecting{background:var(--warn);animation:pulse 1s infinite}
         .status-dot.ok{background:var(--success);box-shadow:0 0 8px var(--success)}
         .status-dot.err{background:var(--error)}
+        
+        #msg-list{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+        .msg{max-width:80%;align-self:flex-start;animation:fadeIn .2s ease;position:relative}
+        .msg.self{align-self:flex-end}
+        .msg.sys{align-self:center;font-size:12px;color:var(--text-sec);background:var(--border);padding:4px 12px;border-radius:12px;max-width:90%;text-align:center}
+        .bubble{padding:10px 14px;border-radius:18px;background:var(--msg-bg);border:1px solid var(--border);box-shadow:0 2px 8px var(--shadow);word-break:break-word;position:relative}
+        .msg.self .bubble{background:var(--msg-self);color:white;border:none}
+        .meta{font-size:10px;margin-bottom:4px;opacity:0.7;display:flex;gap:6px;align-items:center}
+        
+        .img-preview{max-width:200px;max-height:300px;border-radius:12px;display:block;cursor:pointer;object-fit:cover}
+        .file-card{display:flex;align-items:center;gap:10px;padding:4px}
+        .file-icon{font-size:24px}
+        .progress-bar{height:3px;background:rgba(255,255,255,0.3);width:100%;margin-top:8px;border-radius:2px;overflow:hidden}
+        .progress-fill{height:100%;background:white;width:0%;transition:width .2s linear}
+        .msg:not(.self) .progress-bar{background:rgba(0,0,0,0.1)}
+        .msg:not(.self) .progress-fill{background:var(--accent)}
+
+        .toolbar{padding:12px;display:flex;gap:8px;align-items:end;background:var(--bg-sec);border-top:1px solid var(--border);flex-shrink:0}
+        .tool-btn{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:transparent;border:none;color:var(--text);cursor:pointer;transition:transform .1s}
+        .tool-btn:active{transform:scale(0.9)}
+        #chat-input{min-height:40px;max-height:100px;padding:10px 14px;resize:none;line-height:1.4;flex:1}
+        #send-btn{width:auto;padding:12px 20px}
+
+        .conn-status-toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--bg-sec);border:1px solid var(--border);border-radius:20px;font-size:13px;z-index:100;display:none;backdrop-filter:blur(10px)}
+        .conn-status-toast.show{display:block}
+
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+</head>
+<body>
+
+    <div id="conn-status" class="conn-status-toast"></div>
+
+    <div id="setup-view" class="glass">
+        <div class="setup-card glass">
+            <div class="logo">💬</div>
+            <h2 style="margin-bottom:8px">安全聊天室</h2>
+            <div class="subtitle">基于 HiveMQ Cloud 的实时通讯<br>传输层加密 (TLS 1.3 + WSS)</div>
+            
+            <input type="text" id="username" class="input-box" placeholder="你的昵称" maxlength="12" style="margin-bottom:12px;text-align:center">
+            <div style="display:flex;gap:10px">
+                <button class="btn" style="flex:1" onclick="app.createRoom()">新建房间</button>
+                <button class="btn sec" style="flex:1" onclick="document.getElementById('room-input-area').classList.remove('hidden')">加入</button>
+            </div>
+            
+            <div id="room-input-area" class="hidden" style="margin-top:16px;animation:fadeIn .3s">
+                <input type="text" id="room-code-input" class="input-box" placeholder="输入6位房间码" maxlength="6" style="text-align:center;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px">
+                <button class="btn" style="width:100%" onclick="app.joinRoom()">进入房间</button>
+            </div>
+            
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-sec)">
+                <div>服务器: fddd45a42e524b8795daf3247546b5ca.s1.eu.hivemq.cloud</div>
+                <div style="margin-top:4px">加密协议: TLS 1.3 + WSS + MQTT v5</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-view" class="hidden">
+        <header class="glass">
+            <div class="room-tag" onclick="app.copyRoomCode()" title="点击复制房间码">
+                <div class="status-dot" id="conn-dot"></div>
+                <span id="room-title">正在连接...</span>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="tool-btn" onclick="app.reconnect()" title="手动重连">↻</button>
+                <button class="btn danger" style="padding:6px 12px;font-size:12px" onclick="app.gracefulExit()">退出</button>
+            </div>
+        </header>
+        
+        <div id="msg-list"></div>
+        
+        <div class="toolbar">
+            <button class="tool-btn" onclick="document.getElementById('file-input').click()" title="发送文件">📎</button>
+            <textarea id="chat-input" class="input-box" rows="1" placeholder="输入消息..." disabled></textarea>
+            <button id="send-btn" class="btn" onclick="app.sendText()" disabled>发送</button>
+        </div>
+        
+        <input type="file" id="file-input" class="hidden" onchange="app.sendFile(this.files[0])">
+    </div>
+
+<script>
+/**
+ * 修复后的配置 - 补全所有缺失项
+ */
+const CONFIG = {
+    MQTT_URL: 'wss://fddd45a42e524b8795daf3247546b5ca.s1.eu.hivemq.cloud:8884/mqtt',
+    MQTT_USERNAME: 'hajimi',
+    MQTT_PASSWORD: '258758Szh',
+    
+    CHUNK_SIZE: 80 * 1024,
+    MAX_FILE_SIZE: 20 * 1024 * 1024,
+    
+    // 修复：补全缺失的配置项（解决 NaN秒 和 undefined 问题）
+    SESSION_EXPIRY: 3600,
+    RECONNECT_BASE_DELAY: 2000,
+    MAX_RECONNECT_ATTEMPTS: 10,
+    TIMEOUT: 120000,
+    KEY_EXCHANGE_TIMEOUT: 10000
+};
+
+/**
+ * 应用主逻辑 - 移除应用层加密，保留传输层加密 (WSS)
+ */
+class App {
+    constructor() {
+        this.client = null;
+        this.room = null;
+        this.user = { 
+            id: Math.random().toString(36).substr(2, 9), 
+            name: '' 
+        };
+        this.status = 'disconnected';
+        this.reconnectAttempts = 0;
+        this.transfers = new Map(); // 简化的文件传输管理
+        
+        // 绑定事件
+        const input = document.getElementById('chat-input');
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                this.sendText(); 
+            }
+        });
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        });
+    }
+
+    setUsername() {
+        const name = document.getElementById('username').value.trim();
+        if (!name) {
+            alert('请输入昵称');
+            return false;
+        }
+        this.user.name = name;
+        return true;
+    }
+
+    createRoom() {
+        if (!this.setUsername()) return;
+        this.room = { 
+            code: Math.random().toString(36).substr(2, 6).toUpperCase(), 
+            isHost: true 
+        };
+        this.enterChat();
+    }
+
+    joinRoom() {
+        if (!this.setUsername()) return;
+        const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+        if (code.length !== 6) {
+            alert('请输入6位房间码');
+            return;
+        }
+        this.room = { code, isHost: false };
+        this.enterChat();
+    }
+
+    enterChat() {
+        document.getElementById('setup-view').classList.add('hidden');
+        document.getElementById('chat-view').classList.remove('hidden');
+        document.getElementById('room-title').textContent = `房间: ${this.room.code}`;
+        this.updateStatus('connecting');
+        this.connectMQTT();
+    }
+
+    showStatusToast(text) {
+        const t = document.getElementById('conn-status');
+        t.textContent = text;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    updateStatus(newStatus) {
+        this.status = newStatus;
+        const dot = document.getElementById('conn-dot');
+        const input = document.getElementById('chat-input');
+        const btn = document.getElementById('send-btn');
+        
+        dot.className = 'status-dot ' + newStatus;
+        
+        switch(newStatus) {
+            case 'connecting':
+                input.placeholder = '正在连接服务器...';
+                input.disabled = true;
+                btn.disabled = true;
+                break;
+            case 'ok':
+                dot.title = '已连接';
+                input.placeholder = '输入消息...';
+                input.disabled = false;
+                btn.disabled = false;
+                this.showStatusToast('已连接');
+                break;
+            case 'err':
+                dot.title = '连接错误';
+                input.placeholder = '连接失败，点击↻重连';
+                input.disabled = true;
+                btn.disabled = true;
+                this.showStatusToast('连接失败');
+                break;
+        }
+    }
+
+    connectMQTT() {
+        if (this.client?.connected) return;
+        
+        const clientId = `chat_${this.user.id}_${Date.now().toString(36)}`;
+        
+        this.client = mqtt.connect(CONFIG.MQTT_URL, { 
+            clientId,
+            username: CONFIG.MQTT_USERNAME,    // 修复：使用正确的变量名
+            password: CONFIG.MQTT_PASSWORD,    // 修复：使用正确的变量名
+            clean: false,
+            keepalive: 60,
+            connectTimeout: 15000,
+            reconnectPeriod: 0, // 禁用自动重连，使用自定义逻辑
+            protocolVersion: 5,
+            properties: {
+                sessionExpiryInterval: CONFIG.SESSION_EXPIRY
+            }
+        });
+
+        this.client.on('connect', () => {
+            this.onConnect();
+        });
+
+        this.client.on('reconnect', () => {
+            console.log('正在重连...');
+        });
+
+        this.client.on('close', () => {
+            this.onDisconnect();
+        });
+
+        this.client.on('error', (err) => {
+            console.error('连接错误:', err.message);
+            this.updateStatus('err');
+        });
+
+        this.client.on('message', (topic, payload) => {
+            this.handleMessage(topic, payload);
+        });
+    }
+
+    onConnect() {
+        console.log('HiveMQ Cloud 已连接');
+        this.reconnectAttempts = 0;
+        
+        const topics = [
+            `chat/${this.room.code}/msg`,
+            `chat/${this.room.code}/file`
+        ];
+        
+        this.client.subscribe(topics, { qos: 1 }, (err) => {
+            if (err) {
+                console.error('订阅失败:', err.message);
+                return;
+            }
+            this.updateStatus('ok');
+            this.appendSysMsg(`🔒 已连接到房间 ${this.room.code}`);
+        });
+    }
+
+    onDisconnect() {
+        if (this.status === 'disconnected') return;
+        this.updateStatus('connecting');
+        
+        if (this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            this.updateStatus('err');
+            this.appendSysMsg('⚠️ 无法恢复连接，请检查网络');
+            return;
+        }
+        
+        this.reconnectAttempts++;
+        
+        // 修复：使用正确的配置项计算延迟
+        const delay = Math.min(
+            CONFIG.RECONNECT_BASE_DELAY * Math.pow(1.5, this.reconnectAttempts - 1), 
+            30000
+        );
+        
+        console.log(`计划 ${delay/1000}秒后第 ${this.reconnectAttempts} 次重连...`);
+        
+        setTimeout(() => {
+            if (!this.client.connected) {
+                this.client.reconnect();
+            }
+        }, delay);
+    }
+
+    reconnect() {
+        this.reconnectAttempts = 0;
+        if (this.client) {
+            this.client.reconnect();
+        } else {
+            this.connectMQTT();
+        }
+    }
+
+    handleMessage(topic, payload) {
+        try {
+            const msg = JSON.parse(payload.toString());
+            if (msg.senderId === this.user.id) return;
+
+            if (topic.includes('/file')) {
+                this.handleFileMeta(msg);
+            } else {
+                this.appendMsg(msg.senderName, msg.text, false);
+            }
+        } catch (e) {
+            console.error('消息处理错误:', e);
+        }
+    }
+
+    sendText() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text || this.status !== 'ok') return;
+        
+        const payload = {
+            senderId: this.user.id,
+            senderName: this.user.name,
+            text: text,
+            ts: Date.now()
+        };
+        
+        this.client.publish(
+            `chat/${this.room.code}/msg`, 
+            JSON.stringify(payload),
+            { qos: 1 }
+        );
+        
+        this.appendMsg('我', text, true);
+        input.value = '';
+        input.style.height = 'auto';
+    }
+
+    async sendFile(file) {
+        if (!file || this.status !== 'ok') return;
+        if (file.size > CONFIG.MAX_FILE_SIZE) {
+            alert('文件超过 20MB 限制');
+            return;
+        }
+        
+        const transferId = Math.random().toString(36).substr(2, 9);
+        const uiId = `xfer-${transferId}`;
+        
+        this.appendFileMsg('我', file.name, file.size, uiId, true);
+        const progressEl = document.querySelector(`#${uiId} .progress-fill`);
+        
+        try {
+            const buffer = await file.arrayBuffer();
+            const chunks = [];
+            const totalChunks = Math.ceil(buffer.byteLength / CONFIG.CHUNK_SIZE);
+            
+            // 分片处理
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CONFIG.CHUNK_SIZE;
+                const end = Math.min(start + CONFIG.CHUNK_SIZE, buffer.byteLength);
+                const chunk = buffer.slice(start, end);
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(chunk)));
+                chunks.push(base64);
+                
+                if (progressEl) {
+                    progressEl.style.width = `${((i + 1) / totalChunks) * 50}%`;
+                }
+            }
+            
+            // 发送元数据
+            const meta = {
+                senderId: this.user.id,
+                senderName: this.user.name,
+                id: transferId,
+                name: file.name,
+                size: file.size,
+                mime: file.type || 'application/octet-stream',
+                totalChunks: chunks.length,
+                chunks: chunks
+            };
+            
+            this.client.publish(
+                `chat/${this.room.code}/file`,
+                JSON.stringify(meta),
+                { qos: 1 }
+            );
+            
+            if (progressEl) progressEl.style.width = '100%';
+            
+        } catch (e) {
+            console.error('发送文件失败:', e);
+            alert('发送失败: ' + e.message);
+        }
+        
+        document.getElementById('file-input').value = '';
+    }
+
+    handleFileMeta(msg) {
+        const { chunks, name, size, mime, senderName } = msg;
+        const uiId = `xfer-${msg.id}`;
+        
+        this.appendFileMsg(senderName, name, size, uiId, false);
+        
+        // 重组文件
+        try {
+            const binaryChunks = chunks.map(c => {
+                const binary = atob(c);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes;
+            });
+            
+            const totalLength = binaryChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+            const combined = new Uint8Array(totalLength);
+            let offset = 0;
+            binaryChunks.forEach(chunk => {
+                combined.set(chunk, offset);
+                offset += chunk.length;
+            });
+            
+            const blob = new Blob([combined], { type: mime });
+            const url = URL.createObjectURL(blob);
+            this.updateFileUI(uiId, url, mime, name);
+            
+        } catch (e) {
+            console.error('接收文件失败:', e);
+        }
+    }
+
+    appendMsg(name, text, isSelf) {
+        const div = document.createElement('div');
+        div.className = `msg ${isSelf ? 'self' : ''}`;
+        div.innerHTML = `
+            <div class="meta">${this.escapeHtml(name)} • ${new Date().toLocaleTimeString()}</div>
+            <div class="bubble">${this.escapeHtml(text)}</div>
+        `;
+        this.renderMsg(div);
+    }
+    
+    appendSysMsg(text) {
+        const div = document.createElement('div');
+        div.className = 'msg sys';
+        div.textContent = text;
+        this.renderMsg(div);
+    }
+
+    appendFileMsg(name, fileName, size, uiId, isSelf) {
+        const div = document.createElement('div');
+        div.className = `msg ${isSelf ? 'self' : ''}`;
+        if (uiId) div.id = uiId;
+        
+        const sizeStr = size > 1024*1024 ? 
+            (size/1024/1024).toFixed(2) + ' MB' : 
+            (size/1024).toFixed(1) + ' KB';
+        
+        div.innerHTML         .status-dot.err{background:var(--error)}
         .status-dot.connecting{background:var(--warn);animation:pulse 1s infinite}
         
         #msg-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
@@ -1597,6 +2068,7 @@ app.init();
 </body>
 
 </html>
+
 
 
 
