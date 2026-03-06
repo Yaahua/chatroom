@@ -2,38 +2,333 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>哈吉米德的聊天室</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root{
-            --bg:#f5f5f7; --bg-sec:rgba(255,255,255,0.85); --surface:rgba(255,255,255,0.7);
-            --text:#1d1d1f; --text-sec:#86868b; --accent:#0071e3; --accent-hover:#0077ED;
-            --error:#ff3b30; --success:#34c759; --warn:#ff9f0a; --info:#5856d6;
-            --border:rgba(0,0,0,0.1); --shadow:rgba(0,0,0,0.05);
-            --msg-bg:#ffffff; --msg-self:#0071e3;
+            --bg:#f5f5f7; --bg-sec:#fff; --surface:#f0f0f0;
+            --text:#1d1d1f; --text-sec:#86868b; --accent:#0071e3;
+            --error:#ff3b30; --success:#34c759; --warn:#ff9f0a;
+            --border:#e0e0e0; --msg-bg:#fff; --msg-self:#0071e3;
         }
         [data-theme="dark"]{
-            --bg:#000000; --bg-sec:rgba(28,28,30,0.9); --surface:rgba(30,30,30,0.8);
-            --text:#f5f5f7; --text-sec:#86868b; --accent:#0a84ff; --accent-hover:#0077ED;
-            --border:rgba(255,255,255,0.15); --shadow:rgba(0,0,0,0.5);
-            --msg-bg:#1c1c1e; --msg-self:#0a84ff;
+            --bg:#000; --bg-sec:#1c1c1e; --surface:#2c2c2e;
+            --text:#f5f5f7; --text-sec:#86868b; --accent:#0a84ff;
+            --border:#3a3a3c; --msg-bg:#1c1c1e; --msg-self:#0a84ff;
         }
-        
-        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
         body{background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;display:flex;flex-direction:column}
         .hidden{display:none!important}
-        
-        .glass{background:var(--bg-sec);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border)}
-        .btn{padding:12px 20px;border-radius:12px;border:none;background:var(--accent);color:white;font-weight:600;font-size:15px;cursor:pointer;transition:all .2s}
+        .glass{background:var(--bg-sec);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+        .btn{padding:12px 20px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
         .btn:disabled{opacity:0.5;cursor:not-allowed}
-        .btn:active:not(:disabled){opacity:0.7}
-        .btn.sec{background:var(--bg-sec);color:var(--text);border:1px solid var(--border)}
-        .btn.danger{background:var(--error)}
-        .input-box{width:100%;padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;transition:border .2s}
+        .btn.sec{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+        .input-box{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none}
         .input-box:focus{border-color:var(--accent)}
-        .input-box:disabled{opacity:0.6;background:var(--bg)}
+        
+        #setup-view,#chat-view{height:100%;display:flex;flex-direction:column}
+        .setup-card{width:90%;max-width:380px;margin:auto;padding:30px;border-radius:20px;background:var(--bg-sec);box-shadow:0 10px 40px rgba(0,0,0,0.1);text-align:center}
+        .logo{font-size:48px;margin-bottom:10px}
+        header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+        .room-tag{font-size:13px;font-weight:600;padding:6px 12px;background:var(--surface);border-radius:20px;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
+        .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-sec);transition:0.3s}
+        .status-dot.ok{background:var(--success);box-shadow:0 0 8px var(--success)}
+        .status-dot.err{background:var(--error)}
+        .status-dot.connecting{background:var(--warn);animation:pulse 1s infinite}
+        
+        #msg-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+        .msg{max-width:80%;align-self:flex-start;animation:fadeIn 0.2s}
+        .msg.self{align-self:flex-end}
+        .msg.sys{align-self:center;font-size:12px;color:var(--text-sec);background:var(--border);padding:4px 12px;border-radius:12px}
+        .bubble{padding:10px 14px;border-radius:18px;background:var(--msg-bg);border:1px solid var(--border);word-break:break-word}
+        .msg.self .bubble{background:var(--msg-self);color:#fff;border:none}
+        .meta{font-size:11px;margin-bottom:4px;color:var(--text-sec)}
+        .msg.self .meta{text-align:right}
+        
+        .toolbar{padding:12px;display:flex;gap:8px;align-items:center;background:var(--bg-sec);border-top:1px solid var(--border)}
+        #chat-input{flex:1;resize:none;min-height:40px;max-height:100px}
+        #send-btn{padding:12px 24px}
+        
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        
+        .toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--bg-sec);border:1px solid var(--border);border-radius:20px;font-size:13px;z-index:100;display:none}
+        .toast.show{display:block}
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast"></div>
 
+    <div id="setup-view">
+        <div class="setup-card">
+            <div class="logo">💬</div>
+            <h2 style="margin-bottom:8px">快速聊天室</h2>
+            <p style="color:var(--text-sec);margin-bottom:24px;font-size:14px">基于 MQTT 的实时通讯<br>传输层已加密 (WSS/TLS)</p>
+            
+            <input type="text" id="username" class="input-box" placeholder="输入昵称" maxlength="12" style="margin-bottom:12px;text-align:center">
+            <div style="display:flex;gap:10px">
+                <button class="btn" style="flex:1" onclick="app.createRoom()">新建房间</button>
+                <button class="btn sec" style="flex:1" onclick="document.getElementById('join-area').classList.remove('hidden')">加入</button>
+            </div>
+            
+            <div id="join-area" class="hidden" style="margin-top:16px">
+                <input type="text" id="room-input" class="input-box" placeholder="6位房间码" maxlength="6" style="text-align:center;text-transform:uppercase;margin-bottom:8px">
+                <button class="btn" style="width:100%" onclick="app.joinRoom()">进入</button>
+            </div>
+            
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-sec)">
+                服务器: HiveMQ Cloud<br>
+                协议: WSS + MQTT v5
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-view" class="hidden">
+        <header class="glass">
+            <div class="room-tag">
+                <div class="status-dot" id="conn-dot"></div>
+                <span id="room-title">连接中...</span>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="btn sec" style="padding:6px 12px;font-size:12px" onclick="app.reconnect()">重连</button>
+                <button class="btn" style="padding:6px 12px;font-size:12px;background:var(--error)" onclick="app.exit()">退出</button>
+            </div>
+        </header>
+        
+        <div id="msg-list"></div>
+        
+        <div class="toolbar">
+            <textarea id="chat-input" class="input-box" rows="1" placeholder="输入消息..." disabled></textarea>
+            <button id="send-btn" class="btn" onclick="app.send()" disabled>发送</button>
+        </div>
+    </div>
+
+<script>
+// 修复后的配置（已补全所有缺失项）
+const CONFIG = {
+    MQTT_URL: 'wss://fddd45a42e524b8795daf3247546b5ca.s1.eu.hivemq.cloud:8884/mqtt',
+    MQTT_USERNAME: 'hajimi',
+    MQTT_PASSWORD: '258758Szh',
+    
+    // 修复：补全缺失的配置项
+    SESSION_EXPIRY: 3600,
+    RECONNECT_BASE_DELAY: 2000,  // 修复 NaN秒 问题
+    MAX_RECONNECT_ATTEMPTS: 10,
+    TIMEOUT: 120000,
+    KEY_EXCHANGE_TIMEOUT: 10000,
+    
+    CHUNK_SIZE: 80 * 1024,
+    MAX_FILE_SIZE: 20 * 1024 * 1024
+};
+
+class App {
+    constructor() {
+        this.client = null;
+        this.room = null;
+        this.user = { id: Math.random().toString(36).substr(2, 9), name: '' };
+        this.reconnectAttempts = 0;
+        this.status = 'disconnected';
+        
+        // 绑定输入框回车
+        const input = document.getElementById('chat-input');
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
+        });
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        });
+    }
+
+    setStatus(status, msg) {
+        this.status = status;
+        const dot = document.getElementById('conn-dot');
+        const input = document.getElementById('chat-input');
+        const btn = document.getElementById('send-btn');
+        
+        dot.className = 'status-dot ' + status;
+        
+        const map = {
+            connecting: { txt: '连接中...', placeholder: '正在连接...', disabled: true },
+            ok: { txt: '已连接', placeholder: '输入消息...', disabled: false },
+            err: { txt: '断开', placeholder: '连接失败，点击重连', disabled: true }
+        };
+        
+        const cfg = map[status] || map.err;
+        document.getElementById('room-title').textContent = this.room ? `房间: ${this.room.code}` : cfg.txt;
+        input.placeholder = cfg.placeholder;
+        input.disabled = cfg.disabled;
+        btn.disabled = cfg.disabled;
+        
+        if (msg) this.showToast(msg);
+    }
+
+    showToast(text) {
+        const t = document.getElementById('toast');
+        t.textContent = text;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    createRoom() {
+        if (!this.setName()) return;
+        this.room = { code: Math.random().toString(36).substr(2, 6).toUpperCase(), isHost: true };
+        this.enter();
+    }
+
+    joinRoom() {
+        if (!this.setName()) return;
+        const code = document.getElementById('room-input').value.trim().toUpperCase();
+        if (code.length !== 6) return alert('请输入6位房间码');
+        this.room = { code, isHost: false };
+        this.enter();
+    }
+
+    setName() {
+        const name = document.getElementById('username').value.trim();
+        if (!name) { alert('请输入昵称'); return false; }
+        this.user.name = name;
+        return true;
+    }
+
+    enter() {
+        document.getElementById('setup-view').classList.add('hidden');
+        document.getElementById('chat-view').classList.remove('hidden');
+        this.connect();
+    }
+
+    connect() {
+        if (this.client?.connected) return;
+        this.setStatus('connecting');
+        
+        this.client = mqtt.connect(CONFIG.MQTT_URL, {
+            clientId: `chat_${this.user.id}_${Date.now().toString(36)}`,
+            username: CONFIG.MQTT_USERNAME,    // 修复：使用正确的变量名
+            password: CONFIG.MQTT_PASSWORD,    // 修复：使用正确的变量名
+            clean: false,
+            keepalive: 60,
+            connectTimeout: 15000,
+            reconnectPeriod: 0,  // 禁用自动重连，使用自定义逻辑
+            protocolVersion: 5,
+            properties: { sessionExpiryInterval: CONFIG.SESSION_EXPIRY }
+        });
+
+        this.client.on('connect', () => {
+            console.log('已连接');
+            this.reconnectAttempts = 0;
+            this.client.subscribe(`chat/${this.room.code}/msg`, { qos: 1 }, (err) => {
+                if (err) return console.error('订阅失败:', err);
+                this.setStatus('ok');
+                this.appendSys('已加入房间，可以开始聊天');
+            });
+        });
+
+        this.client.on('message', (topic, payload) => {
+            try {
+                const msg = JSON.parse(payload.toString());
+                if (msg.id !== this.user.id) {
+                    this.appendMsg(msg.name, msg.text, false);
+                }
+            } catch (e) {
+                console.error('消息解析失败:', e);
+            }
+        });
+
+        this.client.on('error', (err) => {
+            console.error('连接错误:', err.message);
+            this.setStatus('err', '连接错误: ' + err.message);
+        });
+
+        this.client.on('close', () => {
+            if (this.status !== 'disconnected') {
+                this.handleDisconnect();
+            }
+        });
+    }
+
+    handleDisconnect() {
+        this.setStatus('connecting');
+        if (this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            this.setStatus('err', '无法恢复连接');
+            return;
+        }
+        this.reconnectAttempts++;
+        
+        // 修复：使用正确的配置项计算延迟，解决 NaN 问题
+        const delay = Math.min(
+            CONFIG.RECONNECT_BASE_DELAY * Math.pow(1.5, this.reconnectAttempts - 1),
+            30000
+        );
+        
+        console.log(`计划 ${delay/1000}秒后第 ${this.reconnectAttempts} 次重连...`);
+        setTimeout(() => {
+            if (!this.client.connected) this.client.reconnect();
+        }, delay);
+    }
+
+    reconnect() {
+        this.reconnectAttempts = 0;
+        if (this.client) this.client.reconnect();
+        else this.connect();
+    }
+
+    send() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text || !this.client?.connected) return;
+        
+        const payload = JSON.stringify({
+            id: this.user.id,
+            name: this.user.name,
+            text: text,
+            ts: Date.now()
+        });
+        
+        this.client.publish(`chat/${this.room.code}/msg`, payload, { qos: 1 });
+        this.appendMsg('我', text, true);
+        input.value = '';
+        input.style.height = 'auto';
+    }
+
+    appendMsg(name, text, isSelf) {
+        const div = document.createElement('div');
+        div.className = `msg ${isSelf ? 'self' : ''}`;
+        div.innerHTML = `
+            <div class="meta">${this.escape(name)} • ${new Date().toLocaleTimeString()}</div>
+            <div class="bubble">${this.escape(text)}</div>
+        `;
+        const list = document.getElementById('msg-list');
+        list.appendChild(div);
+        list.scrollTop = list.scrollHeight;
+    }
+
+    appendSys(text) {
+        const div = document.createElement('div');
+        div.className = 'msg sys';
+        div.textContent = text;
+        document.getElementById('msg-list').appendChild(div);
+    }
+
+    escape(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    exit() {
+        if (confirm('确定退出？')) {
+            this.status = 'disconnected';
+            if (this.client) this.client.end(true);
+            location.reload();
+        }
+    }
+}
+
+const app = new App();
+</script>
+</body>
+</html>
         #setup-view, #chat-view{width:100%;height:100%;position:absolute;inset:0;display:flex;flex-direction:column;transition:transform .3s ease}
         
         .setup-card{width:90%;max-width:400px;margin:auto;padding:30px;border-radius:24px;box-shadow:0 10px 40px var(--shadow);text-align:center}
@@ -1302,6 +1597,7 @@ app.init();
 </body>
 
 </html>
+
 
 
 
