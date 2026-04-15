@@ -364,7 +364,7 @@ export default function App() {
   if (!inRoom) {
     return (
       <div className="h-dvh flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
-        <div className="w-full max-w-sm mx-4 glass-card rounded-3xl p-8">
+        <div className="login-card w-full max-w-sm mx-4 glass-card rounded-3xl p-8">
           <div className="flex justify-end mb-2">
             <button onClick={() => setDarkMode(d => !d)} className="w-9 h-9 flex items-center justify-center rounded-full text-xl transition-colors" style={{ background: 'var(--bg-input)' }}>
               {darkMode ? '☀️' : '🌙'}
@@ -372,13 +372,15 @@ export default function App() {
           </div>
 
           <div className="text-center mb-7">
-            <div className="text-5xl mb-3">🌰</div>
-            <h1 className="text-xl font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>哈吉米德的聊天室</h1>
-            <p className="font-kai text-base" style={{ color: 'var(--hz-600)' }}>人生无处不青山</p>
+            <div className="login-gif mb-3 flex justify-center">
+              <img src="/chatroom/avatar.gif" alt="avatar" className="w-20 h-20 object-contain" />
+            </div>
+            <h1 className="login-title text-xl font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>哈吉米德的聊天室</h1>
+            <p className="login-subtitle font-kai text-base" style={{ color: 'var(--hz-600)' }}>人生无处不青山</p>
           </div>
 
           <input
-            className="input-hz w-full px-4 py-3 text-base mb-3 text-center"
+            className="login-input-1 input-hz w-full px-4 py-3 text-base mb-3 text-center"
             placeholder="你的昵称"
             maxLength={12}
             value={nameInput}
@@ -386,7 +388,7 @@ export default function App() {
             onKeyDown={e => e.key === 'Enter' && handleCreateRoom()}
           />
 
-          <div className="flex gap-2 mb-3">
+          <div className="login-btn-row flex gap-2 mb-3">
             <button onClick={handleCreateRoom} className="btn-hz flex-1 py-3 text-sm">
               新建房间
             </button>
@@ -400,7 +402,7 @@ export default function App() {
           </div>
 
           {showJoin && (
-            <div className="mt-1">
+            <div className="login-join-row mt-1">
               <input
                 className="input-hz w-full px-4 py-3 text-base mb-2 text-center tracking-widest uppercase"
                 placeholder="输入房间码"
@@ -431,7 +433,7 @@ export default function App() {
 
   // ===== 聊天页 =====
   return (
-    <div className="h-dvh flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+    <div className="chat-root" style={{ background: 'var(--bg-primary)' }}>
 
       {/* Toast */}
       {toast && (
