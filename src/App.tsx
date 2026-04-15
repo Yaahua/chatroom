@@ -364,7 +364,7 @@ export default function App() {
   // ===== 登录页 =====
   if (!inRoom) {
     return (
-      <div className="h-dvh flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+      <div className="login-root">
         <div className="login-card w-full max-w-sm mx-4 glass-card rounded-3xl p-8">
           <div className="flex justify-end mb-2">
             <button onClick={() => setDarkMode(d => !d)} className="w-9 h-9 flex items-center justify-center rounded-full text-xl transition-colors" style={{ background: 'var(--bg-input)' }}>
@@ -434,38 +434,33 @@ export default function App() {
 
   // ===== 聊天页 =====
   return (
-    <div className="chat-root" style={{ background: 'var(--bg-primary)' }}>
+    <div className="chat-root">
 
-      {/* Toast */}
+      {/* 全局悬浮层（不受 chat-inner 居中限制）*/}
       {toast && (
         <div className="toast-anim fixed top-16 left-1/2 z-50 px-4 py-2 rounded-full text-sm shadow-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', transform: 'translateX(-50%)' }}>
           {toast}
         </div>
       )}
-
-      {/* 悬浮音乐播放器 */}
       <MusicPlayer />
-
-      {/* 图片全屏预览 */}
       {imgViewer && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={() => setImgViewer(null)}>
           <img src={imgViewer} className="max-w-[95vw] max-h-[95vh] rounded-xl object-contain" alt="预览" />
           <button className="absolute top-4 right-4 text-white text-3xl opacity-70 hover:opacity-100">×</button>
         </div>
       )}
-
-      {/* 在线用户弹窗 */}
       {showOnlineModal && (
         <OnlineUsersModal users={onlineUsers} self={user} onClose={() => setShowOnlineModal(false)} />
       )}
-
-      {/* 日志面板 */}
       {showLogPanel && (
         <LogPanel logs={logs} onClear={clearLogs} onClose={() => setShowLogPanel(false)} />
       )}
 
+      {/* 聊天区域（平板/PC 居中限宽）*/}
+      <div className="chat-inner">
+
       {/* 顶栏 */}
-      <header className="glass-card flex items-center justify-between px-4 py-3 flex-shrink-0 rounded-none" style={{ borderBottom: '1px solid var(--border)', borderLeft: 'none', borderRight: 'none', borderTop: 'none' }}>
+      <header className="glass-card flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderRadius: 0 }}>
         {/* 左：房间码 + 状态 */}
         <button onClick={copyRoomCode} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} />
@@ -677,6 +672,8 @@ export default function App() {
       {/* 隐藏文件输入 */}
       <input ref={imgInputRef} type="file" className="hidden" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
       <input ref={fileInputRef} type="file" className="hidden" accept="*/*" onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
+
+      </div> {/* end chat-inner */}
     </div>
   )
 }
