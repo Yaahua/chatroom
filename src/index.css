@@ -272,3 +272,113 @@ textarea.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .login-join-row {
   animation: fadeUp 0.4s ease 1.05s both;
 }
+
+/* ===== 悬浮音乐播放器 ===== */
+@keyframes fabPop {
+  from { transform: scale(0.5) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes waveBar {
+  0%, 100% { height: 4px; }
+  50%       { height: 10px; }
+}
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 悬浮按钮 */
+.music-fab {
+  position: fixed;
+  bottom: 88px;
+  right: 18px;
+  z-index: 40;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--hz-500);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(174,159,128,0.45);
+  transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  animation: fabPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  border: none;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 2px;
+}
+.music-fab:hover {
+  background: var(--hz-600);
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(174,159,128,0.55);
+}
+.music-fab:active { transform: scale(0.95); }
+
+/* 音符波形装饰 */
+.music-fab-wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+.music-fab-wave span {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.75);
+}
+.music-fab-wave span:nth-child(1) { animation: waveBar 0.9s ease-in-out infinite; height: 6px; }
+.music-fab-wave span:nth-child(2) { animation: waveBar 0.9s ease-in-out 0.2s infinite; height: 10px; }
+.music-fab-wave span:nth-child(3) { animation: waveBar 0.9s ease-in-out 0.4s infinite; height: 4px; }
+
+/* 卡片容器 */
+.music-card-wrap {
+  position: fixed;
+  bottom: 144px;
+  right: 14px;
+  z-index: 39;
+  animation: cardSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+/* 卡片主体 */
+.music-card {
+  width: 320px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--bg-card);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(94,80,63,0.22), 0 2px 8px rgba(94,80,63,0.1);
+}
+
+/* 卡片头部 */
+.music-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  background: linear-gradient(135deg, var(--hz-200) 0%, var(--hz-100) 100%);
+  border-bottom: 1px solid var(--border);
+}
+.dark .music-card-header {
+  background: linear-gradient(135deg, var(--hz-900) 0%, var(--hz-800) 100%);
+}
+
+/* iframe 包裹层 */
+.music-iframe-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* 加载占位 */
+.music-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background: var(--bg-secondary);
+}

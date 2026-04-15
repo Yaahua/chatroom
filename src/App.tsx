@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMqtt, pickColor } from './useMqtt'
+import MusicPlayer from './MusicPlayer'
 import { useSound } from './useSound'
 import type { User } from './types'
 
@@ -441,6 +442,9 @@ export default function App() {
           {toast}
         </div>
       )}
+
+      {/* 悬浮音乐播放器 */}
+      <MusicPlayer />
 
       {/* 图片全屏预览 */}
       {imgViewer && (
