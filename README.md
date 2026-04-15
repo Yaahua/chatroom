@@ -76,5 +76,17 @@ A: 目前限制最多 8 人。由于采用 Full Mesh（全网状）架构，每�
 Q: 手机锁屏后收不到消息？
 A: 这是现代移动浏览器的系统级限制。为了省电，浏览器在后台或锁屏时会暂停 JavaScript 执行和 WebRTC 连接。建议保持屏幕常亮或在前台运行以保持连接稳定
 
+## 🗺️ 重构与优化方案
+
+详见 [`docs/`](./docs/) 目录，包含三份完整的技术方案文档：
+
+| 文档 | 内容简介 |
+| :--- | :--- |
+| [01 · 架构演进与高级功能规划](./docs/01_架构演进与功能规划.md) | 全新 React+TypeScript+Vite 架构、SFU 媒体服务器、空间音频、虚拟形象、协作白板、匿名匹配、破冰游戏等进阶功能的完整方案 |
+| [02 · 零成本服务拼接方案](./docs/02_零成本服务方案.md) | 针对 GitHub Pages 静态托管约束，使用 EMQX / Supabase / Metered / Cloudflare R2 等免费服务的组合方案（全程零成本） |
+| [03 · EMQX 与 TURN 接入指南](./docs/03_EMQX与TURN接入指南.md) | 手把手配置 EMQX Cloud Serverless 和 Metered OpenRelay 的操作步骤与可直接使用的代码示例 |
+
+---
+
 📄 License
 MIT License © 2026 Hajimide
