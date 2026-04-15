@@ -8,7 +8,7 @@ export interface User {
 
 export interface ChatMessage {
   id: string
-  type: 'text' | 'image' | 'file' | 'sys'
+  type: 'text' | 'image' | 'file' | 'voice' | 'sys'
   senderId: string
   senderName: string
   senderColor: string
@@ -17,6 +17,7 @@ export interface ChatMessage {
   fileName?: string
   fileSize?: number
   fileMime?: string
+  duration?: number
   ts: number
   isSelf: boolean
 }
@@ -28,7 +29,6 @@ export interface OnlineUser {
   ts: number
 }
 
-// MQTT 消息协议
 export interface MqttTextMsg {
   type: 'text'
   senderId: string
