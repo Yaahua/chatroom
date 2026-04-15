@@ -26,6 +26,7 @@ export function useSound(muted: boolean) {
     try {
       const ctx = getCtx()
       createBeep(ctx, 880, 0.08, 0.1)
+    // eslint-disable-next-line no-empty
     } catch {}
   }, [muted, getCtx])
 
@@ -35,6 +36,7 @@ export function useSound(muted: boolean) {
       const ctx = getCtx()
       createBeep(ctx, 660, 0.12, 0.12)
       setTimeout(() => createBeep(ctx, 880, 0.1, 0.1), 80)
+    // eslint-disable-next-line no-empty
     } catch {}
   }, [muted, getCtx])
 

@@ -201,9 +201,7 @@ export default function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect: _reconnect, clearLogs } = useMqtt(user, roomCode)
-  const manualReconnect = _reconnect
+  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs } = useMqtt(user, roomCode)
   const { playSend, playReceive } = useSound(muted)
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
@@ -237,11 +235,13 @@ export default function App() {
         else {
           playReceive()
           if (!focused) {
-            setUnread(n => {
-              const next = n + 1
-              document.title = `(${next}) 哈吉米德的聊天室`
-              return next
-            })
+            setTimeout(() => {
+              setUnread(n => {
+                const next = n + 1
+                document.title = `(${next}) 哈吉米德的聊天室`
+                return next
+              })
+            }, 0)
           }
         }
       }
@@ -639,17 +639,22 @@ export default function App() {
         {showPlusMenu && (
           <div className="plus-menu menu-anim">
             <div className="plus-menu-grid">
-              {[
-                { icon: '🖼️', label: '图片', action: () => { imgInputRef.current?.click(); setShowPlusMenu(false) } },
-                { icon: '📁', label: '文件', action: () => { fileInputRef.current?.click(); setShowPlusMenu(false) } },
-                { icon: '🎤', label: recording ? `录音中 ${recDuration}s` : '语音', action: () => { handleVoiceBtn(); setShowPlusMenu(false) } },
-                { icon: '🔍', label: '日志', action: () => { setShowLogPanel(true); setShowPlusMenu(false) } },
-              ].map(item => (
-                <button key={item.label} className="plus-menu-item" onClick={item.action}>
-                  <span className="plus-menu-icon">{item.icon}</span>
-                  <span className="plus-menu-label">{item.label}</span>
-                </button>
-              ))}
+              <button className="plus-menu-item" onClick={() => { imgInputRef.current?.click(); setShowPlusMenu(false) }}>
+                <span className="plus-menu-icon">🖼️</span>
+                <span className="plus-menu-label">图片</span>
+              </button>
+              <button className="plus-menu-item" onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false) }}>
+                <span className="plus-menu-icon">📁</span>
+                <span className="plus-menu-label">文件</span>
+              </button>
+              <button className="plus-menu-item" onClick={() => { handleVoiceBtn(); setShowPlusMenu(false) }}>
+                <span className="plus-menu-icon">🎤</span>
+                <span className="plus-menu-label">{recording ? `录音中 ${recDuration}s` : '语音'}</span>
+              </button>
+              <button className="plus-menu-item" onClick={() => { setShowLogPanel(true); setShowPlusMenu(false) }}>
+                <span className="plus-menu-icon">🔍</span>
+                <span className="plus-menu-label">日志</span>
+              </button>
             </div>
           </div>
         )}

@@ -15,10 +15,13 @@ export default function MusicPlayer() {
   const [hideSide, setHideSide] = useState<'left' | 'right'>('right')
 
   const dragging = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)  // 用于渲染层的拖拽状态
   const moved = useRef(false)           // 区分点击和拖动
   const startPointer = useRef<Pos>({ x: 0, y: 0 })
   const startPos = useRef<Pos>({ x: 0, y: 0 })
   const fabRef = useRef<HTMLButtonElement>(null)
+  // 用于超时兜底：若 onLoad 未触发则强制显示 iframe
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 吸附逻辑：松手后自动吸附到最近的左/右边缘
   const snapToEdge = useCallback((x: number, y: number) => {
@@ -46,6 +49,7 @@ export default function MusicPlayer() {
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return
     dragging.current = true
+    setIsDragging(true)
     moved.current = false
     startPointer.current = { x: e.clientX, y: e.clientY }
     startPos.current = { ...pos }
@@ -72,6 +76,7 @@ export default function MusicPlayer() {
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return
     dragging.current = false
+    setIsDragging(false)
     if (!moved.current) {
       // 纯点击：若当前半隐，先取消半隐；否则切换播放器
       if (hidden) {
@@ -106,6 +111,22 @@ export default function MusicPlayer() {
     }
   }, [])
 
+  // 打开播放器时启动超时兜底：3s 后若仍未 loaded 则强制显示 iframe
+  // 修复：iframe 初始 display:none 时 Chromium 不触发 onLoad 事件
+  useEffect(() => {
+    if (open && !hidden && !loaded) {
+      loadTimerRef.current = setTimeout(() => {
+        setLoaded(true)
+      }, 3000)
+    }
+    return () => {
+      if (loadTimerRef.current) {
+        clearTimeout(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
+    }
+  }, [open, hidden, loaded])
+
   // 计算 FAB 的实际 translate（半隐时向边缘偏移）
   const fabTranslateX = hidden
     ? hideSide === 'right'
@@ -135,8 +156,8 @@ export default function MusicPlayer() {
           bottom: 'auto',
           right: 'auto',
           transform: `translateX(${fabTranslateX}px)`,
-          transition: dragging.current ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-          cursor: dragging.current ? 'grabbing' : 'grab',
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          cursor: isDragging ? 'grabbing' : 'grab',
           touchAction: 'none',
           userSelect: 'none',
         }}
@@ -180,57 +201,70 @@ export default function MusicPlayer() {
         )}
       </button>
 
-      {/* 播放器卡片 */}
-      {open && !hidden && (
-        <div
-          className="music-card-wrap"
-          style={{
-            position: 'fixed',
-            bottom: cardBottom,
-            right: cardRight,
-            left: cardLeft,
-            top: 'auto',
-            zIndex: 39,
-          }}
-        >
-          <div className="music-card">
-            <div className="music-card-header">
-              <div className="flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.7 }}>
-                  <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                </svg>
-                <span className="text-xs font-semibold" style={{ color: 'var(--hz-800)', letterSpacing: '0.05em' }}>Blog · 歌单</span>
+      {/* 播放器卡片：使用 visibility + opacity 代替条件渲染，避免 iframe 反复销毁/重建 */}
+      <div
+        className="music-card-wrap"
+        style={{
+          position: 'fixed',
+          bottom: cardBottom,
+          right: cardRight,
+          left: cardLeft,
+          top: 'auto',
+          zIndex: 39,
+          // 隐藏时用 visibility+opacity 而非卸载，保持 iframe 已加载状态
+          visibility: (open && !hidden) ? 'visible' : 'hidden',
+          opacity: (open && !hidden) ? 1 : 0,
+          pointerEvents: (open && !hidden) ? 'auto' : 'none',
+          transition: 'opacity 0.2s ease, visibility 0.2s ease',
+          animation: (open && !hidden) ? 'cardSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
+        }}
+      >
+        <div className="music-card">
+          <div className="music-card-header">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.7 }}>
+                <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+              </svg>
+              <span className="text-xs font-semibold" style={{ color: 'var(--hz-800)', letterSpacing: '0.05em' }}>Blog · 歌单</span>
+            </div>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>网易云音乐</span>
+          </div>
+          <div className="music-iframe-wrap">
+            {!loaded && (
+              <div className="music-loading">
+                <span className="flex gap-1">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </span>
+                <span className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>加载中...</span>
               </div>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>网易云音乐</span>
-            </div>
-            <div className="music-iframe-wrap">
-              {!loaded && (
-                <div className="music-loading">
-                  <span className="flex gap-1">
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                  </span>
-                  <span className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>加载中...</span>
-                </div>
-              )}
-              <iframe
-                title="网易云音乐播放器"
-                frameBorder="no"
-                allow="autoplay"
-                src={`https://music.163.com/outchain/player?type=0&id=${PLAYLIST_ID}&auto=0&height=430`}
-                style={{
-                  width: '100%',
-                  height: '430px',
-                  display: loaded ? 'block' : 'none',
-                  borderRadius: '0 0 16px 16px',
-                }}
-                onLoad={() => setLoaded(true)}
-              />
-            </div>
+            )}
+            <iframe
+              title="网易云音乐播放器"
+              frameBorder="no"
+              allow="autoplay"
+              src={`https://music.163.com/outchain/player?type=0&id=${PLAYLIST_ID}&auto=0&height=430`}
+              style={{
+                width: '100%',
+                height: '430px',
+                // 修复：用 visibility 替代 display:none，避免 Chromium 不触发 onLoad
+                display: 'block',
+                visibility: loaded ? 'visible' : 'hidden',
+                position: loaded ? 'static' : 'absolute',
+                borderRadius: '0 0 16px 16px',
+              }}
+              onLoad={() => {
+                setLoaded(true)
+                if (loadTimerRef.current) {
+                  clearTimeout(loadTimerRef.current)
+                  loadTimerRef.current = null
+                }
+              }}
+            />
           </div>
         </div>
-      )}
+      </div>
     </>
   )
 }
