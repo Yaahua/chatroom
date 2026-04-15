@@ -355,7 +355,7 @@ export default function App() {
         position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: isDark
-          ? 'linear-gradient(160deg,#2A1F16 0%,#3A2518 50%,#4A3020 100%)'
+          ? 'linear-gradient(160deg,#3D2B1F 0%,#4A3020 50%,#5A3C28 100%)'
           : 'linear-gradient(160deg,#F3EDE2 0%,#E8DCC8 40%,#D9C9A8 100%)',
         padding: '24px 20px',
         overflowY: 'auto' as const,
@@ -363,7 +363,7 @@ export default function App() {
       card: {
         position: 'relative' as const,
         width: '100%', maxWidth: 360,
-        background: isDark ? '#3A2518' : '#FBF7F0',
+        background: isDark ? '#5A3C28' : '#FBF7F0',
         borderRadius: 28,
         padding: '32px 28px 28px',
         boxShadow: isDark ? '0 8px 40px rgba(0,0,0,0.55)' : '0 8px 40px rgba(94,80,63,0.22)',
@@ -373,7 +373,7 @@ export default function App() {
       themeBtn: {
         position: 'absolute' as const, top: 14, right: 14,
         width: 34, height: 34, borderRadius: '50%',
-        background: isDark ? '#452C1C' : '#EDE4D2',
+        background: isDark ? '#6A4A32' : '#EDE4D2',
         border: isDark ? '1px solid rgba(200,180,138,0.22)' : '1px solid rgba(94,80,63,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 16, cursor: 'pointer',
@@ -393,7 +393,7 @@ export default function App() {
       input: {
         width: '100%', padding: '12px 16px',
         fontSize: 15, textAlign: 'center' as const,
-        background: isDark ? '#452C1C' : '#EDE4D2',
+        background: isDark ? '#6A4A32' : '#EDE4D2',
         border: isDark ? '1.5px solid rgba(200,180,138,0.22)' : '1.5px solid rgba(94,80,63,0.2)',
         borderRadius: 14, outline: 'none',
         color: isDark ? '#F3EDE2' : '#231D17',
@@ -409,7 +409,7 @@ export default function App() {
       },
       btnSecondary: {
         flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
-        background: isDark ? '#452C1C' : '#EDE4D2',
+        background: isDark ? '#6A4A32' : '#EDE4D2',
         color: isDark ? '#F3EDE2' : '#231D17',
         border: isDark ? '1px solid rgba(200,180,138,0.22)' : '1px solid rgba(94,80,63,0.2)',
         borderRadius: 14, cursor: 'pointer',

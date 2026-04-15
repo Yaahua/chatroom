@@ -42,10 +42,10 @@
 
 /* 深色模式：暖棕色，不用纯黑 */
 .dark {
-  --bg-primary:     #2A1F16;
-  --bg-secondary:   #321A0F;
-  --bg-card:        #3A2518;
-  --bg-input:       #452C1C;
+  --bg-primary:     #3D2B1F;
+  --bg-secondary:   #4A3020;
+  --bg-card:        #5A3C28;
+  --bg-input:       #6A4A32;
   --border:         rgba(200,180,138,0.22);
   --text-primary:   #F3EDE2;
   --text-secondary: #C8B48A;
