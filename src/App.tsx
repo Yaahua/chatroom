@@ -68,23 +68,22 @@ function OnlineUsersModal({ users, self, onClose }: {
 }) {
   const all = [{ id: self.id, name: self.name, color: self.color }, ...users]
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="modal-anim relative w-full max-w-xs mx-4 mb-4 sm:mb-0 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between">
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>在线成员 · {all.length} 人</span>
-            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-lg" style={{ color: 'var(--text-muted)' }}>×</button>
-          </div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-anim" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>在线成员 · {all.length} 人</span>
+          <button onClick={onClose} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'none', border: 'none', fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
         </div>
-        <div className="p-3 max-h-64 overflow-y-auto flex flex-col gap-1">
+        <div className="modal-body">
           {all.map(u => (
-            <div key={u.id} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: 'var(--bg-input)' }}>
+            <div key={u.id} className="modal-user-row">
               <div className="avatar" style={{ background: u.color, width: 32, height: 32, fontSize: 13 }}>
                 {u.name.slice(0, 1).toUpperCase()}
               </div>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{u.name}</span>
-              {u.id === self.id && <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--hz-200)', color: 'var(--hz-800)' }}>我</span>}
+              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', flex: 1 }}>{u.name}</span>
+              {u.id === self.id && (
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'var(--hz-200)', color: 'var(--hz-800)' }}>我</span>
+              )}
             </div>
           ))}
         </div>
@@ -101,22 +100,20 @@ function LogPanel({ logs, onClear, onClose }: {
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   useEffect(() => { bottomRef.current?.scrollIntoView() }, [logs])
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="modal-anim relative w-full max-h-[70vh] flex flex-col rounded-t-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
-          <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>调试日志 · {logs.length} 条</span>
-          <div className="flex gap-2">
-            <button onClick={onClear} className="text-xs px-3 py-1 rounded-lg" style={{ background: 'var(--hz-500)', color: 'white' }}>清空</button>
-            <button onClick={onClose} className="text-xs px-3 py-1 rounded-lg" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>关闭</button>
+    <div className="log-modal-overlay" onClick={onClose}>
+      <div className="log-modal modal-anim" onClick={e => e.stopPropagation()}>
+        <div className="log-modal-header">
+          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>调试日志 · {logs.length} 条</span>
+          <div className="log-modal-btns">
+            <button onClick={onClear} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 8, background: 'var(--hz-500)', color: 'white', border: 'none', cursor: 'pointer' }}>清空</button>
+            <button onClick={onClose} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 8, background: 'var(--bg-input)', color: 'var(--text-muted)', border: 'none', cursor: 'pointer' }}>关闭</button>
           </div>
         </div>
-        <div className="log-panel flex-1 overflow-y-auto p-4 flex flex-col gap-1">
-          {logs.length === 0 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>暂无日志</span>}
+        <div className="log-modal-body log-panel">
+          {logs.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无日志</span>}
           {logs.map(l => (
-            <div key={l.id} className={`log-${l.level} flex gap-2`}>
+            <div key={l.id} className="log-row">
               <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(l.ts).toLocaleTimeString()}</span>
               <span className={`log-${l.level}`}>[{l.level.toUpperCase()}]</span>
               <span style={{ color: 'var(--text-secondary)', wordBreak: 'break-all' }}>{l.msg}</span>
@@ -150,21 +147,22 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
   }, [url, playing])
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 min-w-[140px] cursor-pointer select-none ${isSelf ? 'bubble-self' : 'bubble-other'}`} onClick={toggle}>
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isSelf ? 'rgba(255,255,255,0.25)' : 'var(--hz-200)' }}>
-        <span className="text-base">{playing ? '⏸' : '▶️'}</span>
+    <div className={`voice-bubble ${isSelf ? 'bubble-self' : 'bubble-other'}`} onClick={toggle}>
+      <div className="voice-play-btn" style={{ background: isSelf ? 'rgba(255,255,255,0.25)' : 'var(--hz-200)' }}>
+        <span style={{ fontSize: 14 }}>{playing ? '⏸' : '▶️'}</span>
       </div>
-      <div className="flex flex-col gap-0.5">
-        <div className="flex gap-0.5 items-end h-5">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div className="voice-waves">
           {[3,5,4,6,3,5,4,3,5,6,4,3].map((h, i) => (
-            <div key={i} className="w-0.5 rounded-full transition-all" style={{
+            <div key={i} style={{
+              width: 2, borderRadius: 2,
               height: playing ? `${h * 3}px` : `${h * 2}px`,
               background: isSelf ? 'rgba(255,255,255,0.7)' : 'var(--hz-500)',
               animation: playing ? `typingBounce ${0.8 + i * 0.07}s infinite` : 'none'
             }} />
           ))}
         </div>
-        <span className="text-xs opacity-70">{duration ? fmtDuration(duration) : '语音'}</span>
+        <span style={{ fontSize: 11, opacity: 0.7 }}>{duration ? fmtDuration(duration) : '语音'}</span>
       </div>
     </div>
   )
@@ -209,19 +207,16 @@ export default function App() {
   const { playSend, playReceive } = useSound(muted)
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
-  // 深色模式
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
     localStorage.setItem('chat_theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
-  // body 页面类型 class（控制 overflow）
   useEffect(() => {
     document.body.classList.toggle('page-chat', inRoom)
     document.body.classList.toggle('page-login', !inRoom)
   }, [inRoom])
 
-  // 窗口焦点
   useEffect(() => {
     const onFocus = () => { setFocused(true); setUnread(0); document.title = '哈吉米德的聊天室' }
     const onBlur = () => setFocused(false)
@@ -230,7 +225,6 @@ export default function App() {
     return () => { window.removeEventListener('focus', onFocus); window.removeEventListener('blur', onBlur) }
   }, [])
 
-  // 新消息处理
   useEffect(() => {
     if (messages.length === 0) return
     const last = messages[messages.length - 1]
@@ -310,7 +304,6 @@ export default function App() {
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value)
-    // 自动扩张，无滚动条
     e.target.style.height = 'auto'
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
     sendTyping()
@@ -334,9 +327,7 @@ export default function App() {
   const handleVoiceBtn = useCallback(async () => {
     if (recording) {
       const result = await stopRec()
-      if (result && result.blob.size > 0) {
-        sendVoice(result.blob, result.duration)
-      }
+      if (result && result.blob.size > 0) sendVoice(result.blob, result.duration)
     } else {
       await startRec()
     }
@@ -353,71 +344,62 @@ export default function App() {
     setMuted(m => { localStorage.setItem('chat_muted', m ? '0' : '1'); return !m })
   }, [])
 
-  const statusDot = {
-    disconnected: 'status-disc',
-    connecting: 'status-conn',
-    ok: 'status-ok',
-    err: 'status-err'
-  }[status]
-
-  const statusText = {
-    disconnected: '未连接',
-    connecting: '连接中',
-    ok: '已连接',
-    err: '连接失败'
-  }[status]
+  const statusDotClass = { disconnected: 'status-disc', connecting: 'status-conn', ok: 'status-ok', err: 'status-err' }[status]
+  const statusText = { disconnected: '未连接', connecting: '连接中', ok: '已连接', err: '连接失败' }[status]
 
   // ===== 登录页 =====
   if (!inRoom) {
+    const isDark = darkMode
     const S = {
       root: {
-        position: 'fixed' as const, inset: 0,
+        position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: darkMode
-          ? 'linear-gradient(160deg,#1C1510 0%,#251C14 50%,#3D3228 100%)'
+        background: isDark
+          ? 'linear-gradient(160deg,#2A1F16 0%,#3A2518 50%,#4A3020 100%)'
           : 'linear-gradient(160deg,#F3EDE2 0%,#E8DCC8 40%,#D9C9A8 100%)',
-        padding: '24px 20px', overflowY: 'auto' as const,
+        padding: '24px 20px',
+        overflowY: 'auto' as const,
       },
       card: {
         position: 'relative' as const,
-        width: '100%', maxWidth: 340,
-        background: darkMode ? '#2C2118' : '#FBF7F0',
-        borderRadius: 24,
-        padding: '28px 24px 24px',
-        boxShadow: darkMode
-          ? '0 8px 40px rgba(0,0,0,0.55)'
-          : '0 8px 40px rgba(94,80,63,0.22)',
-        border: darkMode ? '1px solid rgba(174,159,128,0.18)' : '1px solid rgba(174,159,128,0.4)',
+        width: '100%', maxWidth: 360,
+        background: isDark ? '#3A2518' : '#FBF7F0',
+        borderRadius: 28,
+        padding: '32px 28px 28px',
+        boxShadow: isDark ? '0 8px 40px rgba(0,0,0,0.55)' : '0 8px 40px rgba(94,80,63,0.22)',
+        border: isDark ? '1px solid rgba(200,180,138,0.18)' : '1px solid rgba(174,159,128,0.4)',
+        flexShrink: 0,
       },
       themeBtn: {
         position: 'absolute' as const, top: 14, right: 14,
         width: 34, height: 34, borderRadius: '50%',
-        background: darkMode ? '#352719' : '#EDE4D2',
-        border: darkMode ? '1px solid rgba(174,159,128,0.22)' : '1px solid rgba(94,80,63,0.2)',
+        background: isDark ? '#452C1C' : '#EDE4D2',
+        border: isDark ? '1px solid rgba(200,180,138,0.22)' : '1px solid rgba(94,80,63,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 16, cursor: 'pointer',
       },
       center: { textAlign: 'center' as const, marginBottom: 20 },
       title: {
         fontSize: 22, fontWeight: 700, margin: '8px 0 6px',
-        color: darkMode ? '#F3EDE2' : '#231D17',
-        fontFamily: 'Noto Serif SC, SimSun, 宋体, serif',
+        color: isDark ? '#F3EDE2' : '#231D17',
+        fontFamily: 'Noto Serif SC, SimSun, serif',
         display: 'inline-block',
       },
       subtitle: {
         fontSize: 15, margin: 0,
-        color: darkMode ? '#C8B48A' : '#9A8A6A',
-        fontFamily: 'ZCOOL XiaoWei, KaiTi, 楷体, serif',
+        color: isDark ? '#C8B48A' : '#9A8A6A',
+        fontFamily: 'ZCOOL XiaoWei, KaiTi, serif',
       },
       input: {
         width: '100%', padding: '12px 16px',
         fontSize: 15, textAlign: 'center' as const,
-        background: darkMode ? '#352719' : '#EDE4D2',
-        border: darkMode ? '1.5px solid rgba(174,159,128,0.22)' : '1.5px solid rgba(94,80,63,0.2)',
+        background: isDark ? '#452C1C' : '#EDE4D2',
+        border: isDark ? '1.5px solid rgba(200,180,138,0.22)' : '1.5px solid rgba(94,80,63,0.2)',
         borderRadius: 14, outline: 'none',
-        color: darkMode ? '#F3EDE2' : '#231D17',
+        color: isDark ? '#F3EDE2' : '#231D17',
         fontFamily: 'inherit', boxSizing: 'border-box' as const,
         marginBottom: 12,
+        display: 'block',
       },
       btnRow: { display: 'flex', gap: 8, marginBottom: 12 },
       btnPrimary: {
@@ -427,29 +409,29 @@ export default function App() {
       },
       btnSecondary: {
         flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
-        background: darkMode ? '#352719' : '#EDE4D2',
-        color: darkMode ? '#F3EDE2' : '#231D17',
-        border: darkMode ? '1px solid rgba(174,159,128,0.22)' : '1px solid rgba(94,80,63,0.2)',
+        background: isDark ? '#452C1C' : '#EDE4D2',
+        color: isDark ? '#F3EDE2' : '#231D17',
+        border: isDark ? '1px solid rgba(200,180,138,0.22)' : '1px solid rgba(94,80,63,0.2)',
         borderRadius: 14, cursor: 'pointer',
       },
       btnFull: {
         width: '100%', padding: '12px 0', fontSize: 14, fontWeight: 600,
         background: '#AE9F80', color: '#fff',
         border: 'none', borderRadius: 14, cursor: 'pointer', marginTop: 8,
+        display: 'block',
       },
       recentBtn: {
         width: '100%', padding: '8px 0', fontSize: 12,
         background: 'none', border: 'none', cursor: 'pointer',
-        color: darkMode ? '#9A8A6A' : '#9A8A6A', marginTop: 4,
+        color: '#9A8A6A', marginTop: 4, display: 'block',
       },
     }
     return (
       <div style={S.root}>
         <div style={S.card}>
           <button style={S.themeBtn} onClick={() => setDarkMode(d => !d)}>
-            {darkMode ? '☀️' : '🌙'}
+            {isDark ? '☀️' : '🌙'}
           </button>
-
           <div style={S.center}>
             <div className="login-gif" style={{ display: 'flex', justifyContent: 'center' }}>
               <img src="/chatroom/avatar.gif" alt="avatar" style={{ width: 72, height: 72, objectFit: 'contain' }} />
@@ -457,7 +439,6 @@ export default function App() {
             <h1 className="login-title" style={S.title}>哈吉米德的聊天室</h1>
             <p className="login-subtitle" style={S.subtitle}>人生无处不青山</p>
           </div>
-
           <div className="login-input-1">
             <input
               style={S.input}
@@ -468,12 +449,10 @@ export default function App() {
               onKeyDown={e => e.key === 'Enter' && handleCreateRoom()}
             />
           </div>
-
           <div className="login-btn-row" style={S.btnRow}>
             <button style={S.btnPrimary} onClick={handleCreateRoom}>新建房间</button>
             <button style={S.btnSecondary} onClick={() => setShowJoin(j => !j)}>加入房间</button>
           </div>
-
           {showJoin && (
             <div className="login-join-row">
               <input
@@ -487,7 +466,6 @@ export default function App() {
               <button style={S.btnFull} onClick={handleJoinRoom}>进入房间</button>
             </div>
           )}
-
           {savedRoom && (
             <button style={S.recentBtn} onClick={() => { setRoomInput(savedRoom); setShowJoin(true) }}>
               最近房间：{savedRoom}
@@ -502,244 +480,249 @@ export default function App() {
   return (
     <div className="chat-root">
 
-      {/* 全局悬浮层（不受 chat-inner 居中限制）*/}
+      {/* Toast */}
       {toast && (
-        <div className="toast-anim fixed top-16 left-1/2 z-50 px-4 py-2 rounded-full text-sm shadow-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', transform: 'translateX(-50%)' }}>
-          {toast}
-        </div>
+        <div className="toast-wrap toast-anim">{toast}</div>
       )}
+
       <MusicPlayer />
+
+      {/* 图片预览 */}
       {imgViewer && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={() => setImgViewer(null)}>
-          <img src={imgViewer} className="max-w-[95vw] max-h-[95vh] rounded-xl object-contain" alt="预览" />
-          <button className="absolute top-4 right-4 text-white text-3xl opacity-70 hover:opacity-100">×</button>
+        <div className="img-viewer" onClick={() => setImgViewer(null)}>
+          <img src={imgViewer} alt="预览" />
+          <button className="img-viewer-close">×</button>
         </div>
       )}
+
+      {/* 在线用户弹窗 */}
       {showOnlineModal && (
         <OnlineUsersModal users={onlineUsers} self={user} onClose={() => setShowOnlineModal(false)} />
       )}
+
+      {/* 日志面板 */}
       {showLogPanel && (
         <LogPanel logs={logs} onClear={clearLogs} onClose={() => setShowLogPanel(false)} />
       )}
 
-      {/* 聊天区域（平板/PC 居中限宽）*/}
+      {/* 聊天区域 */}
       <div className="chat-inner">
 
-      {/* 顶栏 */}
-      <header className="chat-header">
-        {/* 左：房间码 + 状态 */}
-        <button onClick={copyRoomCode} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} />
-          {roomCode}
-          {unread > 0 && <span className="ml-1 text-white text-[10px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--hz-600)' }}>{unread}</span>}
-        </button>
+        {/* 顶栏 */}
+        <header className="chat-header">
+          {/* 左：房间码 */}
+          <button className="header-room-btn" onClick={copyRoomCode}>
+            <span className={`status-dot ${statusDotClass}`} />
+            {roomCode}
+            {unread > 0 && <span className="unread-badge">{unread}</span>}
+          </button>
 
-        {/* 中：在线用户头像组（点击弹窗） */}
-        <button onClick={() => setShowOnlineModal(true)} className="flex items-center gap-1 px-2 flex-1 justify-center" title="查看在线成员">
-          <div className="flex -space-x-1.5">
-            {[user, ...onlineUsers].slice(0, 5).map(u => (
-              <div key={u.id} className="avatar" style={{ background: u.color, border: '2px solid var(--bg-primary)' }}>
-                {u.name.slice(0, 1).toUpperCase()}
-              </div>
-            ))}
+          {/* 中：在线用户 */}
+          <button className="header-users-btn" onClick={() => setShowOnlineModal(true)} title="查看在线成员">
+            <div className="header-avatars">
+              {[user, ...onlineUsers].slice(0, 5).map(u => (
+                <div key={u.id} className="avatar" style={{ background: u.color, border: '2px solid var(--bg-primary)' }}>
+                  {u.name.slice(0, 1).toUpperCase()}
+                </div>
+              ))}
+            </div>
+            <span style={{ fontSize: 12, marginLeft: 4, color: 'var(--text-muted)' }}>
+              {1 + onlineUsers.length}人
+            </span>
+          </button>
+
+          {/* 右：工具按钮 */}
+          <div className="header-tools">
+            <button className="icon-btn" onClick={toggleMute} title={muted ? '开启音效' : '静音'}>
+              {muted ? '🔇' : '🔔'}
+            </button>
+            <button className="icon-btn" onClick={() => setDarkMode(d => !d)}>
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button className="icon-btn" onClick={manualReconnect} title="手动重连" style={{ fontSize: 14, fontWeight: 700 }}>
+              ↻
+            </button>
+            <button className="icon-btn" onClick={() => setShowLogPanel(true)} title="调试日志">
+              🔍
+            </button>
+            <button className="exit-btn" onClick={handleExit}>退出</button>
           </div>
-          <span className="text-xs ml-1" style={{ color: 'var(--text-muted)' }}>
-            {1 + onlineUsers.length}人
-          </span>
-        </button>
+        </header>
 
-        {/* 右：工具按钮 */}
-        <div className="flex items-center gap-1">
-          <button onClick={toggleMute} className="w-8 h-8 flex items-center justify-center rounded-full text-base transition-colors" style={{ background: 'var(--bg-input)' }} title={muted ? '开启音效' : '静音'}>
-            {muted ? '🔇' : '🔔'}
-          </button>
-          <button onClick={() => setDarkMode(d => !d)} className="w-8 h-8 flex items-center justify-center rounded-full text-base transition-colors" style={{ background: 'var(--bg-input)' }}>
-            {darkMode ? '☀️' : '🌙'}
-          </button>
-          <button onClick={manualReconnect} className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold transition-colors" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }} title="手动重连">
-            ↻
-          </button>
-          <button onClick={() => setShowLogPanel(true)} className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold transition-colors" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }} title="调试日志">
-            🔍
-          </button>
-          <button onClick={handleExit} className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-colors" style={{ background: '#c07070' }}>
-            退出
-          </button>
-        </div>
-      </header>
-
-      {/* 消息列表 */}
-      <div ref={msgListRef} className="msg-list">
-        {messages.map(msg => {
-          if (msg.type === 'sys') {
+        {/* 消息列表 */}
+        <div ref={msgListRef} className="msg-list">
+          {messages.map(msg => {
+            if (msg.type === 'sys') {
+              return (
+                <div key={msg.id} className="msg-anim msg-sys">{msg.text}</div>
+              )
+            }
             return (
-              <div key={msg.id} className="msg-anim self-center text-xs px-3 py-1 rounded-full max-w-[90%] text-center" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>
-                {msg.text}
+              <div key={msg.id} className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}`}>
+                {!msg.isSelf && (
+                  <div className="msg-sender-row">
+                    <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
+                      {msg.senderName.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{msg.senderName}</span>
+                  </div>
+                )}
+
+                {msg.type === 'text' && (
+                  <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}
+                    style={{ whiteSpace: 'pre-wrap' }}>
+                    {msg.text}
+                  </div>
+                )}
+
+                {msg.type === 'image' && msg.fileUrl && (
+                  <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ padding: 0, overflow: 'hidden' }}>
+                    <img
+                      src={msg.fileUrl}
+                      alt={msg.fileName}
+                      style={{ maxWidth: 220, maxHeight: 300, objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                      onClick={() => setImgViewer(msg.fileUrl!)}
+                    />
+                  </div>
+                )}
+
+                {msg.type === 'file' && (
+                  <div className={`file-bubble ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
+                    <span style={{ fontSize: 24, flexShrink: 0 }}>📄</span>
+                    <div className="file-info">
+                      <div className="file-name">{msg.fileName}</div>
+                      <div className="file-size">{msg.fileSize ? fmtSize(msg.fileSize) : ''}</div>
+                    </div>
+                    {msg.fileUrl && (
+                      <a href={msg.fileUrl} download={msg.fileName}
+                        style={{ fontSize: 12, textDecoration: 'underline', opacity: 0.7, flexShrink: 0 }}
+                        onClick={e => e.stopPropagation()}>下载</a>
+                    )}
+                  </div>
+                )}
+
+                {msg.type === 'voice' && msg.fileUrl && (
+                  <VoiceBubble url={msg.fileUrl} duration={msg.duration} isSelf={msg.isSelf} />
+                )}
+
+                <span className="msg-time">
+                  {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
             )
-          }
+          })}
 
-          return (
-            <div key={msg.id} className={`msg-anim flex flex-col max-w-[78%] ${msg.isSelf ? 'self-end items-end' : 'self-start items-start'}`}>
-              {!msg.isSelf && (
-                <div className="flex items-center gap-1.5 mb-1">
-                  <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
-                    {msg.senderName.slice(0, 1).toUpperCase()}
-                  </div>
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{msg.senderName}</span>
-                </div>
-              )}
-
-              {msg.type === 'text' && (
-                <div className={`px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words select-text ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
-                  {msg.text}
-                </div>
-              )}
-
-              {msg.type === 'image' && msg.fileUrl && (
-                <div className={`overflow-hidden ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ padding: 0 }}>
-                  <img
-                    src={msg.fileUrl}
-                    alt={msg.fileName}
-                    className="max-w-[220px] max-h-[300px] object-cover cursor-pointer block"
-                    onClick={() => setImgViewer(msg.fileUrl!)}
-                  />
-                </div>
-              )}
-
-              {msg.type === 'file' && (
-                <div className={`flex items-center gap-3 px-4 py-3 min-w-[180px] ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
-                  <span className="text-2xl flex-shrink-0">📄</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{msg.fileName}</div>
-                    <div className="text-xs opacity-60">{msg.fileSize ? fmtSize(msg.fileSize) : ''}</div>
-                  </div>
-                  {msg.fileUrl && (
-                    <a href={msg.fileUrl} download={msg.fileName} className="text-xs underline opacity-70 flex-shrink-0" onClick={e => e.stopPropagation()}>下载</a>
-                  )}
-                </div>
-              )}
-
-              {msg.type === 'voice' && msg.fileUrl && (
-                <VoiceBubble url={msg.fileUrl} duration={msg.duration} isSelf={msg.isSelf} />
-              )}
-
-              <span className="text-[10px] mt-1 px-1" style={{ color: 'var(--text-muted)' }}>
-                {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {/* 正在输入 */}
+          {typingUsers.length > 0 && (
+            <div className="msg-anim typing-row bubble-other">
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{typingUsers.join('、')} 正在输入</span>
+              <span className="typing-dots">
+                <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
               </span>
             </div>
-          )
-        })}
-
-        {/* 正在输入 */}
-        {typingUsers.length > 0 && (
-          <div className="msg-anim self-start flex items-center gap-2 px-3.5 py-2.5 bubble-other">
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{typingUsers.join('、')} 正在输入</span>
-            <span className="flex gap-1">
-              <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* 表情面板 */}
-      {showEmoji && (
-        <div className="flex-shrink-0 px-3 py-2 flex flex-wrap gap-1" style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
-          {EMOJIS.map(e => (
-            <button key={e} onClick={() => { setInputText(t => t + e); setShowEmoji(false); inputRef.current?.focus() }}
-              className="text-xl p-1.5 rounded-xl transition-colors" style={{ background: 'transparent' }}
-              onMouseEnter={el => (el.currentTarget.style.background = 'var(--bg-input)')}
-              onMouseLeave={el => (el.currentTarget.style.background = 'transparent')}
-            >
-              {e}
-            </button>
-          ))}
+          )}
         </div>
-      )}
 
-      {/* +号菜单 */}
-      {showPlusMenu && (
-        <div className="flex-shrink-0 px-4 py-3 menu-anim" style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { icon: '🖼️', label: '图片', action: () => { imgInputRef.current?.click(); setShowPlusMenu(false) } },
-              { icon: '📁', label: '文件', action: () => { fileInputRef.current?.click(); setShowPlusMenu(false) } },
-              { icon: '🎤', label: recording ? `录音中 ${recDuration}s` : '语音', action: () => { handleVoiceBtn(); setShowPlusMenu(false) } },
-              { icon: '🔍', label: '日志', action: () => { setShowLogPanel(true); setShowPlusMenu(false) } },
-            ].map(item => (
-              <button key={item.label} onClick={item.action} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-colors" style={{ background: 'var(--bg-input)' }}>
-                <span className="text-2xl">{item.icon}</span>
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+        {/* 表情面板 */}
+        {showEmoji && (
+          <div className="emoji-panel menu-anim">
+            {EMOJIS.map(e => (
+              <button key={e} className="emoji-btn"
+                onClick={() => { setInputText(t => t + e); setShowEmoji(false); inputRef.current?.focus() }}>
+                {e}
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 底部输入栏 */}
-      <div className="input-bar">
-        {/* +号按钮 */}
-        <button
-          onClick={() => { setShowPlusMenu(s => !s); setShowEmoji(false) }}
-          className="w-10 h-10 flex items-center justify-center rounded-full text-xl font-light flex-shrink-0 transition-all"
-          style={{ background: showPlusMenu ? 'var(--hz-500)' : 'var(--bg-input)', color: showPlusMenu ? 'white' : 'var(--text-secondary)', border: '1px solid var(--border)', transform: showPlusMenu ? 'rotate(45deg)' : 'rotate(0deg)' }}
-        >
-          +
-        </button>
-
-        {/* 表情按钮 */}
-        <button
-          onClick={() => { setShowEmoji(s => !s); setShowPlusMenu(false) }}
-          className="w-10 h-10 flex items-center justify-center rounded-full text-xl flex-shrink-0 transition-colors"
-          style={{ background: 'var(--bg-input)', border: '1px solid var(--border)' }}
-        >
-          😊
-        </button>
-
-        {/* 语音录制中显示 */}
-        {recording ? (
-          <div className="flex-1 flex items-center justify-center gap-3 h-10 rounded-xl" style={{ background: 'var(--bg-input)', border: '1px solid var(--hz-500)' }}>
-            <span className="text-sm font-medium" style={{ color: 'var(--hz-600)' }}>🔴 录音中 {recDuration}s</span>
-            <span className="flex gap-1">
-              <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
-            </span>
+        {/* +号菜单 */}
+        {showPlusMenu && (
+          <div className="plus-menu menu-anim">
+            <div className="plus-menu-grid">
+              {[
+                { icon: '🖼️', label: '图片', action: () => { imgInputRef.current?.click(); setShowPlusMenu(false) } },
+                { icon: '📁', label: '文件', action: () => { fileInputRef.current?.click(); setShowPlusMenu(false) } },
+                { icon: '🎤', label: recording ? `录音中 ${recDuration}s` : '语音', action: () => { handleVoiceBtn(); setShowPlusMenu(false) } },
+                { icon: '🔍', label: '日志', action: () => { setShowLogPanel(true); setShowPlusMenu(false) } },
+              ].map(item => (
+                <button key={item.label} className="plus-menu-item" onClick={item.action}>
+                  <span className="plus-menu-icon">{item.icon}</span>
+                  <span className="plus-menu-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <textarea
-            ref={inputRef}
-            className="input-hz no-scrollbar flex-1 px-3.5 py-2.5 text-sm leading-snug resize-none overflow-hidden"
-            style={{ minHeight: '40px', maxHeight: '120px' }}
-            placeholder={status === 'ok' ? '输入消息... (Ctrl+V 粘贴图片)' : statusText}
-            disabled={status !== 'ok'}
-            value={inputText}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            rows={1}
-          />
         )}
 
-        {/* 发送 / 停止录音 */}
-        {recording ? (
-          <button onClick={handleVoiceBtn} className="btn-hz px-4 py-2.5 text-sm flex-shrink-0">
-            发送
+        {/* 底部输入栏 */}
+        <div className="input-bar">
+          {/* +号按钮 */}
+          <button
+            className="bar-icon-btn"
+            onClick={() => { setShowPlusMenu(s => !s); setShowEmoji(false) }}
+            style={{
+              background: showPlusMenu ? 'var(--hz-500)' : 'var(--bg-input)',
+              color: showPlusMenu ? 'white' : 'var(--text-secondary)',
+              transform: showPlusMenu ? 'rotate(45deg)' : 'rotate(0deg)',
+              transition: 'background 0.15s, transform 0.2s',
+            }}
+          >
+            +
           </button>
-        ) : inputText.trim() ? (
-          <button onClick={handleSend} disabled={status !== 'ok'} className="btn-hz px-4 py-2.5 text-sm flex-shrink-0 disabled:opacity-40">
-            发送
+
+          {/* 表情按钮 */}
+          <button
+            className="bar-icon-btn"
+            onClick={() => { setShowEmoji(s => !s); setShowPlusMenu(false) }}
+          >
+            😊
           </button>
-        ) : (
-          <button onClick={handleVoiceBtn} className="w-10 h-10 flex items-center justify-center rounded-full text-xl flex-shrink-0 transition-colors" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)' }}>
-            🎤
-          </button>
-        )}
+
+          {/* 输入区 */}
+          {recording ? (
+            <div className="recording-bar">
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--hz-600)' }}>🔴 录音中 {recDuration}s</span>
+              <span className="typing-dots">
+                <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+              </span>
+            </div>
+          ) : (
+            <textarea
+              ref={inputRef}
+              className="input-hz no-scrollbar"
+              style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflow: 'hidden' }}
+              placeholder={status === 'ok' ? '输入消息... (Ctrl+V 粘贴图片)' : statusText}
+              disabled={status !== 'ok'}
+              value={inputText}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              rows={1}
+            />
+          )}
+
+          {/* 发送/录音按钮 */}
+          {recording ? (
+            <button className="btn-hz" style={{ padding: '10px 16px', fontSize: 14 }} onClick={handleVoiceBtn}>
+              发送
+            </button>
+          ) : inputText.trim() ? (
+            <button className="btn-hz" style={{ padding: '10px 16px', fontSize: 14, opacity: status !== 'ok' ? 0.4 : 1 }}
+              onClick={handleSend} disabled={status !== 'ok'}>
+              发送
+            </button>
+          ) : (
+            <button className="bar-icon-btn" onClick={handleVoiceBtn}>🎤</button>
+          )}
+        </div>
+
+        {/* 隐藏文件输入 — 必须用 style 而非 className="hidden" */}
+        <input ref={imgInputRef} type="file" style={{ display: 'none' }} accept="image/*"
+          onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
+        <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="*/*"
+          onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
+
       </div>
-
-      {/* 隐藏文件输入 */}
-      <input ref={imgInputRef} type="file" className="hidden" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
-      <input ref={fileInputRef} type="file" className="hidden" accept="*/*" onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
-
-      </div> {/* end chat-inner */}
     </div>
   )
 }
