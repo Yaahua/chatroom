@@ -1,0 +1,11 @@
+export const CONFIG = {
+  MQTT_URL: 'wss://u5111311.ala.cn-hangzhou.emqxsl.cn:8084/mqtt',
+  MQTT_USERNAME: 'Hajimi',
+  MQTT_PASSWORD: '258758',
+  CHUNK_SIZE: 60 * 1024,
+  MAX_FILE_SIZE: 20 * 1024 * 1024,
+  SESSION_EXPIRY: 3600,
+  RECONNECT_BASE_DELAY: 2000,
+  MAX_RECONNECT_ATTEMPTS: 10,
+  TYPING_DEBOUNCE: 2000,
+} as const

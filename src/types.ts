@@ -1,0 +1,64 @@
+export type ConnStatus = 'disconnected' | 'connecting' | 'ok' | 'err'
+
+export interface User {
+  id: string
+  name: string
+  color: string
+}
+
+export interface ChatMessage {
+  id: string
+  type: 'text' | 'image' | 'file' | 'sys'
+  senderId: string
+  senderName: string
+  senderColor: string
+  text?: string
+  fileUrl?: string
+  fileName?: string
+  fileSize?: number
+  fileMime?: string
+  ts: number
+  isSelf: boolean
+}
+
+export interface OnlineUser {
+  id: string
+  name: string
+  color: string
+  ts: number
+}
+
+// MQTT 消息协议
+export interface MqttTextMsg {
+  type: 'text'
+  senderId: string
+  senderName: string
+  senderColor: string
+  text: string
+  ts: number
+}
+
+export interface MqttTypingMsg {
+  type: 'typing'
+  senderId: string
+  senderName: string
+}
+
+export interface MqttPresenceMsg {
+  type: 'join' | 'leave' | 'heartbeat'
+  senderId: string
+  senderName: string
+  senderColor: string
+}
+
+export interface MqttFileMsg {
+  type: 'file'
+  senderId: string
+  senderName: string
+  senderColor: string
+  id: string
+  name: string
+  size: number
+  mime: string
+  chunks: string[]
+}
