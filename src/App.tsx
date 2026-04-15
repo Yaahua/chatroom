@@ -215,6 +215,12 @@ export default function App() {
     localStorage.setItem('chat_theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
+  // body 页面类型 class（控制 overflow）
+  useEffect(() => {
+    document.body.classList.toggle('page-chat', inRoom)
+    document.body.classList.toggle('page-login', !inRoom)
+  }, [inRoom])
+
   // 窗口焦点
   useEffect(() => {
     const onFocus = () => { setFocused(true); setUnread(0); document.title = '哈吉米德的聊天室' }
@@ -365,7 +371,7 @@ export default function App() {
   if (!inRoom) {
     return (
       <div className="login-root">
-        <div className="login-card w-full max-w-sm mx-4 glass-card rounded-3xl p-8">
+        <div className="login-card">
           <div className="flex justify-end mb-2">
             <button onClick={() => setDarkMode(d => !d)} className="w-9 h-9 flex items-center justify-center rounded-full text-xl transition-colors" style={{ background: 'var(--bg-input)' }}>
               {darkMode ? '☀️' : '🌙'}
@@ -460,7 +466,7 @@ export default function App() {
       <div className="chat-inner">
 
       {/* 顶栏 */}
-      <header className="glass-card flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderRadius: 0 }}>
+      <header className="chat-header">
         {/* 左：房间码 + 状态 */}
         <button onClick={copyRoomCode} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} />
@@ -503,7 +509,7 @@ export default function App() {
       </header>
 
       {/* 消息列表 */}
-      <div ref={msgListRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+      <div ref={msgListRef} className="msg-list">
         {messages.map(msg => {
           if (msg.type === 'sys') {
             return (
@@ -611,7 +617,7 @@ export default function App() {
       )}
 
       {/* 底部输入栏 */}
-      <div className="flex-shrink-0 flex items-end gap-2 px-3 py-3 glass-card rounded-none" style={{ borderTop: '1px solid var(--border)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none' }}>
+      <div className="input-bar">
         {/* +号按钮 */}
         <button
           onClick={() => { setShowPlusMenu(s => !s); setShowEmoji(false) }}

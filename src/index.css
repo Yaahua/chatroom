@@ -4,6 +4,8 @@
 *, *::before, *::after {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* ===== CSS 变量 ===== */
@@ -20,21 +22,21 @@
   --hz-900: #3D3228;
   --hz-950: #231D17;
 
-  --bg-primary:     #FAF7F2;
-  --bg-secondary:   #F3EDE2;
-  --bg-card:        #FFFCF6;
-  --bg-input:       #F0E9D8;
-  --border:         rgba(94,80,63,0.18);
+  --bg-primary:     #F5EFE3;
+  --bg-secondary:   #EDE4D2;
+  --bg-card:        #FBF7F0;
+  --bg-input:       #EDE4D2;
+  --border:         rgba(94,80,63,0.2);
   --border-focus:   #AE9F80;
   --text-primary:   #231D17;
   --text-secondary: #7D6E52;
   --text-muted:     #9A8A6A;
-  --bubble-self:    #AE9F80;
-  --bubble-other:   #FFFCF6;
-  --shadow:         0 4px 24px rgba(94,80,63,0.14);
-  --shadow-sm:      0 2px 8px rgba(94,80,63,0.09);
-
-  /* iOS 安全区域 */
+  --bubble-self-bg: #AE9F80;
+  --bubble-self-text: #fff;
+  --bubble-other-bg: #FBF7F0;
+  --bubble-other-text: #231D17;
+  --shadow:         0 4px 24px rgba(94,80,63,0.16);
+  --shadow-sm:      0 2px 8px rgba(94,80,63,0.10);
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left:   env(safe-area-inset-left, 0px);
@@ -42,76 +44,92 @@
 }
 
 .dark {
-  --bg-primary:     #1A1410;
-  --bg-secondary:   #231D17;
-  --bg-card:        #2A2018;
-  --bg-input:       #332819;
-  --border:         rgba(174,159,128,0.2);
-  --border-focus:   #AE9F80;
+  --bg-primary:     #1C1510;
+  --bg-secondary:   #251C14;
+  --bg-card:        #2C2118;
+  --bg-input:       #352719;
+  --border:         rgba(174,159,128,0.22);
   --text-primary:   #F3EDE2;
   --text-secondary: #C8B48A;
   --text-muted:     #9A8A6A;
-  --bubble-self:    #7D6E52;
-  --bubble-other:   #2A2018;
-  --shadow:         0 4px 24px rgba(0,0,0,0.45);
-  --shadow-sm:      0 2px 8px rgba(0,0,0,0.32);
+  --bubble-self-bg: #7D6E52;
+  --bubble-self-text: #fff;
+  --bubble-other-bg: #2C2118;
+  --bubble-other-text: #F3EDE2;
+  --shadow:         0 4px 24px rgba(0,0,0,0.5);
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.35);
 }
 
 /* ===== HTML / Body ===== */
-html {
-  height: 100%;
-  /* 防止 iOS Safari 地址栏收起时页面跳动 */
-  height: -webkit-fill-available;
-  overflow: hidden;
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100%;
+  font-family: 'Noto Serif SC', 'SimSun', '宋体', serif;
+  overscroll-behavior: none;
 }
 
-body {
-  margin: 0;
-  height: 100%;
-  height: -webkit-fill-available;
-  font-family: 'Noto Serif SC', 'SimSun', '宋体', serif;
+/* 登录页：body 允许滚动 */
+body.page-login {
   background: var(--bg-primary);
-  color: var(--text-primary);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 聊天页：body 禁止滚动，由内部容器管理 */
+body.page-chat {
+  background: var(--bg-primary);
   overflow: hidden;
-  overscroll-behavior: none;
-  /* 防止安卓字体缩放 */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
 #root {
+  width: 100%;
   height: 100%;
-  height: -webkit-fill-available;
-  display: flex;
-  flex-direction: column;
 }
 
-/* ===== 登录页容器 ===== */
+/* ===== 登录页 ===== */
+/* 用 position:absolute + inset:0 代替 min-height，安卓最兼容 */
 .login-root {
-  min-height: 100%;
-  min-height: -webkit-fill-available;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 16px;
-  padding-top: calc(20px + var(--safe-top));
-  padding-bottom: calc(20px + var(--safe-bottom));
-  background: var(--bg-primary);
-  /* 允许登录页滚动（小屏手机键盘弹起时） */
+  background: linear-gradient(160deg, var(--hz-100) 0%, var(--hz-200) 40%, var(--hz-300) 100%);
+  padding: 24px 20px;
+  padding-top: calc(24px + var(--safe-top));
+  padding-bottom: calc(24px + var(--safe-bottom));
   overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
-/* ===== 聊天页容器（关键：固定布局，键盘弹起不下沉）===== */
+.dark .login-root {
+  background: linear-gradient(160deg, var(--hz-950) 0%, var(--hz-900) 50%, var(--hz-800) 100%);
+}
+
+/* 登录卡片：纯色背景，不依赖 backdrop-filter */
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-card);
+  border-radius: 28px;
+  padding: 32px 28px 28px;
+  box-shadow: 0 8px 40px rgba(94,80,63,0.22), 0 2px 8px rgba(94,80,63,0.10);
+  border: 1px solid rgba(174,159,128,0.35);
+  animation: cardFadeUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  position: relative;
+}
+
+.dark .login-card {
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35);
+  border-color: rgba(174,159,128,0.18);
+}
+
+/* ===== 聊天页 ===== */
 .chat-root {
   position: fixed;
-  inset: 0;
-  /* 使用 dvh（动态视口高度），键盘弹起时自动缩小 */
-  height: 100dvh;
+  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
-  /* iOS 安全区域 */
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
   padding-left: var(--safe-left);
@@ -119,71 +137,91 @@ body {
   overflow: hidden;
 }
 
-/* ===== PC / 平板：聊天区域居中限宽 ===== */
-@media (min-width: 768px) {
+/* 支持 dvh 的浏览器使用动态视口高度（键盘弹起时自动缩小） */
+@supports (height: 100dvh) {
   .chat-root {
-    /* 平板以上：整体居中，最大宽度 720px */
-    align-items: center;
-  }
-  .chat-inner {
-    width: 100%;
-    max-width: 720px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+    height: 100dvh;
+    bottom: auto;
   }
 }
 
-/* 移动端 chat-inner 占满 */
-@media (max-width: 767px) {
-  .chat-inner {
-    width: 100%;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+.chat-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .chat-root { align-items: center; }
+  .chat-inner { max-width: 720px; }
+}
+
+/* ===== 顶栏 ===== */
+.chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== 消息列表 ===== */
+.msg-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== 底部输入区 ===== */
+.input-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + var(--safe-bottom));
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
 }
 
 /* ===== 滚动条 ===== */
 ::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: var(--hz-300); border-radius: 99px; }
 
 /* ===== 字体 ===== */
 .font-kai {
   font-family: 'ZCOOL XiaoWei', 'KaiTi', '楷体', 'STKaiti', serif;
 }
 
-/* ===== 玻璃拟态卡片（安卓兼容：不用 backdrop-filter，改用纯色背景）===== */
+/* ===== 卡片（聊天页用）===== */
 .glass-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
 
-/* 支持 backdrop-filter 的设备额外加模糊 */
-@supports (backdrop-filter: blur(1px)) {
-  .glass-card {
-    background: rgba(255,252,246,0.92);
-    backdrop-filter: blur(20px) saturate(1.4);
-    -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  }
-  .dark .glass-card {
-    background: rgba(42,32,24,0.94);
-  }
-}
-
 /* ===== 按钮 ===== */
 .btn-hz {
   background: var(--hz-500);
   color: white;
-  border-radius: 12px;
+  border-radius: 14px;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+  transition: background 0.18s, transform 0.12s;
+  -webkit-appearance: none;
 }
 .btn-hz:hover  { background: var(--hz-600); }
 .btn-hz:active { transform: scale(0.97); }
@@ -194,30 +232,39 @@ body {
   background: var(--bg-input);
   border: 1.5px solid var(--border);
   color: var(--text-primary);
-  border-radius: 12px;
+  border-radius: 14px;
   outline: none;
   transition: border-color 0.18s, box-shadow 0.18s;
   -webkit-appearance: none;
   appearance: none;
+  font-family: inherit;
 }
 .input-hz:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(174,159,128,0.22);
+  box-shadow: 0 0 0 3px rgba(174,159,128,0.20);
 }
 .input-hz::placeholder { color: var(--text-muted); }
 
 /* ===== 消息气泡 ===== */
 .bubble-self {
-  background: var(--bubble-self);
-  color: white;
+  background: var(--bubble-self-bg);
+  color: var(--bubble-self-text);
   border-radius: 18px 18px 4px 18px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
 }
 .bubble-other {
-  background: var(--bubble-other);
-  color: var(--text-primary);
+  background: var(--bubble-other-bg);
+  color: var(--bubble-other-text);
   border: 1px solid var(--border);
   border-radius: 18px 18px 18px 4px;
   box-shadow: var(--shadow-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
 }
 
 /* ===== 状态点 ===== */
@@ -240,7 +287,7 @@ body {
 }
 .avatar:hover { transform: scale(1.1); }
 
-/* ===== 无滚动条 textarea ===== */
+/* ===== textarea 无滚动条 ===== */
 textarea.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 textarea.no-scrollbar::-webkit-scrollbar { display: none; }
 
@@ -275,10 +322,8 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
   from { opacity: 0; transform: scale(0.95) translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
-
-/* 登录页动画 */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+@keyframes cardFadeUp {
+  from { opacity: 0; transform: translateY(28px) scale(0.96); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes titleWiggle {
@@ -297,12 +342,15 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
   from { opacity: 0; transform: scale(0.4) rotate(-15deg); }
   to   { opacity: 1; transform: none; }
 }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
 
 .msg-anim        { animation: msgIn 0.22s cubic-bezier(0.34,1.56,0.64,1); }
 .toast-anim      { animation: toastIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
 .menu-anim       { animation: menuUp 0.2s cubic-bezier(0.34,1.56,0.64,1); }
 .modal-anim      { animation: modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1); }
-.login-card      { animation: fadeUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
 .login-gif       { animation: popIn 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.1s both; }
 .login-title     { animation: titleWiggle 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.3s both; display: inline-block; }
 .login-subtitle  { animation: slideDown 0.5s ease 0.7s both; }
