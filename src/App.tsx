@@ -369,67 +369,127 @@ export default function App() {
 
   // ===== 登录页 =====
   if (!inRoom) {
+    const S = {
+      root: {
+        position: 'fixed' as const, inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: darkMode
+          ? 'linear-gradient(160deg,#1C1510 0%,#251C14 50%,#3D3228 100%)'
+          : 'linear-gradient(160deg,#F3EDE2 0%,#E8DCC8 40%,#D9C9A8 100%)',
+        padding: '24px 20px', overflowY: 'auto' as const,
+      },
+      card: {
+        position: 'relative' as const,
+        width: '100%', maxWidth: 340,
+        background: darkMode ? '#2C2118' : '#FBF7F0',
+        borderRadius: 24,
+        padding: '28px 24px 24px',
+        boxShadow: darkMode
+          ? '0 8px 40px rgba(0,0,0,0.55)'
+          : '0 8px 40px rgba(94,80,63,0.22)',
+        border: darkMode ? '1px solid rgba(174,159,128,0.18)' : '1px solid rgba(174,159,128,0.4)',
+      },
+      themeBtn: {
+        position: 'absolute' as const, top: 14, right: 14,
+        width: 34, height: 34, borderRadius: '50%',
+        background: darkMode ? '#352719' : '#EDE4D2',
+        border: darkMode ? '1px solid rgba(174,159,128,0.22)' : '1px solid rgba(94,80,63,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 16, cursor: 'pointer',
+      },
+      center: { textAlign: 'center' as const, marginBottom: 20 },
+      title: {
+        fontSize: 22, fontWeight: 700, margin: '8px 0 6px',
+        color: darkMode ? '#F3EDE2' : '#231D17',
+        fontFamily: 'Noto Serif SC, SimSun, 宋体, serif',
+        display: 'inline-block',
+      },
+      subtitle: {
+        fontSize: 15, margin: 0,
+        color: darkMode ? '#C8B48A' : '#9A8A6A',
+        fontFamily: 'ZCOOL XiaoWei, KaiTi, 楷体, serif',
+      },
+      input: {
+        width: '100%', padding: '12px 16px',
+        fontSize: 15, textAlign: 'center' as const,
+        background: darkMode ? '#352719' : '#EDE4D2',
+        border: darkMode ? '1.5px solid rgba(174,159,128,0.22)' : '1.5px solid rgba(94,80,63,0.2)',
+        borderRadius: 14, outline: 'none',
+        color: darkMode ? '#F3EDE2' : '#231D17',
+        fontFamily: 'inherit', boxSizing: 'border-box' as const,
+        marginBottom: 12,
+      },
+      btnRow: { display: 'flex', gap: 8, marginBottom: 12 },
+      btnPrimary: {
+        flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
+        background: '#AE9F80', color: '#fff',
+        border: 'none', borderRadius: 14, cursor: 'pointer',
+      },
+      btnSecondary: {
+        flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
+        background: darkMode ? '#352719' : '#EDE4D2',
+        color: darkMode ? '#F3EDE2' : '#231D17',
+        border: darkMode ? '1px solid rgba(174,159,128,0.22)' : '1px solid rgba(94,80,63,0.2)',
+        borderRadius: 14, cursor: 'pointer',
+      },
+      btnFull: {
+        width: '100%', padding: '12px 0', fontSize: 14, fontWeight: 600,
+        background: '#AE9F80', color: '#fff',
+        border: 'none', borderRadius: 14, cursor: 'pointer', marginTop: 8,
+      },
+      recentBtn: {
+        width: '100%', padding: '8px 0', fontSize: 12,
+        background: 'none', border: 'none', cursor: 'pointer',
+        color: darkMode ? '#9A8A6A' : '#9A8A6A', marginTop: 4,
+      },
+    }
     return (
-      <div className="login-root">
-        <div className="login-card">
-          <div className="flex justify-end mb-2">
-            <button onClick={() => setDarkMode(d => !d)} className="w-9 h-9 flex items-center justify-center rounded-full text-xl transition-colors" style={{ background: 'var(--bg-input)' }}>
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-          </div>
+      <div style={S.root}>
+        <div style={S.card}>
+          <button style={S.themeBtn} onClick={() => setDarkMode(d => !d)}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
 
-          <div className="text-center mb-7">
-            <div className="login-gif mb-3 flex justify-center">
-              <img src="/chatroom/avatar.gif" alt="avatar" className="w-20 h-20 object-contain" />
+          <div style={S.center}>
+            <div className="login-gif" style={{ display: 'flex', justifyContent: 'center' }}>
+              <img src="/chatroom/avatar.gif" alt="avatar" style={{ width: 72, height: 72, objectFit: 'contain' }} />
             </div>
-            <h1 className="login-title text-xl font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>哈吉米德的聊天室</h1>
-            <p className="login-subtitle font-kai text-base" style={{ color: 'var(--hz-600)' }}>人生无处不青山</p>
+            <h1 className="login-title" style={S.title}>哈吉米德的聊天室</h1>
+            <p className="login-subtitle" style={S.subtitle}>人生无处不青山</p>
           </div>
 
-          <input
-            className="login-input-1 input-hz w-full px-4 py-3 text-base mb-3 text-center"
-            placeholder="你的昵称"
-            maxLength={12}
-            value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreateRoom()}
-          />
+          <div className="login-input-1">
+            <input
+              style={S.input}
+              placeholder="你的昵称"
+              maxLength={12}
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateRoom()}
+            />
+          </div>
 
-          <div className="login-btn-row flex gap-2 mb-3">
-            <button onClick={handleCreateRoom} className="btn-hz flex-1 py-3 text-sm">
-              新建房间
-            </button>
-            <button
-              onClick={() => setShowJoin(j => !j)}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
-              style={{ background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            >
-              加入房间
-            </button>
+          <div className="login-btn-row" style={S.btnRow}>
+            <button style={S.btnPrimary} onClick={handleCreateRoom}>新建房间</button>
+            <button style={S.btnSecondary} onClick={() => setShowJoin(j => !j)}>加入房间</button>
           </div>
 
           {showJoin && (
-            <div className="login-join-row mt-1">
+            <div className="login-join-row">
               <input
-                className="input-hz w-full px-4 py-3 text-base mb-2 text-center tracking-widest uppercase"
+                style={{ ...S.input, letterSpacing: 4, textTransform: 'uppercase' as const }}
                 placeholder="输入房间码"
                 maxLength={8}
                 value={roomInput}
                 onChange={e => setRoomInput(e.target.value.toUpperCase())}
                 onKeyDown={e => e.key === 'Enter' && handleJoinRoom()}
               />
-              <button onClick={handleJoinRoom} className="btn-hz w-full py-3 text-sm">
-                进入房间
-              </button>
+              <button style={S.btnFull} onClick={handleJoinRoom}>进入房间</button>
             </div>
           )}
 
           {savedRoom && (
-            <button
-              onClick={() => { setRoomInput(savedRoom); setShowJoin(true) }}
-              className="w-full mt-3 py-2 text-xs transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-            >
+            <button style={S.recentBtn} onClick={() => { setRoomInput(savedRoom); setShowJoin(true) }}>
               最近房间：{savedRoom}
             </button>
           )}
