@@ -134,16 +134,8 @@ function AiThinkingDots() {
 
 // ─── 思考过程可折叠块 ──────────────────────────────────────────
 function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
-  const [expanded, setExpanded] = useState(true)
-  const prevStreamingRef = useRef(streaming)
-  useEffect(() => {
-    const wasStreaming = prevStreamingRef.current
-    prevStreamingRef.current = streaming  // 先更新 ref，再判断，避免 cleanup 重入时重复执行
-    if (wasStreaming && !streaming) {
-      const t = setTimeout(() => setExpanded(false), 0)
-      return () => clearTimeout(t)
-    }
-  }, [streaming])
+  // 始终默认折叠，用户手动点击才展开，不自动展开/折叠
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="reasoning-block">

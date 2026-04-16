@@ -84,7 +84,7 @@ function buildMessages(
 ): AIMessage[] {
   const cleanPrompt = extractPromptFn(userPrompt) || userPrompt
 
-  const TOKEN_BUDGET = 2000
+  const TOKEN_BUDGET = 4000
   let usedTokens = estimateTokens(systemPrompt) + estimateTokens(cleanPrompt)
 
   const recentMsgs = contextMsgs
@@ -191,7 +191,7 @@ async function streamRequest(
         messages,
         stream: true,
         // Kimi 推理模型思考过程本身会消耗大量 token，需要更大的 max_tokens
-        max_tokens: model === 'kimi-k2-thinking-turbo' ? 4096 : 1024,
+        max_tokens: model === 'kimi-k2-thinking-turbo' ? 8192 : 2048,
         temperature: 0.7,
       }),
       signal: controller.signal,
@@ -211,7 +211,7 @@ async function streamRequest(
     let reasoningText = ''
     let firstChunk = true
     const REASONING_PREFIX = '\x00R\x00'
-    const MAX_REASONING = 500  // 思考过程最多展示 500 字
+    const MAX_REASONING = 1500  // 思考过程最多展示 1500 字
 
     while (true) {
       const { done, value } = await reader.read()

@@ -88,6 +88,10 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
+  // 用 ref 持有最新 muted 值，避免 initPlayer useCallback 因 muted 变化而重新创建
+  const mutedRef = useRef(muted)
+  useEffect(() => { mutedRef.current = muted }, [muted])
+
   const dragging = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
   const moved = useRef(false)
@@ -126,7 +130,7 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
         loop: 'all',
         order: 'list',
         preload: 'none',
-        volume: muted ? 0 : 0.7,
+        volume: mutedRef.current ? 0 : 0.7,
         mutex: true,
         listFolded: false,
         listMaxHeight: '200px',
@@ -138,7 +142,7 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
       setErrorMsg((e as Error).message || '加载失败')
       setLoadState('error')
     }
-  }, [muted])
+  }, [])
 
   // 首次打开时初始化
   useEffect(() => {
@@ -161,9 +165,8 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
 
   // 监听全局静音状态，同步控制 APlayer 音量
   useEffect(() => {
-    if (!aplayerRef.current) return
     try {
-      aplayerRef.current.setVolume(muted ? 0 : 0.7, false)
+      aplayerRef.current?.setVolume(muted ? 0 : 0.7, false)
     } catch { /* APlayer 尚未初始化时忽略 */ }
   }, [muted])
 
