@@ -190,8 +190,8 @@ async function streamRequest(
         model,
         messages,
         stream: true,
-        // Kimi K2.5 是推理模型，思考过程本身会消耗大量 token，需要更大的 max_tokens
-        max_tokens: model === 'kimi-k2.5' ? 4096 : 1024,
+        // Kimi 推理模型思考过程本身会消耗大量 token，需要更大的 max_tokens
+        max_tokens: model === 'kimi-k2-thinking-turbo' ? 4096 : 1024,
         temperature: 0.7,
       }),
       signal: controller.signal,
@@ -343,7 +343,7 @@ export function useAI(): UseAIReturn {
 
     const apiUrl = isKimi ? KIMI_API_URL : DEEPSEEK_API_URL
     const apiKey = isKimi ? KIMI_API_KEY : DEEPSEEK_API_KEY
-    const model  = isKimi ? 'kimi-k2.5' : 'deepseek-chat'
+    const model  = isKimi ? 'kimi-k2-thinking-turbo' : 'deepseek-chat'
 
     streamRequest(
       apiUrl, apiKey, model, messages,
