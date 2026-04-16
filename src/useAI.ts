@@ -57,11 +57,14 @@ function estimateTokens(text: string): number {
 function buildMessages(
   contextMsgs: ChatMessage[],
   userPrompt: string,
-  userName: string
+  userName: string,
+  targetUserName?: string
 ): DeepSeekMessage[] {
-  const systemPrompt = `你是一个聊天室里的 AI 助手，昵称为"AI 助手"。
-用户通过 @AI 召唤你。回复应简洁、友好、口语化，适合聊天室场景。
-不要在回复中重复提及"@AI"或"AI 助手"，直接回答即可。`
+  // #20: 如果有触发者，在系统提示词中注入定向对话信息
+  const targetLine = targetUserName
+    ? `\n当前你正在和「${targetUserName}」进行 1×1 对话。回复时请直接称呼对方昵称，不要广播给整个聊天室。`
+    : ''
+  const systemPrompt = `你是一个聊天室里的 AI 助手，昵称为“AI 助手”。用户通过 @AI 或回复你的消息来召唤你。回复应简洁、友好、口语化，适合聊天室场景。不要在回复中重复提及“@AI”或“AI 助手”，直接回答即可。${targetLine}`
 
   const cleanPrompt = extractAIPrompt(userPrompt) || userPrompt
 
@@ -148,7 +151,9 @@ export interface UseAIReturn {
     contextMsgs: ChatMessage[],
     onChunk: (delta: string) => void,
     onDone: (fullText: string) => void,
-    onError: (err: string) => void
+    onError: (err: string) => void,
+    /** #20: 触发者昵称，用于 AI 定向回复 */
+    targetUserName?: string
   ) => void
   abortAI: () => void
   isThinking: React.MutableRefObject<boolean>
@@ -173,7 +178,8 @@ export function useAI(): UseAIReturn {
     contextMsgs: ChatMessage[],
     onChunk: (delta: string) => void,
     onDone: (fullText: string) => void,
-    onError: (err: string) => void
+    onError: (err: string) => void,
+    targetUserName?: string
   ) => {
     // 中止上一次请求
     if (abortControllerRef.current) {
@@ -193,7 +199,7 @@ export function useAI(): UseAIReturn {
       onError('timeout')
     }, REQUEST_TIMEOUT_MS)
 
-    const messages = buildMessages(contextMsgs, userText, userName)
+    const messages = buildMessages(contextMsgs, userText, userName, targetUserName)
 
     fetch(DEEPSEEK_API_URL, {
       method: 'POST',

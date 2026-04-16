@@ -209,15 +209,31 @@ export default function App() {
   useEffect(() => {
     if (!inRoom) return
 
+    // 构建 AI 消息 ID 集合，用于判断「回复 AI 消息」触发条件（#19）
+    const aiMsgIds = new Set(
+      messagesRef.current.filter(m => m.senderId === AI_ID).map(m => m.id)
+    )
+
+    // 从最新消息往前找，满足任一条件即触发：
+    // 条件 1（#16）：用户主动 @AI
+    // 条件 2（#19）：用户回复了 AI 的消息
     const triggerMsg = [...messages]
       .reverse()
-      .find(m => m.isSelf && m.type === 'text' && m.text && hasAtAI(m.text))
+      .find(m => {
+        if (m.type !== 'text' || !m.text || m.senderId === AI_ID) return false
+        const isAtAI = hasAtAI(m.text)
+        const isReplyToAI = !!(m.replyTo && aiMsgIds.has(m.replyTo.id))
+        return isAtAI || isReplyToAI
+      })
 
     if (!triggerMsg || triggerMsg.id === lastAiTriggerIdRef.current) return
     if (isStreamingRef.current) return
 
     lastAiTriggerIdRef.current = triggerMsg.id
     isStreamingRef.current = true
+
+    // #20: 触发者昵称（可能是自己或其他用户）
+    const triggerUserName = triggerMsg.senderName
 
     const placeholderId = Math.random().toString(36).slice(2, 11)
     const placeholder: ChatMessage = {
@@ -231,6 +247,13 @@ export default function App() {
       ts: Date.now(),
       isSelf: false,
       readStatus: 'delivered',
+      // #20: AI 回复标记为回复触发者的消息，形成 1对1 对话线程
+      replyTo: {
+        id: triggerMsg.id,
+        senderName: triggerUserName,
+        text: triggerMsg.text,
+        type: 'text',
+      },
     }
     injectLocalMessage(placeholder)
     setTimeout(() => setAiState({ id: placeholderId, phase: 'thinking' }), 0)
@@ -238,7 +261,7 @@ export default function App() {
     const contextSnapshot = messagesRef.current.filter(m => m.id !== placeholderId)
     askAI(
       triggerMsg.text!,
-      user.name,
+      triggerUserName,
       contextSnapshot,
       (delta) => {
         // 收到首个 chunk 时切换到 streaming 阶段
@@ -264,10 +287,11 @@ export default function App() {
         }))
         setAiState(null)
         showToast(`AI：${err}`)
-      }
+      },
+      triggerUserName  // #20: 传入触发者昵称，实现定向回复
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, inRoom, askAI, user.name, playReceive, showToast])
+  }, [messages, inRoom, askAI, playReceive, showToast])
 
   if (!inRoom) {
     return (
