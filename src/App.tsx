@@ -306,6 +306,7 @@ export default function App() {
   const [showOnlineModal, setShowOnlineModal] = useState(false)
   const [showLogPanel, setShowLogPanel] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showNotifPanel, setShowNotifPanel] = useState(false)
   const [inputText, setInputText] = useState('')
   const [imgViewer, setImgViewer] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -322,7 +323,7 @@ export default function App() {
   const prevMsgCount = useRef(0)
   const moreMenuRef = useRef<HTMLDivElement>(null)
 
-  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs } = useMqtt(user, roomCode)
+  const { status, messages, onlineUsers, typingUsers, logs, notifications, activeBrokerIndex, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs, markNotifRead, clearNotifications } = useMqtt(user, roomCode)
 
   const { playSend, playReceive } = useSound(muted)
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
@@ -404,6 +405,13 @@ export default function App() {
   useEffect(() => {
     if (inRoom && roomCode && user.name) connect()
   }, [inRoom, roomCode, user, connect])
+
+  // 进入房间后申请浏览器通知权限
+  useEffect(() => {
+    if (inRoom && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [inRoom])
 
   const handleExit = useCallback(() => {
     if (!confirm('确定退出房间？')) return
@@ -684,6 +692,17 @@ export default function App() {
                 ↻
               </button>
             )}
+            {/* 推送通知铃铛 */}
+            <button
+              className="icon-btn notif-btn"
+              onClick={() => { setShowNotifPanel(s => !s); if (notifications.some(n => !n.read)) notifications.forEach(n => markNotifRead(n.id)) }}
+              title="推送通知"
+            >
+              🔔
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="notif-badge">{notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}</span>
+              )}
+            </button>
             {/* 音效开关 */}
             <button className="icon-btn" onClick={toggleMute} title={muted ? '开启音效' : '关闭音效'}>
               {muted ? '🔇' : '🔊'}
@@ -721,7 +740,39 @@ export default function App() {
             </div>
           </div>
         </header>
-
+        {/* 推送通知面板 */}
+        {showNotifPanel && (
+          <div className="notif-panel">
+            <div className="notif-panel-header">
+              <span className="notif-panel-title">🔔 推送通知</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {notifications.length > 0 && (
+                  <button className="notif-clear-btn" onClick={clearNotifications}>清空</button>
+                )}
+                <button className="notif-close-btn" onClick={() => setShowNotifPanel(false)}>✕</button>
+              </div>
+            </div>
+            {notifications.length === 0 ? (
+              <div className="notif-empty">暂无通知</div>
+            ) : (
+              <div className="notif-list">
+                {notifications.map(n => (
+                  <div key={n.id} className={`notif-item${n.read ? ' notif-read' : ''}`}>
+                    <div className="notif-item-title">{n.title}</div>
+                    {n.body && <div className="notif-item-body">{n.body}</div>}
+                    <div className="notif-item-time">{new Date(n.ts).toLocaleTimeString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="notif-panel-footer">
+              <span className="notif-broker-label">
+                {activeBrokerIndex === 0 ? '🟢 主节点' : '🟡 备用节点'}
+              </span>
+              <span className="notif-broker-name">{['EMQX 主节点', 'HiveMQ 备用节点'][activeBrokerIndex]}</span>
+            </div>
+          </div>
+        )}
         {/* 消息列表 */}
         <div ref={msgListRef} className="msg-list">
           {messages.map(msg => {

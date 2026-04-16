@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import mqtt from 'mqtt'
 import type { MqttClient } from 'mqtt'
-import { CONFIG } from './config'
+import { CONFIG, BROKERS } from './config'
 import type {
   ConnStatus, User, ChatMessage, OnlineUser,
   MqttTextMsg, MqttTypingMsg, MqttPresenceMsg, MqttFileMsg
@@ -23,6 +23,14 @@ export interface LogEntry {
   ts: number
 }
 
+export interface NotifyMessage {
+  id: string
+  title: string
+  body: string
+  ts: number
+  read: boolean
+}
+
 const COLORS = ['#C4956A','#9B7E5A','#7D6E52','#B8956A','#A07850','#C8A87A','#8B6E4E','#D4A574']
 export function pickColor(id: string) {
   let h = 0
@@ -37,7 +45,12 @@ export function useMqtt(user: User, roomCode: string | null) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [notifications, setNotifications] = useState<NotifyMessage[]>([])
+  const [activeBrokerIndex, setActiveBrokerIndex] = useState(0)
+
   const reconnectAttempts = useRef(0)
+  const brokerIndexRef = useRef(0)
+  const connectToBrokerRef = useRef<(idx: number) => void>(() => {})
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -64,17 +77,27 @@ export function useMqtt(user: User, roomCode: string | null) {
     clientRef.current.publish(topic, JSON.stringify(payload), { qos: 1 })
   }, [])
 
-  const connect = useCallback(() => {
+  // 推送通知：标记已读
+  const markNotifRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }, [])
+
+  // 推送通知：清空所有
+  const clearNotifications = useCallback(() => setNotifications([]), [])
+
+  const connectToBroker = useCallback((brokerIdx: number) => {
     if (!roomCode) return
-    if (clientRef.current?.connected) return
+    const broker = BROKERS[brokerIdx]
+    brokerIndexRef.current = brokerIdx
+    setActiveBrokerIndex(brokerIdx)
 
     const clientId = `chat_${user.id}_${Date.now().toString(36)}`
-    addLog('info', `正在连接 EMQX... clientId=${clientId}`)
+    addLog('info', `正在连接 ${broker.label}... clientId=${clientId}`)
 
-    const client = mqtt.connect(CONFIG.MQTT_URL, {
+    const client = mqtt.connect(broker.url, {
       clientId,
-      username: CONFIG.MQTT_USERNAME,
-      password: CONFIG.MQTT_PASSWORD,
+      username: broker.username,
+      password: broker.password,
       clean: true,
       keepalive: 60,
       connectTimeout: 15000,
@@ -87,13 +110,16 @@ export function useMqtt(user: User, roomCode: string | null) {
 
     client.on('connect', () => {
       reconnectAttempts.current = 0
-      addLog('info', `已连接到 EMQX，订阅房间 ${roomCode}`)
+      addLog('info', `已连接到 ${broker.label}，订阅房间 ${roomCode}`)
       const topics = [
         `chat/${roomCode}/msg`,
         `chat/${roomCode}/file`,
         `chat/${roomCode}/presence`,
         `chat/${roomCode}/typing`,
         `chat/${roomCode}/voice`,
+        // 推送通知 topic：订阅全局通知和个人通知
+        `${CONFIG.NOTIFY_TOPIC_PREFIX}/all`,
+        `${CONFIG.NOTIFY_TOPIC_PREFIX}/user/${user.id}`,
       ]
       client.subscribe(topics, { qos: 1 }, (err) => {
         if (err) {
@@ -108,6 +134,9 @@ export function useMqtt(user: User, roomCode: string | null) {
           senderName: user.name, senderColor: user.color
         })
         addSysMsg(`✅ 已进入房间 ${roomCode}`)
+        if (brokerIdx > 0) {
+          addSysMsg(`⚠️ 当前使用备用节点（${broker.label}）`)
+        }
         heartbeatTimer.current = setInterval(() => {
           publish(`chat/${roomCode}/presence`, {
             type: 'heartbeat', senderId: user.id,
@@ -120,6 +149,25 @@ export function useMqtt(user: User, roomCode: string | null) {
     client.on('message', (topic, payload) => {
       try {
         const msg = JSON.parse(payload.toString())
+
+        // 推送通知消息处理
+        if (topic.startsWith(CONFIG.NOTIFY_TOPIC_PREFIX)) {
+          const notif: NotifyMessage = {
+            id: Math.random().toString(36).slice(2),
+            title: msg.title || '新通知',
+            body: msg.body || '',
+            ts: msg.ts || Date.now(),
+            read: false,
+          }
+          setNotifications(prev => [notif, ...prev.slice(0, 49)])
+          // 尝试发送浏览器原生通知
+          if (Notification.permission === 'granted') {
+            new Notification(notif.title, { body: notif.body, icon: '/favicon.ico' })
+          }
+          addLog('info', `收到推送通知: ${notif.title}`)
+          return
+        }
+
         if (msg.senderId === user.id) return
 
         if (topic.endsWith('/presence')) {
@@ -156,7 +204,6 @@ export function useMqtt(user: User, roomCode: string | null) {
         } else if (topic.endsWith('/file')) {
           const m = msg as MqttFileMsg
           try {
-            // 优化：使用 TextDecoder 替代 atob 提升性能
             const binaryChunks = m.chunks.map(c => {
               const binStr = atob(c)
               const bytes = new Uint8Array(binStr.length)
@@ -183,7 +230,6 @@ export function useMqtt(user: User, roomCode: string | null) {
             addLog('error', `文件接收失败: ${(e as Error).message}`)
           }
         } else if (topic.endsWith('/voice')) {
-          // 语音消息
           try {
             const { senderId, senderName, senderColor, chunks, duration } = msg
             const binaryChunks = chunks.map((c: string) => {
@@ -220,26 +266,42 @@ export function useMqtt(user: User, roomCode: string | null) {
       setStatus(s => {
         if (s === 'disconnected') return s
         reconnectAttempts.current++
-        if (reconnectAttempts.current > CONFIG.MAX_RECONNECT_ATTEMPTS) {
-          addLog('error', `重连次数超限 (${reconnectAttempts.current})，停止重连`)
+        const maxPerBroker = CONFIG.MAX_RECONNECT_ATTEMPTS_PER_BROKER
+        if (reconnectAttempts.current > maxPerBroker) {
+          // 当前 Broker 重试超限，尝试切换到下一个
+          const nextIdx = (brokerIndexRef.current + 1) % BROKERS.length
+          if (nextIdx !== brokerIndexRef.current) {
+            addLog('warn', `${BROKERS[brokerIndexRef.current].label} 连接失败，切换到 ${BROKERS[nextIdx].label}`)
+            reconnectAttempts.current = 0
+            client.end(true)
+            setTimeout(() => connectToBrokerRef.current(nextIdx), 1000)
+            return 'connecting'
+          }
+          addLog('error', `所有 Broker 均连接失败，停止重连`)
           return 'err'
         }
         const delay = Math.min(CONFIG.RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts.current - 1), 30000)
-        addLog('warn', `连接断开，${(delay / 1000).toFixed(1)}s 后重连 (第 ${reconnectAttempts.current} 次)`)
+        addLog('warn', `连接断开，${(delay / 1000).toFixed(1)}s 后重连 (${BROKERS[brokerIndexRef.current].label} 第 ${reconnectAttempts.current}/${maxPerBroker} 次)`)
         setTimeout(() => { if (!client.connected) client.reconnect() }, delay)
         return 'connecting'
       })
     })
 
     client.on('error', (err) => {
-      addLog('error', `MQTT 错误: ${err.message}`)
+      addLog('error', `MQTT 错误 (${broker.label}): ${err.message}`)
       setStatus('err')
     })
   }, [roomCode, user, publish, addSysMsg, addLog])
 
+  const connect = useCallback(() => {
+    if (!roomCode) return
+    if (clientRef.current?.connected) return
+    reconnectAttempts.current = 0
+    connectToBroker(0)
+  }, [roomCode, connectToBroker])
+
   const disconnect = useCallback(() => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
-    // 先设置状态为 disconnected，这样 close 事件中的重连逻辑会被跳过
     setStatus('disconnected')
     if (clientRef.current && roomCode) {
       publish(`chat/${roomCode}/presence`, {
@@ -256,6 +318,8 @@ export function useMqtt(user: User, roomCode: string | null) {
     setOnlineUsers([])
     setTypingUsers([])
     reconnectAttempts.current = 0
+    brokerIndexRef.current = 0
+    setActiveBrokerIndex(0)
   }, [roomCode, user, publish, addLog])
 
   const sendText = useCallback((text: string) => {
@@ -276,7 +340,6 @@ export function useMqtt(user: User, roomCode: string | null) {
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sendTyping = useCallback(() => {
     if (!roomCode || status !== 'ok') return
-    // 防抖：2s 内只发一次，避免每个按键都发送 MQTT 消息
     if (typingDebounceRef.current) return
     publish(`chat/${roomCode}/typing`, {
       type: 'typing', senderId: user.id, senderName: user.name
@@ -305,7 +368,6 @@ export function useMqtt(user: User, roomCode: string | null) {
     try {
       const buffer = await file.arrayBuffer()
       const chunks: string[] = []
-      // 动态分片：小文件用大片，大文件用小片，减少消息数
       const chunkSize = file.size > 1024 * 1024 ? 48 * 1024 : CONFIG.CHUNK_SIZE
       for (let i = 0; i < buffer.byteLength; i += chunkSize) {
         const slice = buffer.slice(i, i + chunkSize)
@@ -354,10 +416,19 @@ export function useMqtt(user: User, roomCode: string | null) {
 
   const manualReconnect = useCallback(() => {
     reconnectAttempts.current = 0
-    addLog('info', '手动触发重连')
-    if (clientRef.current) clientRef.current.reconnect()
-    else connect()
-  }, [connect, addLog])
+    brokerIndexRef.current = 0
+    addLog('info', '手动触发重连，从主节点重试')
+    if (clientRef.current) {
+      clientRef.current.end(true)
+      clientRef.current = null
+    }
+    setTimeout(() => connectToBroker(0), 500)
+  }, [connectToBroker, addLog])
+
+  // 同步 connectToBroker ref，使内部自引用始终指向最新版本
+  useEffect(() => {
+    connectToBrokerRef.current = connectToBroker
+  }, [connectToBroker])
 
   // 清理离线用户（超过 60s 无心跳）
   useEffect(() => {
@@ -369,6 +440,8 @@ export function useMqtt(user: User, roomCode: string | null) {
 
   return {
     status, messages, onlineUsers, typingUsers, logs,
-    connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs
+    notifications, activeBrokerIndex,
+    connect, disconnect, sendText, sendTyping, sendFile, sendVoice,
+    manualReconnect, clearLogs, markNotifRead, clearNotifications
   }
 }
