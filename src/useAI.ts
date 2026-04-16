@@ -148,8 +148,13 @@ class SSEParser {
         const d = parsed.choices?.[0]?.delta
         if (!d) continue
         // reasoning_content 用 \x00R\x00 前缀区分，content 直接返回
-        if (d.reasoning_content) deltas.push('\x00R\x00' + d.reasoning_content)
-        else if (d.content) deltas.push(d.content)
+        // reasoning_content 有值时走推理分支
+        if (d.reasoning_content) {
+          deltas.push('\x00R\x00' + d.reasoning_content)
+        } else if (d.content && d.content !== '') {
+          // content 为空字符串（如 Kimi 第一个 chunk）时跳过
+          deltas.push(d.content)
+        }
       } catch {
         // 忽略心跳包等非 JSON 行
       }
@@ -185,7 +190,8 @@ async function streamRequest(
         model,
         messages,
         stream: true,
-        max_tokens: 1024,
+        // Kimi K2.5 是推理模型，思考过程本身会消耗大量 token，需要更大的 max_tokens
+        max_tokens: model === 'kimi-k2.5' ? 4096 : 1024,
         temperature: 0.7,
       }),
       signal: controller.signal,
