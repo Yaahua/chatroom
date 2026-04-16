@@ -6,6 +6,100 @@ import type { User } from './types'
 
 const EMOJIS = ['😀','😂','🥰','😎','🤔','😅','🙏','👍','👎','❤️','🔥','✨','🎉','💯','😭','🤣','😊','😍','🥺','😤','💪','🤝','👏','🎊','🌟','🍵','🌸','🍂','🌙','⭐']
 
+// ===== 辞世诗库 =====
+interface Jisei {
+  lines: string[]   // 诗句（可多行）
+  author: string    // 作者
+  era: string       // 时代
+}
+const JISEI_LIST: Jisei[] = [
+  // ── 战国时期 ──
+  {
+    lines: ['露と落ち 露と消えにし 吾が身かな', '浪花の事も 夢のまた夢'],
+    author: '丰臣秀吉',
+    era: '战国',
+  },
+  {
+    lines: ['四十九年 一睡夢', '一期栄華 一盃酒'],
+    author: '上杉谦信',
+    era: '战国',
+  },
+  {
+    lines: ['曇りなき 心の月を さき立てて', '浮世の闇を 照らしてぞ行く'],
+    author: '伊达政宗',
+    era: '战国',
+  },
+  {
+    lines: ['順逆二門に無し 大道心源に徹す', '五十五年の夢 覚め来れば 一元に帰す'],
+    author: '明智光秀',
+    era: '战国',
+  },
+  {
+    lines: ['夏の夜の 夢路はかなき あとの名を', '雲井にあげよ 山ほととぎす'],
+    author: '柴田胜家',
+    era: '战国',
+  },
+  {
+    lines: ['筑摩江や 芦間に灯す かがり火と', 'ともに消えゆく 我が身なりけり'],
+    author: '石田三成',
+    era: '战国',
+  },
+  {
+    lines: ['思いゆく 言の葉なくて ついにゆく', '道はま迷わじ なるに任せて'],
+    author: '黑田如水',
+    era: '战国',
+  },
+  {
+    lines: ['先に行く あとに残るも 同じこと', '連れて行けぬを わかれぞと思う'],
+    author: '德川家康',
+    era: '战国',
+  },
+  {
+    lines: ['春秋の 紅葉はついに 留まらず', '人も虚しき 関路なりけり'],
+    author: '岛津义弘',
+    era: '战国',
+  },
+  {
+    lines: ['契りあれば 六つの衢に 待てしばし', '遅れ先だつ ことはありとも'],
+    author: '大谷吉继',
+    era: '战国',
+  },
+  {
+    lines: ['月花を 心のままに 見尽くしぬ', '何か浮世に 思い残さん'],
+    author: '丰臣秀次',
+    era: '战国',
+  },
+  // ── 昭和时期 ──
+  {
+    lines: ['散るをいとふ 世にも人にも さきがけて', '散るこそ花と 吹く小夜嵐'],
+    author: '三岛由纪夫',
+    era: '昭和',
+  },
+  {
+    lines: ['大君の 御はたのかげに 死してこそ', '人と生まれし 甲斐ぞありける'],
+    author: '神风特攻队·关行男',
+    era: '昭和',
+  },
+  {
+    lines: ['春風や 散り行く花の 跡もなし', 'ただ青空に 残る香りよ'],
+    author: '神风特攻队员·无名',
+    era: '昭和',
+  },
+  {
+    lines: ['身はたとへ 武蔵の野辺に 朽ちぬとも', '留め置かまし 大和魂'],
+    author: '吉田松阴',
+    era: '幕末',
+  },
+  {
+    lines: ['今更に 何をか言わん 白雪の', '降り積もりたる 冬の夜の月'],
+    author: '土方岁三',
+    era: '幕末',
+  },
+]
+function pickJisei(): Jisei {
+  return JISEI_LIST[Math.floor(Math.random() * JISEI_LIST.length)]
+}
+
 function genId() { return Math.random().toString(36).slice(2, 11) }
 function fmtSize(n: number) {
   return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB'
@@ -194,6 +288,7 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
 export default function App() {
   const [savedName] = useState(() => localStorage.getItem('chat_name') || '')
   const [savedRoom] = useState(() => localStorage.getItem('chat_room') || '')
+  const [jisei] = useState<Jisei>(() => pickJisei())
 
   const [nameInput, setNameInput] = useState(savedName)
   const [roomInput, setRoomInput] = useState('')
@@ -474,7 +569,14 @@ export default function App() {
               <img src="/chatroom/avatar.gif" alt="avatar" style={{ width: 72, height: 72, objectFit: 'contain' }} />
             </div>
             <h1 className="login-title" style={S.title}>哈吉米德的聊天室</h1>
-            <p className="login-subtitle" style={S.subtitle}>人生无处不青山</p>
+            <div className="login-jisei" style={S.subtitle}>
+              {jisei.lines.map((line, i) => (
+                <p key={i} style={{ margin: '2px 0', lineHeight: 1.7 }}>{line}</p>
+              ))}
+              <p style={{ margin: '6px 0 0', fontSize: 12, opacity: 0.7, letterSpacing: 1 }}>
+                —— {jisei.author}·{jisei.era}
+              </p>
+            </div>
           </div>
           <div className="login-input-1">
             <input
@@ -761,7 +863,7 @@ export default function App() {
               ref={inputRef}
               className="input-hz no-scrollbar"
               style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflow: 'hidden' }}
-              placeholder={status === 'ok' ? '输入消息... (Ctrl+V 粘贴图片)' : statusText}
+              placeholder={status === 'ok' ? '语言的力量' : statusText}
               disabled={status !== 'ok'}
               value={inputText}
               onChange={handleInputChange}
