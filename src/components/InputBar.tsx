@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import type { OnlineUser, User } from '../types'
 import { AtMentionPanel } from './AtMentionPanel'
 import type { MentionCandidate } from './AtMentionPanel'
-import { AI_NAME } from '../useAI'
+import { AI_NAME, AI_ID } from '../useAI'
 
 const EMOJIS = ['😀','😂','🥰','😎','🤔','😅','🙏','👍','👎','❤️','🔥','✨','🎉','💯','😭','🤣','😊','😍','🥺','😤','💪','🤝','👏','🎊','🌟','🍵','🌸','🍂','🌙','⭐']
 
@@ -194,13 +194,16 @@ export function InputBar({
   }, [inputText])
 
   // 选中 @ 候选项：将 @xxx 替换为 @昵称（加空格）
+  // Bug 修复：AI 候选项插入 @AI 而非 @AI 助手，保证与 hasAtAI 触发逻辑匹配
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
     const cursor = el?.selectionStart ?? inputText.length
     const before = inputText.slice(0, atQuery.atStart)
     const after = inputText.slice(cursor)
-    const mention = `@${candidate.name} `
+    // AI 候选项插入 @AI，普通用户插入 @昵称
+    const mentionText = candidate.id === AI_ID ? 'AI' : candidate.name
+    const mention = `@${mentionText} `
     const newText = before + mention + after
     const newCursor = atQuery.atStart + mention.length
     setInputText(newText)

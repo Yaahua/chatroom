@@ -76,6 +76,12 @@ export function useMqtt(user: User, roomCode: string | null) {
   const connectToBrokerRef = useRef<(idx: number) => void>(() => {})
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 主动断开标志：防止 close 事件在主动断开时误触发重连
+  const intentionalDisconnectRef = useRef(false)
+  // 已接收消息 ID 集合：防止重连后重复消息
+  const receivedMsgIdsRef = useRef<Set<string>>(new Set())
+  // 跟踪所有创建的 ObjectURL，组件卸载时统一释放
+  const objectUrlsRef = useRef<string[]>([])
 
   const addLog = useCallback((level: LogLevel, msg: string) => {
     const entry: LogEntry = { id: Math.random().toString(36).slice(2), level, msg, ts: Date.now() }
@@ -253,6 +259,9 @@ export function useMqtt(user: User, roomCode: string | null) {
         } else if (topic.endsWith('/msg')) {
           const m = msg as MqttTextMsg & { id?: string; replyTo?: ChatMessage['replyTo'] }
           const newMsgId = m.id || Math.random().toString(36).slice(2)
+          // 去重：重连后同一消息不重复展示
+          if (receivedMsgIdsRef.current.has(newMsgId)) return
+          receivedMsgIdsRef.current.add(newMsgId)
           setMessages(prev => [...prev, {
             id: newMsgId,
             type: 'text', senderId: m.senderId,
@@ -265,6 +274,10 @@ export function useMqtt(user: User, roomCode: string | null) {
           publish(`chat/${roomCode}/read`, { type: 'read', senderId: user.id, msgIds: [newMsgId] })
         } else if (topic.endsWith('/file')) {
           const m = msg as MqttFileMsg
+          // 去重：同一文件 ID 不重复处理
+          const fileId = m.id || `${m.senderId}_${m.name}_${m.size}`
+          if (receivedMsgIdsRef.current.has(fileId)) return
+          receivedMsgIdsRef.current.add(fileId)
           try {
             const binaryChunks = m.chunks.map(c => {
               const binStr = atob(c)
@@ -279,9 +292,10 @@ export function useMqtt(user: User, roomCode: string | null) {
             const mime = m.mime || 'application/octet-stream'
             const blob = new Blob([combined], { type: mime })
             const url = URL.createObjectURL(blob)
+            objectUrlsRef.current.push(url)  // 跟踪以便释放
             const isImage = /image\//i.test(mime) || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(m.name)
             setMessages(prev => [...prev, {
-              id: Math.random().toString(36).slice(2),
+              id: fileId,
               type: isImage ? 'image' : 'file',
               senderId: m.senderId, senderName: m.senderName, senderColor: m.senderColor,
               fileUrl: url, fileName: m.name, fileSize: m.size, fileMime: mime,
@@ -293,7 +307,11 @@ export function useMqtt(user: User, roomCode: string | null) {
           }
         } else if (topic.endsWith('/voice')) {
           try {
-            const { senderId, senderName, senderColor, chunks, duration } = msg
+            const { senderId, senderName, senderColor, chunks, duration, id: voiceId } = msg
+            // 去重：同一语音 ID 不重复处理
+            const msgId = voiceId || `${senderId}_voice_${duration}`
+            if (receivedMsgIdsRef.current.has(msgId)) return
+            receivedMsgIdsRef.current.add(msgId)
             const binaryChunks = chunks.map((c: string) => {
               const binStr = atob(c)
               const bytes = new Uint8Array(binStr.length)
@@ -306,8 +324,9 @@ export function useMqtt(user: User, roomCode: string | null) {
             binaryChunks.forEach((c: Uint8Array) => { combined.set(c, offset); offset += c.length })
             const blob = new Blob([combined], { type: 'audio/webm;codecs=opus' })
             const url = URL.createObjectURL(blob)
+            objectUrlsRef.current.push(url)  // 跟踪以便释放
             setMessages(prev => [...prev, {
-              id: Math.random().toString(36).slice(2),
+              id: msgId,
               type: 'voice',
               senderId, senderName, senderColor,
               fileUrl: url, duration,
@@ -325,6 +344,8 @@ export function useMqtt(user: User, roomCode: string | null) {
 
     client.on('close', () => {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
+      // 主动断开时不重连
+      if (intentionalDisconnectRef.current) return
       setStatus(s => {
         if (s === 'disconnected') return s
         reconnectAttempts.current++
@@ -368,6 +389,7 @@ export function useMqtt(user: User, roomCode: string | null) {
   }, [roomCode, connectToBroker, addLog])
 
   const disconnect = useCallback(() => {
+    intentionalDisconnectRef.current = true
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
     setStatus('disconnected')
     if (clientRef.current && roomCode) {
@@ -392,6 +414,12 @@ export function useMqtt(user: User, roomCode: string | null) {
     reconnectAttempts.current = 0
     brokerIndexRef.current = 0
     setActiveBrokerIndex(0)
+    receivedMsgIdsRef.current.clear()
+    // 释放所有 ObjectURL
+    objectUrlsRef.current.forEach(u => URL.revokeObjectURL(u))
+    objectUrlsRef.current = []
+    // 延迟重置，防止在 end() 回调中误进入重连分支
+    setTimeout(() => { intentionalDisconnectRef.current = false }, 500)
   }, [roomCode, user, publish, addLog, publishHistorySnapshot])
 
   const sendText = useCallback((text: string, replyTo?: ChatMessage['replyTo']) => {
@@ -461,6 +489,7 @@ export function useMqtt(user: User, roomCode: string | null) {
     const mime = file.type || 'application/octet-stream'
     const isImage = /image\//i.test(mime) || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(file.name)
     const localUrl = URL.createObjectURL(file)
+    objectUrlsRef.current.push(localUrl)  // 跟踪以便释放
 
     setMessages(prev => [...prev, {
       id: Math.random().toString(36).slice(2),
@@ -494,6 +523,7 @@ export function useMqtt(user: User, roomCode: string | null) {
   const sendVoice = useCallback(async (blob: Blob, duration: number) => {
     if (!roomCode || status !== 'ok') return
     const localUrl = URL.createObjectURL(blob)
+    objectUrlsRef.current.push(localUrl)  // 跟踪以便释放
     setMessages(prev => [...prev, {
       id: Math.random().toString(36).slice(2),
       type: 'voice',

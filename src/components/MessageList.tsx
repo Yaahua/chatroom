@@ -93,9 +93,14 @@ export function MessageList({
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 自动滚动：只在用户已在底部附近（距底部 120px 内）时才自动滚动
+  // 防止用户向上翻阅历史时被强制拉回底部
   useEffect(() => {
-    if (msgListRef.current) {
-      msgListRef.current.scrollTop = msgListRef.current.scrollHeight
+    const el = msgListRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom < 120) {
+      el.scrollTop = el.scrollHeight
     }
   }, [messages, typingUsers])
 
@@ -134,16 +139,18 @@ export function MessageList({
             )
           }
           const isHighlighted = longPressId === msg.id
+          // AI 消息不支持长按操作（无法撤回/回复 AI 消息）
+          const isAiMsg = msg.senderId === AI_ID
           return (
             <div
               key={msg.id}
               className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
-              onMouseDown={() => handleLongPressStart(msg)}
-              onMouseUp={handleLongPressEnd}
-              onMouseLeave={handleLongPressEnd}
-              onTouchStart={() => handleLongPressStart(msg)}
-              onTouchEnd={handleLongPressEnd}
-              onTouchCancel={handleLongPressEnd}
+              onMouseDown={isAiMsg ? undefined : () => handleLongPressStart(msg)}
+              onMouseUp={isAiMsg ? undefined : handleLongPressEnd}
+              onMouseLeave={isAiMsg ? undefined : handleLongPressEnd}
+              onTouchStart={isAiMsg ? undefined : () => handleLongPressStart(msg)}
+              onTouchEnd={isAiMsg ? undefined : handleLongPressEnd}
+              onTouchCancel={isAiMsg ? undefined : handleLongPressEnd}
             >
               {!msg.isSelf && (
                 <div className="msg-sender-row">
