@@ -71,7 +71,6 @@ chatroom/
 │   ├── types.ts          # 全局 TypeScript 类型定义
 │   ├── config.ts         # 环境配置与常量
 │   └── index.css         # 全局样式与主题变量
-├── docs/                 # 早期架构演进与服务配置文档
 └── 更新日志/             # 详细的版本更新记录 (CHANGELOG)
 ```
 
