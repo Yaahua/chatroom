@@ -1,6 +1,6 @@
 import type { ChatMessage } from '../types'
 import { VoiceBubble } from './MessageList'
-import { AI_ID } from '../useAI'
+import { AI_ID, KIMI_ID } from '../useAI'
 
 interface FocusOverlayProps {
   focusedMsg: ChatMessage
@@ -10,10 +10,29 @@ interface FocusOverlayProps {
   sendRecall: (id: string) => void
   setImgViewer: (url: string) => void
   showToast: (msg: string) => void
+  /** 当前用户昵称，用于 @ 高亮 */
+  selfName?: string
+}
+
+// 将消息文本中的 @昵称 渲染为高亮 span
+function renderTextWithMentions(text: string, selfName?: string): React.ReactNode {
+  const parts = text.split(/(@[^\s@]+)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      const name = part.slice(1)
+      const isSelf = selfName && name === selfName
+      return (
+        <span key={i} className={isSelf ? 'mention-self' : 'mention-other'}>
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
 }
 
 export function FocusOverlay({
-  focusedMsg, setFocusedMsg, setLongPressId, setReplyTarget, sendRecall, setImgViewer, showToast
+  focusedMsg, setFocusedMsg, setLongPressId, setReplyTarget, sendRecall, setImgViewer, showToast, selfName
 }: FocusOverlayProps) {
   const exitFocusMode = () => {
     setFocusedMsg(null)
@@ -22,7 +41,9 @@ export function FocusOverlay({
 
   const fmtSize = (n: number) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB'
 
-  const isAiMsg = focusedMsg.senderId === AI_ID
+  // B1 修复：同时识别 DeepSeek 和 Kimi
+  const isAiMsg = focusedMsg.senderId === AI_ID || focusedMsg.senderId === KIMI_ID
+  const isKimiMsg = focusedMsg.senderId === KIMI_ID
 
   // 可复制的文本内容（文本消息且有内容）
   const copyableText = focusedMsg.type === 'text' && focusedMsg.text ? focusedMsg.text : null
@@ -46,7 +67,7 @@ export function FocusOverlay({
             )}
             <span
               className="focus-sender-name"
-              style={isAiMsg ? { color: '#6366f1', fontWeight: 600 } : undefined}
+              style={isAiMsg ? { color: isKimiMsg ? '#0ea5e9' : '#6366f1', fontWeight: 600 } : undefined}
             >
               {focusedMsg.senderName}
             </span>
@@ -64,7 +85,18 @@ export function FocusOverlay({
                 </span>
               </div>
             )}
-            {focusedMsg.text}
+            {/* B3 修复：渲染 Kimi 思考过程 */}
+            {focusedMsg.reasoning && (
+              <div style={{ marginBottom: 6, padding: '5px 8px', borderRadius: 6, background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.15)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <div style={{ fontSize: 11, color: '#0ea5e9', fontWeight: 500, marginBottom: 3 }}>💡 思考过程</div>
+                {focusedMsg.reasoning}
+              </div>
+            )}
+            {focusedMsg.reasoning && focusedMsg.text && (
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0', opacity: 0.5 }} />
+            )}
+            {/* B4 修复： @ 高亮渲染 */}
+            {focusedMsg.text ? renderTextWithMentions(focusedMsg.text, selfName) : null}
           </div>
         )}
         {focusedMsg.type === 'image' && focusedMsg.fileUrl && (

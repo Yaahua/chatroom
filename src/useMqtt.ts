@@ -200,6 +200,8 @@ export function useMqtt(user: User, roomCode: string | null) {
         } else {
           addSysMsg('已重新连接')
         }
+        // B6 修复：创建新定时器前先清除旧的，防止重连时心跳频率翻倍
+        if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
         heartbeatTimer.current = setInterval(() => {
           publish(`chat/${roomCode}/presence`, {
             type: 'heartbeat', senderId: user.id,
@@ -624,13 +626,9 @@ export function useMqtt(user: User, roomCode: string | null) {
     connectToBrokerRef.current = connectToBroker
   }, [connectToBroker])
 
-  // 清理离线用户（超过 60s 无心跳）
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setOnlineUsers(prev => prev.filter(u => Date.now() - u.ts < 60000))
-    }, 10000)
-    return () => clearInterval(timer)
-  }, [])
+  // B7 修复：已删除重复的离线清理 useEffect
+  // presenceCleanupTimer 在 connectToBroker 的 client.on('connect') 里统一管理，
+  // 每次重连时先 clearInterval 旧的再创建新的，无需在此重复创建
 
   // ─── AI 本地消息注入 ─────────────────────────────────────────────────────
   /** 向本地消息列表追加一条消息（不发布到 MQTT，仅本地可见，用于 AI 回复） */

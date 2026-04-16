@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import type { OnlineUser, User } from '../types'
 import { AtMentionPanel } from './AtMentionPanel'
 import type { MentionCandidate } from './AtMentionPanel'
-import { AI_ID } from '../useAI'
+import { AI_ID, KIMI_ID } from '../useAI'
 
 // ─── 语音录制 Hook ────────────────────────────────────────────────────────────
 function useVoiceRecorder() {
@@ -204,7 +204,8 @@ export function InputBar({
     const el = inputRef.current
 
     // AI 插入 @AI，其他用户插入 @昵称
-    const mentionText = candidate.id === AI_ID ? 'AI' : candidate.name
+    // B5 修复：明确匹配 AI 和 Kimi，保证插入名称与触发检测一致
+    const mentionText = candidate.id === AI_ID ? 'AI' : candidate.id === KIMI_ID ? 'Kimi' : candidate.name
 
     // 分割文本：@ 前的部分 + @ 后已输入的 query 之后的部分
     const before = inputText.slice(0, atQuery.atStart)

@@ -123,7 +123,8 @@ export default function App() {
     if (messages.length === 0) return
     const last = messages[messages.length - 1]
     if (messages.length > prevMsgCount.current) {
-      if (last.type !== 'sys' && last.senderId !== AI_ID) {
+      // B8 修复：同时排除 DeepSeek 和 Kimi 的消息（AI 完成后统一在 onDone 里播放）
+      if (last.type !== 'sys' && last.senderId !== AI_ID && last.senderId !== KIMI_ID) {
         if (last.isSelf) {
           playSend()
         } else {
@@ -421,6 +422,7 @@ export default function App() {
           sendRecall={sendRecall}
           setImgViewer={setImgViewer}
           showToast={showToast}
+          selfName={user.name}
         />
       )}
 

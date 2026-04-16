@@ -75,7 +75,7 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
 
 export { VoiceBubble }
 
-// ─// ─── AI 思考动画（三个跳动的点）──────────────────────────────────────────
+// ─── AI 思考动画（三个跳动的点）──────────────────────────────────────────
 function AiThinkingDots() {
   return (
     <span className="ai-thinking-dots" aria-label="AI 思考中">
