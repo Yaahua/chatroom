@@ -59,7 +59,7 @@ function loadStyle(href: string): void {
 
 // MetingJS API 获取歌单
 async function fetchPlaylist(id: string): Promise<APlayerAudio[]> {
-  const url = `https://api.i-meto.com/meting/api?server=netease&type=playlist&id=${id}&r=${Math.random()}`
+  const url = `https://api.injahow.cn/meting/?server=netease&type=playlist&id=${id}&r=${Math.random()}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`MetingAPI ${res.status}`)
   const data = await res.json()
