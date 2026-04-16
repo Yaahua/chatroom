@@ -171,11 +171,18 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 3000)
   }, [])
 
+  // 监听 useMqtt 内部抛出的 toast 事件（替代 hook 内部的 alert()）
+  useEffect(() => {
+    const handler = (e: Event) => showToast((e as CustomEvent<string>).detail)
+    window.addEventListener('chatroom-toast', handler)
+    return () => window.removeEventListener('chatroom-toast', handler)
+  }, [showToast])
+
   const handleEnterRoom = useCallback((code: string, name: string) => {
     const trimName = name.trim()
-    if (!trimName) { alert('请输入昵称'); return }
+    if (!trimName) return   // LoginView 已做内联校验，此处静默拦截即可
     const trimCode = code.trim().toUpperCase()
-    if (!trimCode) { alert('请输入房间码'); return }
+    if (!trimCode) return
     const color = pickColor(trimName + trimCode)
     const u: User = { id: Math.random().toString(36).slice(2, 11), name: trimName, color }
     setUser(u)

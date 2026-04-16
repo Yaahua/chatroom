@@ -22,17 +22,23 @@ function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
   const [scale, setScale] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const lastTouchDist = useRef<number | null>(null)
-  const lastOffset = useRef({ x: 0, y: 0 })
+  const offsetRef = useRef({ x: 0, y: 0 })  // 同步 offset state，避免 stale closure
   const dragStart = useRef<{ x: number; y: number } | null>(null)
   const isPinching = useRef(false)
 
   const clampScale = (s: number) => Math.min(Math.max(s, 0.5), 5)
 
+  // offset 变化时同步到 ref，供事件处理函数读取最新值
+  const setOffsetSync = useCallback((val: { x: number; y: number }) => {
+    offsetRef.current = val
+    setOffset(val)
+  }, [])
+
   // 双击还原
   const handleDoubleClick = useCallback(() => {
     setScale(1)
-    setOffset({ x: 0, y: 0 })
-  }, [])
+    setOffsetSync({ x: 0, y: 0 })
+  }, [setOffsetSync])
 
   // 双指缩放
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -41,11 +47,11 @@ function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
       const dx = e.touches[0].clientX - e.touches[1].clientX
       const dy = e.touches[0].clientY - e.touches[1].clientY
       lastTouchDist.current = Math.sqrt(dx * dx + dy * dy)
-      lastOffset.current = offset
+      // 使用 offsetRef 而非 stale 的 offset state
     } else if (e.touches.length === 1) {
-      dragStart.current = { x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y }
+      dragStart.current = { x: e.touches[0].clientX - offsetRef.current.x, y: e.touches[0].clientY - offsetRef.current.y }
     }
-  }, [offset])
+  }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.stopPropagation()
@@ -57,16 +63,18 @@ function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
       setScale(s => clampScale(s * ratio))
       lastTouchDist.current = dist
     } else if (e.touches.length === 1 && dragStart.current && !isPinching.current) {
-      setOffset({
+      setOffsetSync({
         x: e.touches[0].clientX - dragStart.current.x,
         y: e.touches[0].clientY - dragStart.current.y,
       })
     }
-  }, [])
+  }, [setOffsetSync])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (e.touches.length < 2) {
       lastTouchDist.current = null
+      // 双指转单指时，必须清除 dragStart，否则单指拖拽会从旧坐标跳位
+      dragStart.current = null
       isPinching.current = false
     }
     if (e.touches.length === 0) dragStart.current = null

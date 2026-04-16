@@ -31,7 +31,7 @@ function useVoiceRecorder() {
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
       return true
     } catch {
-      alert('无法获取麦克风权限，请允许浏览器使用麦克风')
+      window.dispatchEvent(new CustomEvent('chatroom-toast', { detail: '无法获取麦克风权限，请允许浏览器使用麦克风' }))
       return false
     }
   }, [])
@@ -213,8 +213,9 @@ export function InputBar({
     }, 50)
   }, [])
 
-  // ── 点击 @ 按钮：立即弹出候选列表（不插入 @，atStart 记录光标位置）────────
+  // ── 点击 @ 按鈕：立即弹出候选列表（不插入 @，atStart 记录光标位置）────────────
   const handleAtBtn = useCallback(() => {
+    if (status !== 'ok') return  // Bug 12 修复：未连接时不应开启任何面板
     const el = inputRef.current
     // 输入框为空时，显示 AI 快捷指令面板
     if (!inputText.trim()) {
@@ -229,7 +230,7 @@ export function InputBar({
     setShowPlusMenu(false)
     // 延迟聚焦，避免 blur 立即关闭面板
     setTimeout(() => el?.focus(), 50)
-  }, [inputText])
+  }, [inputText, status])
 
   // ── 选中 @ 候选项：在光标处插入 @昵称 ────────────────────────────────────
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
@@ -379,8 +380,8 @@ export function InputBar({
           disabled={status !== 'ok'}
           style={{
             opacity: status !== 'ok' ? 0.4 : 1,
-            background: atQuery !== null ? 'var(--hz-500)' : 'var(--bg-input)',
-            color: atQuery !== null ? 'white' : 'var(--text-secondary)',
+            background: (atQuery !== null || showAiPrompts) ? 'var(--hz-500)' : 'var(--bg-input)',
+            color: (atQuery !== null || showAiPrompts) ? 'white' : 'var(--text-secondary)',
             transition: 'background 0.15s',
           }}
         >

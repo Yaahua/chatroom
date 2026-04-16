@@ -535,7 +535,11 @@ export function useMqtt(user: User, roomCode: string | null) {
 
   const sendFile = useCallback(async (file: File) => {
     if (!roomCode || status !== 'ok') return
-    if (file.size > CONFIG.MAX_FILE_SIZE) { alert('文件超过 20MB 限制'); return }
+    if (file.size > CONFIG.MAX_FILE_SIZE) {
+      // 通过自定义事件向上层通知，避免隐藏在 hook 内部的 alert()
+      window.dispatchEvent(new CustomEvent('chatroom-toast', { detail: '文件超过 20MB 限制' }))
+      return
+    }
 
     const mime = file.type || 'application/octet-stream'
     const isImage = /image\//i.test(mime) || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(file.name)
@@ -571,7 +575,7 @@ export function useMqtt(user: User, roomCode: string | null) {
       addLog('info', `发送文件: ${file.name} (${(file.size / 1024).toFixed(1)}KB, ${chunks.length} 片)`)
     } catch (e) {
       addLog('error', `发送文件失败: ${(e as Error).message}`)
-      alert('发送失败，请重试')
+      window.dispatchEvent(new CustomEvent('chatroom-toast', { detail: '文件发送失败，请重试' }))
     }
   }, [roomCode, user, status, publish, addLog])
 

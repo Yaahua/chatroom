@@ -36,14 +36,17 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
     }
   }, [])
 
+  const durationRef = useRef(duration)  // 避免 tick 闭包引用过期的 duration prop
+  useEffect(() => { durationRef.current = duration }, [duration])
+
   const tick = useCallback(() => {
     const a = audioRef.current
     if (!a) return
-    const dur = a.duration || duration || 1
+    const dur = a.duration || durationRef.current || 1
     setElapsed(Math.floor(a.currentTime))
     setProgress(a.currentTime / dur)
     rafRef.current = requestAnimationFrame(tick)
-  }, [duration])
+  }, [])  // 不再依赖 duration，通过 ref 读取最新值
 
   const toggle = useCallback(() => {
     if (!audioRef.current) {
@@ -134,12 +137,12 @@ function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming
   const [expanded, setExpanded] = useState(true)
   const prevStreamingRef = useRef(streaming)
   useEffect(() => {
-    if (prevStreamingRef.current && !streaming) {
+    const wasStreaming = prevStreamingRef.current
+    prevStreamingRef.current = streaming  // 先更新 ref，再判断，避免 cleanup 重入时重复执行
+    if (wasStreaming && !streaming) {
       const t = setTimeout(() => setExpanded(false), 0)
-      prevStreamingRef.current = streaming
       return () => clearTimeout(t)
     }
-    prevStreamingRef.current = streaming
   }, [streaming])
 
   return (
@@ -215,8 +218,11 @@ export function MessageList({
     const el = msgListRef.current
     if (!el) return
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-    userScrolledUpRef.current = false
-    setShowScrollBtn(false)
+    // 延迟重置，等平滑滚动完成后再清除标志，避免新消息到来时闪烁跳回底部
+    setTimeout(() => {
+      userScrolledUpRef.current = false
+      setShowScrollBtn(false)
+    }, 400)
   }, [])
 
   useEffect(() => {
@@ -252,7 +258,8 @@ export function MessageList({
       touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       if (e.touches.length > 1) return
     } else {
-      touchStartPos.current = null
+      // 框架端：记录鼠标按下位置，用于移动取消判断
+      touchStartPos.current = { x: (e as React.MouseEvent).clientX, y: (e as React.MouseEvent).clientY }
     }
     longPressTimer.current = setTimeout(() => {
       setLongPressId(msg.id)
@@ -261,11 +268,12 @@ export function MessageList({
     }, 500)
   }, [setLongPressId, setFocusedMsg])
 
-  const handleLongPressMove = useCallback((e: React.TouchEvent) => {
+  const handleLongPressMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     if (!longPressTimer.current || !touchStartPos.current) return
-    const touch = e.touches[0]
-    const dx = touch.clientX - touchStartPos.current.x
-    const dy = touch.clientY - touchStartPos.current.y
+    const clientX = 'touches' in e ? e.touches[0]?.clientX ?? 0 : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? e.touches[0]?.clientY ?? 0 : (e as React.MouseEvent).clientY
+    const dx = clientX - touchStartPos.current.x
+    const dy = clientY - touchStartPos.current.y
     if (Math.sqrt(dx * dx + dy * dy) > 8) {
       clearTimeout(longPressTimer.current)
       longPressTimer.current = null
@@ -318,6 +326,7 @@ export function MessageList({
               key={msg.id}
               className={`msg-anim msg-row-wrap ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
               onMouseDown={(e) => handleLongPressStart(msg, e)}
+              onMouseMove={(e) => handleLongPressMove(e)}
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
               onTouchStart={(e) => handleLongPressStart(msg, e)}

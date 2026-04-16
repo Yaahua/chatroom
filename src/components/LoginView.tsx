@@ -70,9 +70,11 @@ export function LoginView({ darkMode, setDarkMode, savedName, savedRoom, onEnter
 
   const handleJoinRoom = () => {
     const nameOk = validateName(nameInput)
-    if (!roomInput.trim()) { setRoomErr('请输入房间码'); if (!nameOk) return; return }
-    setRoomErr('')
-    if (!nameOk) return
+    const roomOk = !!roomInput.trim()
+    if (!roomOk) setRoomErr('请输入房间码')
+    else setRoomErr('')
+    // 两项均通过才进入，两项错误同时显示
+    if (!nameOk || !roomOk) return
     onEnterRoom(roomInput, nameInput)
   }
 
