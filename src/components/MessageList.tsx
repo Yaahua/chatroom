@@ -134,18 +134,29 @@ function AiThinkingDots() {
 
 // ─── 思考过程可折叠块 ──────────────────────────────────────────
 function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
-  // 始终默认折叠，用户手动点击才展开，不自动展开/折叠
+  // 始终默认折叠，点击整个卡片即可展开/折叠
   const [expanded, setExpanded] = useState(false)
 
+  // 监听长按事件，自动收起
+  useEffect(() => {
+    const handler = () => setExpanded(false)
+    window.addEventListener('reasoning-collapse-all', handler)
+    return () => window.removeEventListener('reasoning-collapse-all', handler)
+  }, [])
+
   return (
-    <div className="reasoning-block">
-      <button className="reasoning-toggle" onClick={() => setExpanded(e => !e)}>
+    <div
+      className="reasoning-block"
+      onClick={() => setExpanded(e => !e)}
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="reasoning-toggle">
         <span className="reasoning-icon">💡</span>
         <span className="reasoning-label">{streaming ? '思考中…' : '思考过程'}</span>
         <span className="reasoning-chevron">{expanded ? '▲' : '▼'}</span>
-      </button>
+      </div>
       {expanded && (
-        <div className="reasoning-content">
+        <div className="reasoning-content" onClick={e => e.stopPropagation()}>
           {reasoning}
           {streaming && <span className="ai-cursor" aria-hidden="true" />}
         </div>
@@ -257,6 +268,8 @@ export function MessageList({
       setLongPressId(msg.id)
       setFocusedMsg(msg)
       if (navigator.vibrate) navigator.vibrate(40)
+      // 长按弹出操作菜单时，自动收起所有思考过程卡片
+      window.dispatchEvent(new Event('reasoning-collapse-all'))
     }, 500)
   }, [setLongPressId, setFocusedMsg])
 
