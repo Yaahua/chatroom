@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../types'
+import { useState } from 'react'
 import { VoiceBubble } from './MessageList'
 import { AI_ID, KIMI_ID } from '../useAI'
 
@@ -29,6 +30,36 @@ function renderTextWithMentions(text: string, selfName?: string): React.ReactNod
     }
     return part
   })
+}
+
+// 思考过程折叠块（FocusOverlay 专用，默认折叠）
+function FocusReasoningBlock({ reasoning }: { reasoning: string }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div
+      style={{
+        marginBottom: 6, borderRadius: 6,
+        background: 'rgba(14,165,233,0.07)',
+        border: '1px solid rgba(14,165,233,0.15)',
+        fontSize: 12, cursor: 'pointer', overflow: 'hidden',
+      }}
+      onClick={() => setExpanded(e => !e)}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px', color: '#0ea5e9', fontWeight: 500, fontSize: 11 }}>
+        <span>💡</span>
+        <span style={{ flex: 1 }}>思考过程</span>
+        <span style={{ fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>
+      </div>
+      {expanded && (
+        <div
+          style={{ padding: '0 8px 6px', color: 'var(--text-secondary)', lineHeight: 1.6 }}
+          onClick={e => e.stopPropagation()}
+        >
+          {reasoning}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function FocusOverlay({
@@ -85,13 +116,8 @@ export function FocusOverlay({
                 </span>
               </div>
             )}
-            {/* B3 修复：渲染 Kimi 思考过程 */}
-            {focusedMsg.reasoning && (
-              <div style={{ marginBottom: 6, padding: '5px 8px', borderRadius: 6, background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.15)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                <div style={{ fontSize: 11, color: '#0ea5e9', fontWeight: 500, marginBottom: 3 }}>💡 思考过程</div>
-                {focusedMsg.reasoning}
-              </div>
-            )}
+            {/* B3 修复：渲染思考过程，默认折叠 */}
+            {focusedMsg.reasoning && <FocusReasoningBlock reasoning={focusedMsg.reasoning} />}
             {focusedMsg.reasoning && focusedMsg.text && (
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0', opacity: 0.5 }} />
             )}
