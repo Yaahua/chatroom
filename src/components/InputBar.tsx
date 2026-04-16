@@ -173,38 +173,36 @@ export function InputBar({
     }
   }, [recording, startRec, stopRec, sendVoice])
 
-  // 点击 @ 按钮：在光标处插入 @ 并打开面板
+  // 点击 @ 按钮：直接弹出候选列表（不插入 @ 字符，选中后再插入）
+  // query 设为空字符串，面板会展示全部候选：AI → 自己 → 其他用户
   const handleAtBtn = useCallback(() => {
     const el = inputRef.current
-    if (!el) return
-    const cursor = el.selectionStart ?? inputText.length
-    const before = inputText.slice(0, cursor)
-    const after = inputText.slice(cursor)
-    // 如果前面不是空格/行首，先补一个空格
-    const prefix = before.length > 0 && !/\s$/.test(before) ? ' ' : ''
-    const newText = before + prefix + '@' + after
-    const newCursor = cursor + prefix.length + 1
-    setInputText(newText)
-    setAtQuery({ atStart: cursor + prefix.length, query: '' })
-    // 等 DOM 更新后设置光标位置
-    setTimeout(() => {
-      el.focus()
-      el.setSelectionRange(newCursor, newCursor)
-    }, 0)
+    const cursor = el?.selectionStart ?? inputText.length
+    // 记录当前光标位置作为将来插入 @ 的位置
+    setAtQuery({ atStart: cursor, query: '' })
+    setShowEmoji(false)
+    setShowPlusMenu(false)
+    // 聚焦输入框，方便用户选完后继续输入
+    setTimeout(() => el?.focus(), 0)
   }, [inputText])
 
-  // 选中 @ 候选项：将 @xxx 替换为 @昵称（加空格）
-  // Bug 修复：AI 候选项插入 @AI 而非 @AI 助手，保证与 hasAtAI 触发逻辑匹配
+  // 选中 @ 候选项：在 atStart 处插入 @昵称 + 空格
+  // - 如果是通过输入 @ 触发：替换已输入的 @xxx
+  // - 如果是通过按钮触发：在光标处直接插入，并自动补空格分隔
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
-    const cursor = el?.selectionStart ?? inputText.length
-    const before = inputText.slice(0, atQuery.atStart)
-    const after = inputText.slice(cursor)
     // AI 候选项插入 @AI，普通用户插入 @昵称
     const mentionText = candidate.id === AI_ID ? 'AI' : candidate.name
-    const mention = `@${mentionText} `
-    const newText = before + mention + after
+    const before = inputText.slice(0, atQuery.atStart)
+    // 如果是通过输入 @ 触发，就跳过已输入的 query；否则在光标处直接插入
+    const afterStart = atQuery.query.length > 0
+      ? inputText.slice(atQuery.atStart + 1 + atQuery.query.length)  // 跳过 @query
+      : inputText.slice(el?.selectionStart ?? atQuery.atStart)        // 从光标处截取
+    // 如果 @ 前面不是空格/行首，自动补空格
+    const needSpace = before.length > 0 && !/\s$/.test(before)
+    const mention = `${needSpace ? ' ' : ''}@${mentionText} `
+    const newText = before + mention + afterStart
     const newCursor = atQuery.atStart + mention.length
     setInputText(newText)
     setAtQuery(null)
@@ -346,7 +344,7 @@ export function InputBar({
             ref={inputRef}
             className="input-hz no-scrollbar"
             style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflow: 'hidden' }}
-            placeholder={status === 'ok' ? '语言的力量 · 输入 @AI 召唤助手' : statusText}
+            placeholder={status === 'ok' ? '语言的力量' : statusText}
             disabled={status !== 'ok'}
             value={inputText}
             onChange={handleInputChange}
