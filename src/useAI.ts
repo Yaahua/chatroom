@@ -10,15 +10,16 @@ export const AI_ID = '__ai_deepseek__'
 export const AI_NAME = 'AI 助手'
 export const AI_COLOR = '#6366f1'
 
+// 请求超时时间（毫秒）
+const REQUEST_TIMEOUT_MS = 30_000
+
 // ─── @ 触发检测 ──────────────────────────────────────────────────────────────
-// Bug 修复：原来的 @AI\b 无法匹配 "@AI 助手" 插入的内容
-// 现在同时支持：@AI、@ai、@AI 助手 等所有变体
+// 支持：@AI、@ai、@AI 助手 等所有变体
 export function hasAtAI(text: string): boolean {
   return /@AI(\s|$|助手)/i.test(text)
 }
 
 // 从消息文本中提取 @AI 后的实际提问内容
-// 支持 "@AI 你好" 和 "@AI助手 你好" 两种格式
 export function extractAIPrompt(text: string): string | null {
   const match = text.match(/@AI(?:\s*助手)?\s*([\s\S]*)/i)
   if (!match) return null
@@ -26,10 +27,31 @@ export function extractAIPrompt(text: string): string | null {
   return prompt || null
 }
 
-// ─── 上下文构建 ──────────────────────────────────────────────────────────────
+// ─── 友好错误信息映射 ────────────────────────────────────────────────────────
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (msg.includes('429'))       return '请求太频繁，请稍后再试'
+  if (msg.includes('401'))       return 'API 密钥无效，请联系管理员'
+  if (msg.includes('402'))       return 'API 余额不足，请联系管理员'
+  if (msg.includes('503'))       return 'AI 服务暂时不可用，请稍后重试'
+  if (msg.includes('timeout'))   return '请求超时，请检查网络后重试'
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError'))
+                                  return '网络连接失败，请检查网络'
+  if (msg.includes('响应体为空')) return '服务器返回空响应，请重试'
+  return '出了点小问题，请稍后再试'
+}
+
+// ─── 上下文构建（带 token 预估保护）────────────────────────────────────────
 type DeepSeekMessage = {
   role: 'system' | 'user' | 'assistant'
-  content: string | { type: string; text?: string; image_url?: { url: string } }[]
+  content: string
+}
+
+// 粗略估算 token 数（中文约 1 字 = 1.5 token，英文约 4 字 = 1 token）
+function estimateTokens(text: string): number {
+  const cjk = (text.match(/[\u4e00-\u9fff\u3040-\u30ff]/g) || []).length
+  const rest = text.length - cjk
+  return Math.ceil(cjk * 1.5 + rest * 0.25)
 }
 
 function buildMessages(
@@ -38,47 +60,55 @@ function buildMessages(
   userName: string
 ): DeepSeekMessage[] {
   const systemPrompt = `你是一个聊天室里的 AI 助手，昵称为"AI 助手"。
-当前聊天室的用户通过 @AI 来召唤你。
-你的回复应当简洁、友好、口语化，适合聊天室场景。
-如果上下文中有图片描述，你可以根据描述进行分析。
-不要在回复中重复提及"@AI"或"AI 助手"这些词，直接回答即可。`
+用户通过 @AI 召唤你。回复应简洁、友好、口语化，适合聊天室场景。
+不要在回复中重复提及"@AI"或"AI 助手"，直接回答即可。`
 
-  const history: DeepSeekMessage[] = [
-    { role: 'system', content: systemPrompt }
-  ]
+  const cleanPrompt = extractAIPrompt(userPrompt) || userPrompt
 
-  // 取最近 20 条非系统消息作为上下文
+  // 构建历史消息，从最新往前取，直到 token 预算用完
+  const TOKEN_BUDGET = 2000  // 为回复预留 1024 token，上下文最多用 2000
+  let usedTokens = estimateTokens(systemPrompt) + estimateTokens(cleanPrompt)
+
   const recentMsgs = contextMsgs
     .filter(m => m.type !== 'sys' && !m.recalled)
-    .slice(-20)
+    .slice(-30)  // 最多取 30 条候选
 
-  for (const m of recentMsgs) {
-    const role = m.senderId === AI_ID ? 'assistant' : 'user'
+  const historyItems: DeepSeekMessage[] = []
+
+  // 从最新往前遍历，直到 token 预算用完
+  for (let i = recentMsgs.length - 1; i >= 0; i--) {
+    const m = recentMsgs[i]
+    let content = ''
     const prefix = m.senderId === AI_ID ? '' : `[${m.senderName}]: `
 
     if (m.type === 'text' && m.text) {
-      history.push({ role, content: `${prefix}${m.text}` })
+      content = `${prefix}${m.text}`
     } else if (m.type === 'image') {
-      // Bug 修复：blob:// URL 是本地临时 URL，DeepSeek 服务器无法访问
-      // 改为仅传递文字描述，不传图片 URL
-      history.push({ role, content: `${prefix}[发送了一张图片，图片内容无法直接分析]` })
+      content = `${prefix}[发送了一张图片]`
     } else if (m.type === 'file') {
-      history.push({ role, content: `${prefix}[发送了文件: ${m.fileName || '未知文件'}]` })
+      content = `${prefix}[发送了文件: ${m.fileName || '未知文件'}]`
     } else if (m.type === 'voice') {
-      history.push({ role, content: `${prefix}[发送了语音消息，暂不支持语音解析]` })
+      content = `${prefix}[发送了语音消息]`
+    } else {
+      continue
     }
+
+    const t = estimateTokens(content)
+    if (usedTokens + t > TOKEN_BUDGET) break
+    usedTokens += t
+
+    const role = m.senderId === AI_ID ? 'assistant' : 'user'
+    historyItems.unshift({ role, content })
   }
 
-  // 追加当前用户的提问（去掉 @AI/@AI助手 前缀，只保留实际问题）
-  const cleanPrompt = extractAIPrompt(userPrompt) || userPrompt
-  history.push({ role: 'user', content: `[${userName}]: ${cleanPrompt}` })
-
-  return history
+  return [
+    { role: 'system', content: systemPrompt },
+    ...historyItems,
+    { role: 'user', content: `[${userName}]: ${cleanPrompt}` },
+  ]
 }
 
 // ─── SSE 流式解析器 ──────────────────────────────────────────────────────────
-// Bug 修复：原来直接 split('\n') 会在 chunk 跨帧时丢失数据
-// 改用缓冲区拼接，确保每行完整后再解析
 class SSEParser {
   private buffer = ''
 
@@ -86,7 +116,6 @@ class SSEParser {
     this.buffer += chunk
     const deltas: string[] = []
     const lines = this.buffer.split('\n')
-    // 最后一行可能不完整，保留在 buffer 中
     this.buffer = lines.pop() ?? ''
 
     for (const line of lines) {
@@ -94,7 +123,7 @@ class SSEParser {
       if (!trimmed.startsWith('data: ')) continue
       const data = trimmed.slice(6)
       if (data === '[DONE]') {
-        deltas.push('\x00DONE\x00')  // 特殊标记：流结束
+        deltas.push('\x00DONE\x00')
         continue
       }
       try {
@@ -102,7 +131,7 @@ class SSEParser {
         const delta = parsed.choices?.[0]?.delta?.content
         if (delta) deltas.push(delta)
       } catch {
-        // 忽略解析失败的行（如心跳包）
+        // 忽略心跳包等非 JSON 行
       }
     }
     return deltas
@@ -129,6 +158,14 @@ export function useAI(): UseAIReturn {
   const abortControllerRef = useRef<AbortController | null>(null)
   const isThinking = useRef(false)
   const sseParser = useRef(new SSEParser())
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearTimeout_ = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }, [])
 
   const askAI = useCallback((
     userText: string,
@@ -138,15 +175,23 @@ export function useAI(): UseAIReturn {
     onDone: (fullText: string) => void,
     onError: (err: string) => void
   ) => {
-    // 如果上一次还在思考，先中止
+    // 中止上一次请求
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
+    clearTimeout_()
     sseParser.current.reset()
 
     const controller = new AbortController()
     abortControllerRef.current = controller
     isThinking.current = true
+
+    // 超时保护：30 秒内没有任何响应则中止
+    timeoutRef.current = setTimeout(() => {
+      controller.abort()
+      isThinking.current = false
+      onError('timeout')
+    }, REQUEST_TIMEOUT_MS)
 
     const messages = buildMessages(contextMsgs, userText, userName)
 
@@ -166,21 +211,24 @@ export function useAI(): UseAIReturn {
       signal: controller.signal,
     })
       .then(async res => {
+        // 收到响应头即取消超时计时（流式读取可能很慢，但已建立连接）
+        clearTimeout_()
+
         if (!res.ok) {
-          const errText = await res.text()
-          throw new Error(`API 错误 ${res.status}: ${errText}`)
+          const errText = await res.text().catch(() => '')
+          throw new Error(`${res.status} ${errText}`)
         }
         if (!res.body) throw new Error('响应体为空')
 
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let fullText = ''
+        let firstChunk = true
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          // 使用 SSEParser 处理跨帧数据
           const chunk = decoder.decode(value, { stream: true })
           const deltas = sseParser.current.feed(chunk)
 
@@ -190,30 +238,37 @@ export function useAI(): UseAIReturn {
               onDone(fullText)
               return
             }
+            // 收到第一个 chunk 时通知外部（可用于隐藏"思考中"动画）
+            if (firstChunk) {
+              firstChunk = false
+              onChunk('\x00FIRST\x00')  // 特殊标记：首个 chunk
+            }
             fullText += delta
             onChunk(delta)
           }
         }
 
-        // 流正常结束但没有收到 [DONE]（网络截断等情况）
+        // 流正常结束但没有收到 [DONE]
         isThinking.current = false
         onDone(fullText)
       })
       .catch(err => {
+        clearTimeout_()
         isThinking.current = false
-        if (err.name === 'AbortError') return  // 主动中止，不报错
-        onError(err.message || 'AI 请求失败')
+        if (err.name === 'AbortError') return  // 主动中止，静默处理
+        onError(friendlyError(err))
       })
-  }, [])
+  }, [clearTimeout_])
 
   const abortAI = useCallback(() => {
+    clearTimeout_()
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
     isThinking.current = false
     sseParser.current.reset()
-  }, [])
+  }, [clearTimeout_])
 
   return { askAI, abortAI, isThinking }
 }

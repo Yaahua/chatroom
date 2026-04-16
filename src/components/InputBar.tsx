@@ -82,12 +82,15 @@ interface InputBarProps {
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setLongPressId: (id: string | null) => void
   setShowLogPanel: (show: boolean) => void
+  /** AI 正在思考或回复中，禁止输入框发送含 @AI 的消息 */
+  aiThinking?: boolean
 }
 
 export function InputBar({
   status, onlineUsers, self,
   sendText, sendTyping, sendFile, sendVoice,
-  replyTarget, setReplyTarget, setLongPressId, setShowLogPanel
+  replyTarget, setReplyTarget, setLongPressId, setShowLogPanel,
+  aiThinking = false,
 }: InputBarProps) {
   const [inputText, setInputText] = useState('')
   const [showPlusMenu, setShowPlusMenu] = useState(false)
@@ -200,6 +203,13 @@ export function InputBar({
   const statusMap: Record<string, string> = { disconnected: '未连接', connecting: '连接中', ok: '已连接', err: '连接失败' }
   const statusText = statusMap[status] || '未连接'
 
+  // AI 忙碌时的 placeholder 提示
+  const placeholder = status !== 'ok'
+    ? statusText
+    : aiThinking
+      ? 'AI 正在回复中…'
+      : '语言的力量'
+
   return (
     <>
       {/* + 号菜单 */}
@@ -306,7 +316,7 @@ export function InputBar({
             ref={inputRef}
             className="input-hz no-scrollbar"
             style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflow: 'hidden' }}
-            placeholder={status === 'ok' ? '语言的力量' : statusText}
+            placeholder={placeholder}
             disabled={status !== 'ok'}
             value={inputText}
             onChange={handleInputChange}

@@ -5,7 +5,6 @@ import { useSound } from './useSound'
 import { useAI, hasAtAI, AI_ID, AI_NAME, AI_COLOR } from './useAI'
 import type { User, ChatMessage } from './types'
 
-// 拆分出的组件
 import { LoginView } from './components/LoginView'
 import { ChatHeader } from './components/ChatHeader'
 import { MessageList } from './components/MessageList'
@@ -34,15 +33,15 @@ export default function App() {
   const [unread, setUnread] = useState(0)
   const [focused, setFocused] = useState(true)
 
-  // 引用回复状态
   const [replyTarget, setReplyTarget] = useState<{ id: string; senderName: string; text?: string; type: string } | null>(null)
-  // 长按选中的消息 ID
   const [longPressId, setLongPressId] = useState<string | null>(null)
-  // 聚焦沉浸模式
   const [focusedMsg, setFocusedMsg] = useState<ChatMessage | null>(null)
 
-  // AI 流式回复状态：存储正在生成中的消息 ID
-  const [aiStreamingId, setAiStreamingId] = useState<string | null>(null)
+  // AI 状态：
+  //   null         — 空闲
+  //   { id, phase: 'thinking' }  — 已注入占位消息，等待第一个 chunk
+  //   { id, phase: 'streaming' } — 正在流式输出
+  const [aiState, setAiState] = useState<{ id: string; phase: 'thinking' | 'streaming' } | null>(null)
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
@@ -57,7 +56,6 @@ export default function App() {
 
   const { askAI, abortAI } = useAI()
 
-  // 始终保持 messagesRef 与 messages 同步，供 AI 上下文快照使用
   useEffect(() => { messagesRef.current = messages }, [messages])
 
   const { playSend, playReceive } = useSound(muted)
@@ -88,8 +86,7 @@ export default function App() {
     return () => { window.removeEventListener('focus', onFocus); window.removeEventListener('blur', onBlur) }
   }, [sendRead])
 
-  // 新消息到达时播放音效 & 更新未读计数
-  // 排除 AI 消息的音效（AI 完成后统一在 onDone 中播放一次）
+  // 新消息音效 & 未读计数（排除 AI 消息，AI 完成后统一播放）
   useEffect(() => {
     if (messages.length === 0) return
     const last = messages[messages.length - 1]
@@ -145,7 +142,7 @@ export default function App() {
     setRoomCode(null)
     prevMsgCount.current = 0
     setUnread(0)
-    setAiStreamingId(null)
+    setAiState(null)
     document.title = '哈吉米德的聊天室'
   }, [disconnect, abortAI])
 
@@ -176,27 +173,22 @@ export default function App() {
   }, [messages, roomCode, showToast])
 
   // ─── AI 触发逻辑 ──────────────────────────────────────────────────────────────
-  // 当用户发送包含 @AI 的消息后，自动触发 AI 回复
   const lastAiTriggerIdRef = useRef<string | null>(null)
-  // 用 ref 跟踪是否正在流式输出，避免将 aiStreamingId state 加入 effect 依赖导致重复触发
   const isStreamingRef = useRef(false)
 
   useEffect(() => {
     if (!inRoom) return
 
-    // 找最新一条自己发的、含 @AI 的文本消息
     const triggerMsg = [...messages]
       .reverse()
       .find(m => m.isSelf && m.type === 'text' && m.text && hasAtAI(m.text))
 
-    // 同一条消息不重复触发；如果 AI 正在回复也不触发
     if (!triggerMsg || triggerMsg.id === lastAiTriggerIdRef.current) return
     if (isStreamingRef.current) return
 
     lastAiTriggerIdRef.current = triggerMsg.id
     isStreamingRef.current = true
 
-    // 先注入一条"思考中"的占位消息
     const placeholderId = Math.random().toString(36).slice(2, 11)
     const placeholder: ChatMessage = {
       id: placeholderId,
@@ -204,46 +196,46 @@ export default function App() {
       senderId: AI_ID,
       senderName: AI_NAME,
       senderColor: AI_COLOR,
-      text: '…',
+      // 空字符串：由 MessageList 根据 aiState.phase 渲染"思考中"动画
+      text: '',
       ts: Date.now(),
       isSelf: false,
       readStatus: 'delivered',
     }
     injectLocalMessage(placeholder)
-    // 延迟一帧设置 streaming ID，避免在 effect 中同步 setState
-    setTimeout(() => setAiStreamingId(placeholderId), 0)
+    setTimeout(() => setAiState({ id: placeholderId, phase: 'thinking' }), 0)
 
-    // 使用当前 messages 的快照（过滤占位消息）作为上下文，避免闭包陈旧
     const contextSnapshot = messagesRef.current.filter(m => m.id !== placeholderId)
     askAI(
       triggerMsg.text!,
       user.name,
       contextSnapshot,
-      // onChunk：逐步更新占位消息的文本
       (delta) => {
+        // 收到首个 chunk 时切换到 streaming 阶段
+        if (delta === '\x00FIRST\x00') {
+          setAiState({ id: placeholderId, phase: 'streaming' })
+          return
+        }
         updateLocalMessage(placeholderId, prev => ({
           ...prev,
-          text: (prev.text === '…' ? '' : prev.text ?? '') + delta,
+          text: (prev.text ?? '') + delta,
         }))
       },
-      // onDone：完成后清除 streaming 状态，播放一次提示音
       () => {
         isStreamingRef.current = false
-        setAiStreamingId(null)
+        setAiState(null)
         playReceive()
       },
-      // onError：显示错误信息
       (err) => {
         isStreamingRef.current = false
         updateLocalMessage(placeholderId, prev => ({
           ...prev,
-          text: `⚠️ AI 回复失败：${err}`,
+          text: `⚠️ ${err}`,
         }))
-        setAiStreamingId(null)
-        showToast(`AI 错误：${err}`)
+        setAiState(null)
+        showToast(`AI：${err}`)
       }
     )
-  // 故意不将 aiStreamingId 加入依赖，改用 isStreamingRef 判断，避免重复触发
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, inRoom, askAI, user.name, playReceive, showToast])
 
@@ -319,7 +311,7 @@ export default function App() {
           setFocusedMsg={setFocusedMsg}
           setReplyTarget={setReplyTarget}
           setImgViewer={setImgViewer}
-          aiStreamingId={aiStreamingId}
+          aiState={aiState}
         />
 
         <InputBar
@@ -334,6 +326,7 @@ export default function App() {
           setReplyTarget={setReplyTarget}
           setLongPressId={setLongPressId}
           setShowLogPanel={setShowLogPanel}
+          aiThinking={!!aiState}
         />
       </div>
     </div>

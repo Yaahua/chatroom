@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import type { ChatMessage } from '../types'
 import { AI_ID } from '../useAI'
 
-// 语音气泡组件
+// ─── 语音气泡 ─────────────────────────────────────────────────────────────────
 function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number; isSelf: boolean }) {
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -75,6 +75,18 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
 
 export { VoiceBubble }
 
+// ─── AI 思考动画（三个跳动的点）────────────────────────────────────────────────
+function AiThinkingDots() {
+  return (
+    <span className="ai-thinking-dots" aria-label="AI 思考中">
+      <span className="ai-dot" />
+      <span className="ai-dot" />
+      <span className="ai-dot" />
+    </span>
+  )
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface MessageListProps {
   messages: ChatMessage[]
   typingUsers: string[]
@@ -83,18 +95,17 @@ interface MessageListProps {
   setFocusedMsg: (msg: ChatMessage | null) => void
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setImgViewer: (url: string) => void
-  /** AI 正在流式输出的消息 ID，用于展示打字动画 */
-  aiStreamingId?: string | null
+  /** AI 当前状态：null=空闲，thinking=等待首个chunk，streaming=流式输出中 */
+  aiState?: { id: string; phase: 'thinking' | 'streaming' } | null
 }
 
 export function MessageList({
-  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer, aiStreamingId
+  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer, aiState
 }: MessageListProps) {
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 自动滚动：只在用户已在底部附近（距底部 120px 内）时才自动滚动
-  // 防止用户向上翻阅历史时被强制拉回底部
   useEffect(() => {
     const el = msgListRef.current
     if (!el) return
@@ -102,7 +113,7 @@ export function MessageList({
     if (distanceFromBottom < 120) {
       el.scrollTop = el.scrollHeight
     }
-  }, [messages, typingUsers])
+  }, [messages, typingUsers, aiState])
 
   const handleLongPressStart = useCallback((msg: ChatMessage) => {
     longPressTimer.current = setTimeout(() => {
@@ -138,9 +149,12 @@ export function MessageList({
               </div>
             )
           }
+
           const isHighlighted = longPressId === msg.id
-          // AI 消息不支持长按操作（无法撤回/回复 AI 消息）
           const isAiMsg = msg.senderId === AI_ID
+          const isThisAiThinking = isAiMsg && aiState?.id === msg.id && aiState.phase === 'thinking'
+          const isThisAiStreaming = isAiMsg && aiState?.id === msg.id && aiState.phase === 'streaming'
+
           return (
             <div
               key={msg.id}
@@ -152,25 +166,39 @@ export function MessageList({
               onTouchEnd={isAiMsg ? undefined : handleLongPressEnd}
               onTouchCancel={isAiMsg ? undefined : handleLongPressEnd}
             >
+              {/* 发送者信息行（仅他人消息显示） */}
               {!msg.isSelf && (
                 <div className="msg-sender-row">
-                  {msg.senderId === AI_ID ? (
-                    <div className="avatar" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', width: 20, height: 20, fontSize: 10 }}>
-                      🤖
-                    </div>
+                  {isAiMsg ? (
+                    <div className="avatar ai-avatar">🤖</div>
                   ) : (
                     <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
                       {msg.senderName.slice(0, 1).toUpperCase()}
                     </div>
                   )}
-                  <span style={{ fontSize: 12, fontWeight: 500, color: msg.senderId === AI_ID ? '#6366f1' : 'var(--text-muted)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: isAiMsg ? '#6366f1' : 'var(--text-muted)' }}>
                     {msg.senderName}
                   </span>
+                  {/* AI 正在思考时在名字旁显示状态标签 */}
+                  {isThisAiThinking && (
+                    <span className="ai-status-badge ai-status-thinking">思考中</span>
+                  )}
+                  {isThisAiStreaming && (
+                    <span className="ai-status-badge ai-status-streaming">回复中</span>
+                  )}
                 </div>
               )}
 
+              {/* 文本气泡 */}
               {msg.type === 'text' && (
-                <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}${msg.senderId === AI_ID ? ' bubble-ai-msg' : ''}${aiStreamingId === msg.id ? ' bubble-streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
+                <div
+                  className={[
+                    msg.isSelf ? 'bubble-self' : 'bubble-other',
+                    isAiMsg ? 'bubble-ai-msg' : '',
+                    isThisAiStreaming ? 'bubble-streaming' : '',
+                  ].filter(Boolean).join(' ')}
+                  style={{ whiteSpace: 'pre-wrap' }}
+                >
                   {msg.replyTo && (
                     <div className="reply-preview">
                       <span className="reply-preview-name">{msg.replyTo.senderName}</span>
@@ -179,13 +207,23 @@ export function MessageList({
                       </span>
                     </div>
                   )}
-                  {msg.text}
-                  {aiStreamingId === msg.id && (
-                    <span className="ai-cursor" aria-hidden="true" />
+
+                  {/* 思考中：显示跳动点动画 */}
+                  {isThisAiThinking ? (
+                    <AiThinkingDots />
+                  ) : (
+                    <>
+                      {msg.text}
+                      {/* 流式输出中：末尾显示光标 */}
+                      {isThisAiStreaming && (
+                        <span className="ai-cursor" aria-hidden="true" />
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
+              {/* 图片 */}
               {msg.type === 'image' && msg.fileUrl && (
                 <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ padding: 0, overflow: 'hidden' }}>
                   <img
@@ -197,6 +235,7 @@ export function MessageList({
                 </div>
               )}
 
+              {/* 文件 */}
               {msg.type === 'file' && (
                 <div className={`file-bubble ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
                   <span style={{ fontSize: 24, flexShrink: 0 }}>📄</span>
@@ -212,18 +251,22 @@ export function MessageList({
                 </div>
               )}
 
+              {/* 语音 */}
               {msg.type === 'voice' && msg.fileUrl && (
                 <VoiceBubble url={msg.fileUrl} duration={msg.duration} isSelf={msg.isSelf} />
               )}
 
-              <span className="msg-time">
-                {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                {msg.isSelf && (
-                  <span className={`read-tick${msg.readStatus === 'read' ? ' read-tick-read' : ''}`}>
-                    {msg.readStatus === 'read' ? '✓✓' : '✓'}
-                  </span>
-                )}
-              </span>
+              {/* 时间戳 + 已读状态（AI 思考中时不显示时间，避免视觉干扰） */}
+              {!isThisAiThinking && (
+                <span className="msg-time">
+                  {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.isSelf && (
+                    <span className={`read-tick${msg.readStatus === 'read' ? ' read-tick-read' : ''}`}>
+                      {msg.readStatus === 'read' ? '✓✓' : '✓'}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           )
         })}
