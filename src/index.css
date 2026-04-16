@@ -634,3 +634,84 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
   -webkit-justify-content: center; justify-content: center;
   height: 180px; background: var(--bg-secondary);
 }
+
+/* ===== APlayer 主题覆盖 ===== */
+.aplayer {
+  border-radius: 0 0 16px 16px !important;
+  box-shadow: none !important;
+  background: var(--bg-card) !important;
+  margin: 0 !important;
+  font-family: inherit !important;
+}
+.aplayer .aplayer-body {
+  background: var(--bg-card) !important;
+}
+.aplayer .aplayer-info {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.aplayer .aplayer-music .aplayer-title {
+  color: var(--text-primary) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+.aplayer .aplayer-music .aplayer-author {
+  color: var(--text-muted) !important;
+  font-size: 11px !important;
+}
+.aplayer .aplayer-controller .aplayer-bar-wrap .aplayer-bar .aplayer-played {
+  background: var(--hz-500) !important;
+}
+.aplayer .aplayer-controller .aplayer-bar-wrap .aplayer-bar .aplayer-played .aplayer-thumb {
+  background: var(--hz-600) !important;
+}
+.aplayer .aplayer-controller .aplayer-time .aplayer-icon path {
+  fill: var(--hz-600) !important;
+}
+.aplayer .aplayer-controller .aplayer-time .aplayer-icon:hover path {
+  fill: var(--hz-800) !important;
+}
+.aplayer .aplayer-list {
+  background: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border) !important;
+}
+.aplayer .aplayer-list li {
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+.aplayer .aplayer-list li:hover {
+  background: var(--hz-100) !important;
+}
+.aplayer .aplayer-list li.aplayer-list-light {
+  background: var(--hz-200) !important;
+}
+.aplayer .aplayer-list li .aplayer-list-index {
+  color: var(--text-muted) !important;
+}
+.aplayer .aplayer-list li .aplayer-list-title {
+  color: var(--text-primary) !important;
+}
+.aplayer .aplayer-list li .aplayer-list-author {
+  color: var(--text-muted) !important;
+}
+.aplayer .aplayer-controller .aplayer-time {
+  color: var(--text-muted) !important;
+}
+.aplayer .aplayer-pic {
+  border-radius: 8px !important;
+}
+/* 暗色模式 */
+.dark .aplayer,
+.dark .aplayer .aplayer-body,
+.dark .aplayer .aplayer-info {
+  background: var(--bg-card) !important;
+}
+.dark .aplayer .aplayer-list {
+  background: var(--bg-secondary) !important;
+}
+.dark .aplayer .aplayer-list li:hover {
+  background: rgba(196,149,106,0.15) !important;
+}
+.dark .aplayer .aplayer-list li.aplayer-list-light {
+  background: rgba(196,149,106,0.2) !important;
+}

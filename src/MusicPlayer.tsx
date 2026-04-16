@@ -5,25 +5,150 @@ const FAB_SIZE = 46
 const HIDE_THRESHOLD = 20   // 距边缘多少 px 触发吸附
 const PEEK_PX = 14          // 吸附后露出多少 px
 
+// APlayer / MetingJS 类型声明
+declare global {
+  interface Window {
+    APlayer: new (options: APlayerOptions) => APlayerInstance
+  }
+}
+interface APlayerOptions {
+  container: HTMLElement
+  mini?: boolean
+  autoplay?: boolean
+  theme?: string
+  loop?: 'all' | 'one' | 'none'
+  order?: 'list' | 'random'
+  preload?: 'none' | 'metadata' | 'auto'
+  volume?: number
+  mutex?: boolean
+  listFolded?: boolean
+  listMaxHeight?: string
+  audio: APlayerAudio[]
+}
+interface APlayerAudio {
+  name: string
+  artist: string
+  url: string
+  cover: string
+  lrc?: string
+}
+interface APlayerInstance {
+  destroy(): void
+  play(): void
+  pause(): void
+}
+
 interface Pos { x: number; y: number }
+
+// 动态加载脚本/样式
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return }
+    const s = document.createElement('script')
+    s.src = src; s.onload = () => resolve(); s.onerror = reject
+    document.head.appendChild(s)
+  })
+}
+function loadStyle(href: string): void {
+  if (document.querySelector(`link[href="${href}"]`)) return
+  const l = document.createElement('link')
+  l.rel = 'stylesheet'; l.href = href
+  document.head.appendChild(l)
+}
+
+// MetingJS API 获取歌单
+async function fetchPlaylist(id: string): Promise<APlayerAudio[]> {
+  const url = `https://api.i-meto.com/meting/api?server=netease&type=playlist&id=${id}&r=${Math.random()}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`MetingAPI ${res.status}`)
+  const data = await res.json()
+  return (data as { title: string; author: string; url: string; pic: string; lrc?: string }[]).map(s => ({
+    name: s.title,
+    artist: s.author,
+    url: s.url,
+    cover: s.pic,
+    lrc: s.lrc,
+  }))
+}
 
 export default function MusicPlayer() {
   const [open, setOpen] = useState(false)
-  const [loaded, setLoaded] = useState(false)
   const [pos, setPos] = useState<Pos>({ x: window.innerWidth - FAB_SIZE - 18, y: window.innerHeight - FAB_SIZE - 88 })
-  const [hidden, setHidden] = useState(false)   // 是否吸附到侧边半隐
+  const [hidden, setHidden] = useState(false)
   const [hideSide, setHideSide] = useState<'left' | 'right'>('right')
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
 
   const dragging = useRef(false)
-  const [isDragging, setIsDragging] = useState(false)  // 用于渲染层的拖拽状态
-  const moved = useRef(false)           // 区分点击和拖动
+  const [isDragging, setIsDragging] = useState(false)
+  const moved = useRef(false)
   const startPointer = useRef<Pos>({ x: 0, y: 0 })
   const startPos = useRef<Pos>({ x: 0, y: 0 })
   const fabRef = useRef<HTMLButtonElement>(null)
-  // 用于超时兜底：若 onLoad 未触发则强制显示 iframe
-  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const playerContainerRef = useRef<HTMLDivElement>(null)
+  const aplayerRef = useRef<APlayerInstance | null>(null)
+  const playlistRef = useRef<APlayerAudio[]>([])
+  const mountedRef = useRef(false)  // 防止重复初始化
 
-  // 吸附逻辑：松手后自动吸附到最近的左/右边缘
+  // 初始化 APlayer（加载资源 + 创建实例）
+  const initPlayer = useCallback(async () => {
+    if (mountedRef.current) return
+    if (!playerContainerRef.current) return
+    mountedRef.current = true
+    setLoadState('loading')
+    try {
+      // 1. 加载 APlayer CSS
+      loadStyle('https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css')
+      // 2. 并行：加载 APlayer JS + 获取歌单数据
+      const [, playlist] = await Promise.all([
+        loadScript('https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js'),
+        fetchPlaylist(PLAYLIST_ID),
+      ])
+      playlistRef.current = playlist
+      if (!playerContainerRef.current) return
+      // 3. 创建 APlayer 实例
+      aplayerRef.current = new window.APlayer({
+        container: playerContainerRef.current,
+        mini: false,
+        autoplay: false,
+        theme: '#C4956A',
+        loop: 'all',
+        order: 'list',
+        preload: 'none',
+        volume: 0.7,
+        mutex: true,
+        listFolded: false,
+        listMaxHeight: '200px',
+        audio: playlist,
+      })
+      setLoadState('ready')
+    } catch (e) {
+      mountedRef.current = false  // 允许重试
+      setErrorMsg((e as Error).message || '加载失败')
+      setLoadState('error')
+    }
+  }, [])
+
+  // 首次打开时初始化
+  useEffect(() => {
+    if (open && !hidden && loadState === 'idle') {
+      // 用 setTimeout 避免在 effect 中直接触发 setState
+      const t = setTimeout(() => initPlayer(), 0)
+      return () => clearTimeout(t)
+    }
+  }, [open, hidden, loadState, initPlayer])
+
+  // 组件卸载时销毁 APlayer
+  useEffect(() => {
+    return () => {
+      if (aplayerRef.current) {
+        try { aplayerRef.current.destroy() } catch { /* ignore */ }
+        aplayerRef.current = null
+      }
+    }
+  }, [])
+
+  // 吸附逻辑
   const snapToEdge = useCallback((x: number, y: number) => {
     const W = window.innerWidth
     const H = window.innerHeight
@@ -37,7 +162,6 @@ export default function MusicPlayer() {
       setPos({ x: W - FAB_SIZE, y: clampedY })
       setHideSide('right')
     }
-    // 如果距边缘很近，触发半隐
     if (toLeft < HIDE_THRESHOLD || toRight < HIDE_THRESHOLD) {
       setHidden(true)
     } else {
@@ -68,7 +192,7 @@ export default function MusicPlayer() {
     const nx = Math.max(0, Math.min(W - FAB_SIZE, startPos.current.x + dx))
     const ny = Math.max(60, Math.min(H - FAB_SIZE - 10, startPos.current.y + dy))
     setPos({ x: nx, y: ny })
-    setHidden(false)   // 拖动时取消半隐
+    setHidden(false)
     e.preventDefault()
   }, [])
 
@@ -78,20 +202,18 @@ export default function MusicPlayer() {
     dragging.current = false
     setIsDragging(false)
     if (!moved.current) {
-      // 纯点击：若当前半隐，先取消半隐；否则切换播放器
       if (hidden) {
         setHidden(false)
       } else {
         setOpen(o => !o)
       }
     } else {
-      // 拖动结束：吸附到边缘
       snapToEdge(pos.x, pos.y)
     }
     e.preventDefault()
   }, [hidden, pos, snapToEdge])
 
-  // 窗口 resize / visualViewport 变化时重新吸附（兼容 iOS 键盘弹起）
+  // 窗口 resize 时重新约束位置
   useEffect(() => {
     const onResize = () => {
       const W = window.visualViewport?.width ?? window.innerWidth
@@ -111,30 +233,10 @@ export default function MusicPlayer() {
     }
   }, [])
 
-  // 打开播放器时启动超时兜底：3s 后若仍未 loaded 则强制显示 iframe
-  // 修复：iframe 初始 display:none 时 Chromium 不触发 onLoad 事件
-  useEffect(() => {
-    if (open && !hidden && !loaded) {
-      loadTimerRef.current = setTimeout(() => {
-        setLoaded(true)
-      }, 3000)
-    }
-    return () => {
-      if (loadTimerRef.current) {
-        clearTimeout(loadTimerRef.current)
-        loadTimerRef.current = null
-      }
-    }
-  }, [open, hidden, loaded])
-
-  // 计算 FAB 的实际 translate（半隐时向边缘偏移）
   const fabTranslateX = hidden
-    ? hideSide === 'right'
-      ? FAB_SIZE - PEEK_PX
-      : -(FAB_SIZE - PEEK_PX)
+    ? hideSide === 'right' ? FAB_SIZE - PEEK_PX : -(FAB_SIZE - PEEK_PX)
     : 0
 
-  // 播放器卡片的位置：在 FAB 上方，靠近吸附侧
   const cardRight = hideSide === 'right'
     ? window.innerWidth - pos.x - FAB_SIZE + (hidden ? FAB_SIZE - PEEK_PX : 0)
     : undefined
@@ -142,6 +244,8 @@ export default function MusicPlayer() {
     ? pos.x + FAB_SIZE + 8 + (hidden ? -(FAB_SIZE - PEEK_PX) : 0)
     : undefined
   const cardBottom = window.innerHeight - pos.y + 8
+
+  const isVisible = open && !hidden
 
   return (
     <>
@@ -186,7 +290,6 @@ export default function MusicPlayer() {
             )}
           </>
         )}
-        {/* 半隐时显示小箭头提示 */}
         {hidden && (
           <span style={{
             position: 'absolute',
@@ -201,7 +304,7 @@ export default function MusicPlayer() {
         )}
       </button>
 
-      {/* 播放器卡片：使用 visibility + opacity 代替条件渲染，避免 iframe 反复销毁/重建 */}
+      {/* 播放器卡片 */}
       <div
         className="music-card-wrap"
         style={{
@@ -211,15 +314,15 @@ export default function MusicPlayer() {
           left: cardLeft,
           top: 'auto',
           zIndex: 39,
-          // 隐藏时用 visibility+opacity 而非卸载，保持 iframe 已加载状态
-          visibility: (open && !hidden) ? 'visible' : 'hidden',
-          opacity: (open && !hidden) ? 1 : 0,
-          pointerEvents: (open && !hidden) ? 'auto' : 'none',
+          visibility: isVisible ? 'visible' : 'hidden',
+          opacity: isVisible ? 1 : 0,
+          pointerEvents: isVisible ? 'auto' : 'none',
           transition: 'opacity 0.2s ease, visibility 0.2s ease',
-          animation: (open && !hidden) ? 'cardSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
+          animation: isVisible ? 'cardSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
         }}
       >
-        <div className="music-card">
+        <div className="music-card" style={{ overflow: 'hidden' }}>
+          {/* 卡片头部 */}
           <div className="music-card-header">
             <div className="flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.7 }}>
@@ -229,40 +332,47 @@ export default function MusicPlayer() {
             </div>
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>网易云音乐</span>
           </div>
-          <div className="music-iframe-wrap">
-            {!loaded && (
-              <div className="music-loading">
-                <span className="flex gap-1">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
-                <span className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>加载中...</span>
-              </div>
-            )}
-            <iframe
-              title="网易云音乐播放器"
-              frameBorder="no"
-              allow="autoplay"
-              src={`https://music.163.com/outchain/player?type=0&id=${PLAYLIST_ID}&auto=0&height=430`}
-              style={{
-                width: '100%',
-                height: '430px',
-                // 修复：用 visibility 替代 display:none，避免 Chromium 不触发 onLoad
-                display: 'block',
-                visibility: loaded ? 'visible' : 'hidden',
-                position: loaded ? 'static' : 'absolute',
-                borderRadius: '0 0 16px 16px',
-              }}
-              onLoad={() => {
-                setLoaded(true)
-                if (loadTimerRef.current) {
-                  clearTimeout(loadTimerRef.current)
-                  loadTimerRef.current = null
-                }
-              }}
-            />
-          </div>
+
+          {/* 加载中 */}
+          {loadState === 'loading' && (
+            <div className="music-loading">
+              <span className="flex gap-1">
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+              </span>
+              <span className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>加载歌单中...</span>
+            </div>
+          )}
+
+          {/* 加载失败 */}
+          {loadState === 'error' && (
+            <div className="music-loading" style={{ gap: 8 }}>
+              <span style={{ fontSize: 24 }}>😢</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                加载失败<br />{errorMsg}
+              </span>
+              <button
+                onClick={() => { mountedRef.current = false; setLoadState('idle'); initPlayer() }}
+                style={{
+                  marginTop: 8, padding: '6px 16px', fontSize: 12,
+                  background: 'var(--hz-500)', color: 'white',
+                  border: 'none', borderRadius: 8, cursor: 'pointer'
+                }}
+              >
+                重试
+              </button>
+            </div>
+          )}
+
+          {/* APlayer 容器：始终挂载，ready 后才可见 */}
+          <div
+            ref={playerContainerRef}
+            style={{
+              display: loadState === 'ready' ? 'block' : 'none',
+              // APlayer 样式覆盖：适配暗色主题
+            }}
+          />
         </div>
       </div>
     </>

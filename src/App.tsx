@@ -25,7 +25,14 @@ function useVoiceRecorder() {
   const start = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+      // 兴容性检测：Safari 不支持 audio/webm，优先用 opus，其次用默认格式
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+      ].find(m => MediaRecorder.isTypeSupported(m)) || ''
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {})
       mediaRef.current = mr
       chunksRef.current = []
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
@@ -35,7 +42,7 @@ function useVoiceRecorder() {
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
       return true
     } catch {
-      alert('无法获取麦克风权限')
+      alert('无法获取麦克风权限，请允许浏览器使用麦克风')
       return false
     }
   }, [])
@@ -48,8 +55,11 @@ function useVoiceRecorder() {
       let finalDuration = 0
       setDuration(d => { finalDuration = d; return d })
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' })
+        // 使用实际录制时的 mimeType，而非硬编码
+        const mimeType = mr.mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: mimeType })
         mr.stream.getTracks().forEach(t => t.stop())
+        mediaRef.current = null
         setRecording(false)
         resolve({ blob, duration: finalDuration })
       }
@@ -131,17 +141,29 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  // 组件卸载时清理 Audio 对象，防止内存泄漏
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current = null
+      }
+    }
+  }, [])
+
   const toggle = useCallback(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio(url)
       audioRef.current.onended = () => setPlaying(false)
+      audioRef.current.onerror = () => setPlaying(false)
     }
     if (playing) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
       setPlaying(false)
     } else {
-      audioRef.current.play()
+      audioRef.current.play().catch(() => setPlaying(false))
       setPlaying(true)
     }
   }, [url, playing])

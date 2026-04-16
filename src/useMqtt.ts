@@ -7,6 +7,14 @@ import type {
   MqttTextMsg, MqttTypingMsg, MqttPresenceMsg, MqttFileMsg
 } from './types'
 
+// 安全的 base64 编码：避免展开运算符导致大数组栈溢出
+function safeBase64Encode(bytes: Uint8Array): string {
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
 export interface LogEntry {
   id: string
@@ -231,18 +239,23 @@ export function useMqtt(user: User, roomCode: string | null) {
 
   const disconnect = useCallback(() => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
+    // 先设置状态为 disconnected，这样 close 事件中的重连逻辑会被跳过
+    setStatus('disconnected')
     if (clientRef.current && roomCode) {
       publish(`chat/${roomCode}/presence`, {
         type: 'leave', senderId: user.id,
         senderName: user.name, senderColor: user.color
       })
-      setTimeout(() => clientRef.current?.end(true), 300)
+      setTimeout(() => {
+        clientRef.current?.end(true)
+        clientRef.current = null
+      }, 300)
     }
     addLog('info', '已主动断开连接')
-    setStatus('disconnected')
     setMessages([])
     setOnlineUsers([])
     setTypingUsers([])
+    reconnectAttempts.current = 0
   }, [roomCode, user, publish, addLog])
 
   const sendText = useCallback((text: string) => {
@@ -260,11 +273,17 @@ export function useMqtt(user: User, roomCode: string | null) {
     }])
   }, [roomCode, user, status, publish])
 
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sendTyping = useCallback(() => {
     if (!roomCode || status !== 'ok') return
+    // 防抖：2s 内只发一次，避免每个按键都发送 MQTT 消息
+    if (typingDebounceRef.current) return
     publish(`chat/${roomCode}/typing`, {
       type: 'typing', senderId: user.id, senderName: user.name
     })
+    typingDebounceRef.current = setTimeout(() => {
+      typingDebounceRef.current = null
+    }, CONFIG.TYPING_DEBOUNCE)
   }, [roomCode, user, status, publish])
 
   const sendFile = useCallback(async (file: File) => {
@@ -290,7 +309,7 @@ export function useMqtt(user: User, roomCode: string | null) {
       const chunkSize = file.size > 1024 * 1024 ? 48 * 1024 : CONFIG.CHUNK_SIZE
       for (let i = 0; i < buffer.byteLength; i += chunkSize) {
         const slice = buffer.slice(i, i + chunkSize)
-        chunks.push(btoa(String.fromCharCode(...new Uint8Array(slice))))
+        chunks.push(safeBase64Encode(new Uint8Array(slice)))
       }
       publish(`chat/${roomCode}/file`, {
         type: 'file', senderId: user.id,
@@ -320,7 +339,7 @@ export function useMqtt(user: User, roomCode: string | null) {
       const chunks: string[] = []
       for (let i = 0; i < buffer.byteLength; i += CONFIG.CHUNK_SIZE) {
         const slice = buffer.slice(i, i + CONFIG.CHUNK_SIZE)
-        chunks.push(btoa(String.fromCharCode(...new Uint8Array(slice))))
+        chunks.push(safeBase64Encode(new Uint8Array(slice)))
       }
       publish(`chat/${roomCode}/voice`, {
         type: 'voice', senderId: user.id,
