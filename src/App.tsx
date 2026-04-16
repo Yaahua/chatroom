@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMqtt, pickColor } from './useMqtt'
 import MusicPlayer from './MusicPlayer'
 import { useSound } from './useSound'
+import { useAI, hasAtAI, AI_ID, AI_NAME, AI_COLOR } from './useAI'
 import type { User, ChatMessage } from './types'
 
 // 拆分出的组件
@@ -40,11 +41,22 @@ export default function App() {
   // 聚焦沉浸模式
   const [focusedMsg, setFocusedMsg] = useState<ChatMessage | null>(null)
 
+  // AI 流式回复状态：存储正在生成中的消息 ID
+  const [aiStreamingId, setAiStreamingId] = useState<string | null>(null)
+
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
   const messagesRef = useRef<ChatMessage[]>([])
 
-  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, sendRecall, manualReconnect, clearLogs } = useMqtt(user, roomCode)
+  const {
+    status, messages, onlineUsers, typingUsers, logs,
+    connect, disconnect, sendText, sendTyping, sendFile, sendVoice,
+    sendRead, sendRecall, manualReconnect, clearLogs,
+    // 直接向本地消息列表注入消息（用于 AI 回复）
+    injectLocalMessage, updateLocalMessage
+  } = useMqtt(user, roomCode)
+
+  const { askAI, abortAI } = useAI()
 
   useEffect(() => { messagesRef.current = messages }, [messages])
 
@@ -125,39 +137,31 @@ export default function App() {
 
   const doExit = useCallback(() => {
     setShowExitModal(false)
+    abortAI()
     disconnect()
     setInRoom(false)
     setRoomCode(null)
     prevMsgCount.current = 0
     setUnread(0)
+    setAiStreamingId(null)
     document.title = '哈吉米德的聊天室'
-  }, [disconnect])
+  }, [disconnect, abortAI])
 
   const exportMessages = useCallback(() => {
     const exportable = messages
       .filter(m => m.type !== 'sys')
       .map(m => ({
-        id: m.id,
-        type: m.type,
-        senderId: m.senderId,
-        senderName: m.senderName,
-        text: m.text,
-        fileUrl: m.fileUrl,
-        fileName: m.fileName,
-        fileSize: m.fileSize,
-        duration: m.duration,
-        ts: m.ts,
+        id: m.id, type: m.type, senderId: m.senderId,
+        senderName: m.senderName, text: m.text,
+        fileUrl: m.fileUrl, fileName: m.fileName, fileSize: m.fileSize,
+        duration: m.duration, ts: m.ts,
         tsFormatted: new Date(m.ts).toLocaleString(),
-        isSelf: m.isSelf,
-        readStatus: m.readStatus,
-        recalled: m.recalled,
-        replyTo: m.replyTo,
+        isSelf: m.isSelf, readStatus: m.readStatus,
+        recalled: m.recalled, replyTo: m.replyTo,
       }))
     const payload = JSON.stringify({
-      room: roomCode,
-      exportedAt: new Date().toISOString(),
-      messageCount: exportable.length,
-      messages: exportable,
+      room: roomCode, exportedAt: new Date().toISOString(),
+      messageCount: exportable.length, messages: exportable,
     }, null, 2)
     const blob = new Blob([payload], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -168,6 +172,70 @@ export default function App() {
     URL.revokeObjectURL(url)
     showToast(`导出 ${exportable.length} 条记录`)
   }, [messages, roomCode, showToast])
+
+  // ─── AI 触发逻辑 ────────────────────────────────────────────────────────────
+  // 当用户发送包含 @AI 的消息后，自动触发 AI 回复
+  // 监听 messages 变化，找到最新一条含 @AI 的自己消息
+  const lastAiTriggerIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!inRoom || !injectLocalMessage || !updateLocalMessage) return
+
+    // 找最新一条自己发的、含 @AI 的文本消息
+    const triggerMsg = [...messages]
+      .reverse()
+      .find(m => m.isSelf && m.type === 'text' && m.text && hasAtAI(m.text))
+
+    if (!triggerMsg || triggerMsg.id === lastAiTriggerIdRef.current) return
+    if (aiStreamingId) return  // 上一条 AI 回复还未完成
+
+    lastAiTriggerIdRef.current = triggerMsg.id
+
+    // 先注入一条"思考中"的占位消息
+    const placeholderId = Math.random().toString(36).slice(2, 11)
+    const placeholder: ChatMessage = {
+      id: placeholderId,
+      type: 'text',
+      senderId: AI_ID,
+      senderName: AI_NAME,
+      senderColor: AI_COLOR,
+      text: '…',
+      ts: Date.now(),
+      isSelf: false,
+      readStatus: 'delivered',
+    }
+    injectLocalMessage(placeholder)
+    // 延迟一帧设置 streaming ID，避免在 effect 中同步 setState
+    setTimeout(() => setAiStreamingId(placeholderId), 0)
+
+    // 调用 DeepSeek API（流式）
+    askAI(
+      triggerMsg.text!,
+      user.name,
+      messagesRef.current.filter(m => m.id !== placeholderId),
+      // onChunk：逐步更新占位消息的文本
+      (delta) => {
+        updateLocalMessage(placeholderId, prev => ({
+          ...prev,
+          text: (prev.text === '…' ? '' : prev.text ?? '') + delta,
+        }))
+      },
+      // onDone：完成后清除 streaming 状态
+      () => {
+        setAiStreamingId(null)
+        playReceive()
+      },
+      // onError：显示错误信息
+      (err) => {
+        updateLocalMessage(placeholderId, prev => ({
+          ...prev,
+          text: `⚠️ AI 回复失败：${err}`,
+        }))
+        setAiStreamingId(null)
+        showToast(`AI 错误：${err}`)
+      }
+    )
+  }, [messages, inRoom, injectLocalMessage, updateLocalMessage, askAI, user.name, aiStreamingId, playReceive, showToast])
 
   if (!inRoom) {
     return (
@@ -241,10 +309,13 @@ export default function App() {
           setFocusedMsg={setFocusedMsg}
           setReplyTarget={setReplyTarget}
           setImgViewer={setImgViewer}
+          aiStreamingId={aiStreamingId}
         />
 
         <InputBar
           status={status}
+          onlineUsers={onlineUsers}
+          self={user}
           sendText={sendText}
           sendTyping={sendTyping}
           sendFile={sendFile}

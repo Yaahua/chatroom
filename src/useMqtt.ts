@@ -543,10 +543,22 @@ export function useMqtt(user: User, roomCode: string | null) {
     return () => clearInterval(timer)
   }, [])
 
+  // ─── AI 本地消息注入 ─────────────────────────────────────────────────────
+  /** 向本地消息列表追加一条消息（不发布到 MQTT，仅本地可见，用于 AI 回复） */
+  const injectLocalMessage = useCallback((msg: ChatMessage) => {
+    setMessages(prev => [...prev, msg])
+  }, [])
+
+  /** 按 ID 更新本地消息（用于 AI 流式回复逐步更新文本） */
+  const updateLocalMessage = useCallback((id: string, updater: (prev: ChatMessage) => ChatMessage) => {
+    setMessages(prev => prev.map(m => m.id === id ? updater(m) : m))
+  }, [])
+
   return {
     status, messages, onlineUsers, typingUsers, logs,
     activeBrokerIndex,
     connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, sendRecall,
-    manualReconnect, clearLogs
+    manualReconnect, clearLogs,
+    injectLocalMessage, updateLocalMessage
   }
 }

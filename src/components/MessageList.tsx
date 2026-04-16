@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import type { ChatMessage } from '../types'
+import { AI_ID } from '../useAI'
 
 // 语音气泡组件
 function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number; isSelf: boolean }) {
@@ -82,10 +83,12 @@ interface MessageListProps {
   setFocusedMsg: (msg: ChatMessage | null) => void
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setImgViewer: (url: string) => void
+  /** AI 正在流式输出的消息 ID，用于展示打字动画 */
+  aiStreamingId?: string | null
 }
 
 export function MessageList({
-  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer
+  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer, aiStreamingId
 }: MessageListProps) {
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -144,15 +147,23 @@ export function MessageList({
             >
               {!msg.isSelf && (
                 <div className="msg-sender-row">
-                  <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
-                    {msg.senderName.slice(0, 1).toUpperCase()}
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{msg.senderName}</span>
+                  {msg.senderId === AI_ID ? (
+                    <div className="avatar" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', width: 20, height: 20, fontSize: 10 }}>
+                      🤖
+                    </div>
+                  ) : (
+                    <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
+                      {msg.senderName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <span style={{ fontSize: 12, fontWeight: 500, color: msg.senderId === AI_ID ? '#6366f1' : 'var(--text-muted)' }}>
+                    {msg.senderName}
+                  </span>
                 </div>
               )}
 
               {msg.type === 'text' && (
-                <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ whiteSpace: 'pre-wrap' }}>
+                <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}${msg.senderId === AI_ID ? ' bubble-ai-msg' : ''}${aiStreamingId === msg.id ? ' bubble-streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                   {msg.replyTo && (
                     <div className="reply-preview">
                       <span className="reply-preview-name">{msg.replyTo.senderName}</span>
@@ -162,6 +173,9 @@ export function MessageList({
                     </div>
                   )}
                   {msg.text}
+                  {aiStreamingId === msg.id && (
+                    <span className="ai-cursor" aria-hidden="true" />
+                  )}
                 </div>
               )}
 
