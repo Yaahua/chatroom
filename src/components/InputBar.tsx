@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import type { OnlineUser, User } from '../types'
 import { AtMentionPanel } from './AtMentionPanel'
 import type { MentionCandidate } from './AtMentionPanel'
-import { AI_ID, KIMI_ID } from '../useAI'
+import { AI_ID, AI_NAME, AI_COLOR, KIMI_ID, KIMI_NAME, KIMI_COLOR } from '../useAI'
 
 // ─── 语音录制 Hook ────────────────────────────────────────────────────────────
 function useVoiceRecorder() {
@@ -59,17 +59,193 @@ function useVoiceRecorder() {
 }
 
 // ─── 解析当前光标前的 @ 触发词 ─────────────────────────────────────────────────
-// 返回 @ 的位置和 @ 后面已输入的查询字符串
 function parseAtQuery(text: string, cursorPos: number): { atStart: number; query: string } | null {
   const before = text.slice(0, cursorPos)
   const atIdx = before.lastIndexOf('@')
   if (atIdx === -1) return null
-  // @ 前面必须是空白或行首
   if (atIdx > 0 && !/[\s]/.test(before[atIdx - 1])) return null
   const query = before.slice(atIdx + 1)
-  // query 中出现空格说明已经完成了 @ 提及，关闭面板
   if (/\s/.test(query)) return null
   return { atStart: atIdx, query }
+}
+
+// ─── 助手定义（两阶段菜单数据源）────────────────────────────────────────────────
+interface AssistantDef {
+  id: string
+  name: string
+  color: string
+  desc: string   // 简短描述，显示在助手列表中
+  mentionText: string  // 插入文本时使用的 @名称
+}
+
+const ASSISTANTS: AssistantDef[] = [
+  {
+    id: AI_ID,
+    name: AI_NAME,
+    color: AI_COLOR,
+    desc: 'DeepSeek · 深度推理',
+    mentionText: 'AI',
+  },
+  {
+    id: KIMI_ID,
+    name: KIMI_NAME,
+    color: KIMI_COLOR,
+    desc: 'Moonshot · 长文理解',
+    mentionText: 'Kimi',
+  },
+]
+
+// ─── 每个助手的快捷指令 ──────────────────────────────────────────────────────────
+const ASSISTANT_PROMPTS: Record<string, { label: string; suffix: string }[]> = {
+  [AI_ID]: [
+    { label: '📝 总结聊天', suffix: '请帮我总结一下上面的聊天内容' },
+    { label: '✏️ 润色文字', suffix: '请帮我润色以下文字：' },
+    { label: '🔍 解释一下', suffix: '请解释一下：' },
+    { label: '💡 头脑风暴', suffix: '请帮我头脑风暴以下话题：' },
+    { label: '🐛 代码审查', suffix: '请帮我审查以下代码：' },
+  ],
+  [KIMI_ID]: [
+    { label: '🌐 翻译成英文', suffix: '请把上面这段话翻译成英文' },
+    { label: '🌐 翻译成中文', suffix: '请把上面这段话翻译成中文' },
+    { label: '🖋️ 写首诗', suffix: '请以「' },
+    { label: '📖 长文摘要', suffix: '请帮我摘要以下长文：' },
+    { label: '💬 改写语气', suffix: '请把以下文字改写得更正式：' },
+  ],
+}
+
+// ─── 两阶段 @ 菜单组件 ──────────────────────────────────────────────────────────
+type AtPhase = 'assistant' | 'prompt'
+
+interface TwoPhaseAtPanelProps {
+  phase: AtPhase
+  selectedAssistant: AssistantDef | null
+  onSelectAssistant: (a: AssistantDef) => void
+  onSelectPrompt: (text: string) => void
+  onBack: () => void
+  onClose: () => void
+}
+
+function TwoPhaseAtPanel({
+  phase, selectedAssistant,
+  onSelectAssistant, onSelectPrompt, onBack, onClose,
+}: TwoPhaseAtPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const items = phase === 'assistant'
+    ? ASSISTANTS
+    : (selectedAssistant ? ASSISTANT_PROMPTS[selectedAssistant.id] ?? [] : [])
+
+  // 阶段切换时重置高亮
+  useEffect(() => { setActiveIndex(0) }, [phase])
+
+  // 键盘导航
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex(i => (i + 1) % Math.max(items.length, 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex(i => (i - 1 + Math.max(items.length, 1)) % Math.max(items.length, 1))
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (items.length > 0) {
+          e.preventDefault()
+          e.stopPropagation()
+          if (phase === 'assistant') {
+            onSelectAssistant(ASSISTANTS[activeIndex])
+          } else if (selectedAssistant) {
+            const p = ASSISTANT_PROMPTS[selectedAssistant.id]?.[activeIndex]
+            if (p) onSelectPrompt(`@${selectedAssistant.mentionText} ${p.suffix}`)
+          }
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        if (phase === 'prompt') onBack()
+        else onClose()
+      }
+    }
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [items, activeIndex, phase, selectedAssistant, onSelectAssistant, onSelectPrompt, onBack, onClose])
+
+  // 点击面板外部关闭
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 100)
+    return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler) }
+  }, [onClose])
+
+  return (
+    <div ref={panelRef} className="at-panel menu-anim">
+      {/* 面板头部 */}
+      <div className="at-panel-header">
+        {phase === 'prompt' && (
+          <button
+            className="at-panel-back-btn"
+            onMouseDown={e => { e.preventDefault(); onBack() }}
+            title="返回助手列表"
+          >
+            ←
+          </button>
+        )}
+        <span className="at-panel-title">
+          {phase === 'assistant'
+            ? '选择助手'
+            : `${selectedAssistant?.name} · 快捷指令`}
+        </span>
+        {phase === 'prompt' && selectedAssistant && (
+          <div
+            className="at-avatar at-avatar-ai at-panel-header-avatar"
+            style={{ background: selectedAssistant.color }}
+          >
+            🤖
+          </div>
+        )}
+      </div>
+
+      {/* 列表内容 */}
+      <div className="at-panel-list">
+        {phase === 'assistant' && ASSISTANTS.map((a, i) => (
+          <button
+            key={a.id}
+            className={`at-panel-item${i === activeIndex ? ' at-panel-item-active' : ''}`}
+            onMouseDown={e => { e.preventDefault(); onSelectAssistant(a) }}
+            onMouseEnter={() => setActiveIndex(i)}
+          >
+            <div className="at-avatar at-avatar-ai" style={{ background: a.color }}>
+              🤖
+            </div>
+            <div className="at-info">
+              <span className="at-name">{a.name}</span>
+              <span className="at-desc">{a.desc}</span>
+            </div>
+            <span className="at-panel-chevron">›</span>
+          </button>
+        ))}
+
+        {phase === 'prompt' && selectedAssistant && (
+          ASSISTANT_PROMPTS[selectedAssistant.id]?.map((p, i) => (
+            <button
+              key={i}
+              className={`at-panel-item at-panel-item-prompt${i === activeIndex ? ' at-panel-item-active' : ''}`}
+              onMouseDown={e => {
+                e.preventDefault()
+                onSelectPrompt(`@${selectedAssistant.mentionText} ${p.suffix}`)
+              }}
+              onMouseEnter={() => setActiveIndex(i)}
+            >
+              <span className="at-prompt-label">{p.label}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -84,7 +260,6 @@ interface InputBarProps {
   replyTarget: { id: string; senderName: string; text?: string; type: string } | null
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setLongPressId: (id: string | null) => void
-  /** AI 正在思考或回复中，placeholder 给出提示 */
   aiThinking?: boolean
 }
 
@@ -98,8 +273,13 @@ export function InputBar({
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [showPhotoMode, setShowPhotoMode] = useState(false)
 
-  // @ 面板状态：null = 关闭，否则包含 @ 的位置和查询字符串
+  // ── 键盘输入 @ 触发的提及面板（原有逻辑，保持不变）────────────────────────
   const [atQuery, setAtQuery] = useState<{ atStart: number; query: string } | null>(null)
+
+  // ── 按钮触发的两阶段 @ 菜单状态 ──────────────────────────────────────────────
+  // null = 关闭；'assistant' = 第一阶段（选助手）；'prompt' = 第二阶段（选指令）
+  const [atPhase, setAtPhase] = useState<AtPhase | null>(null)
+  const [selectedAssistant, setSelectedAssistant] = useState<AssistantDef | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -109,21 +289,23 @@ export function InputBar({
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
   // ── 修复 #21：拦截 textarea 的 touchmove 冒泡，防止外层列表滚动 ─────────────
-  // 使用原生 addEventListener（而非 React 合成事件）以便精确控制事件传播。
-  // 只在 textarea 内容可滚动时调用 stopPropagation()，阻止冒泡到外层消息列表。
-  // 不调用 preventDefault()，保留浏览器原生文本滚动行为，因此 passive:true 即可。
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
     const handler = (e: TouchEvent) => {
       const canScrollUp = el.scrollTop > 0
       const canScrollDown = el.scrollTop < el.scrollHeight - el.clientHeight
-      if (canScrollUp || canScrollDown) {
-        e.stopPropagation()
-      }
+      if (canScrollUp || canScrollDown) e.stopPropagation()
     }
     el.addEventListener('touchmove', handler, { passive: true })
     return () => el.removeEventListener('touchmove', handler)
+  }, [])
+
+  // ── 关闭所有 @ 面板的统一方法 ────────────────────────────────────────────────
+  const closeAllAtPanels = useCallback(() => {
+    setAtQuery(null)
+    setAtPhase(null)
+    setSelectedAssistant(null)
   }, [])
 
   // ── 发送消息 ──────────────────────────────────────────────────────────────
@@ -134,24 +316,25 @@ export function InputBar({
     setInputText('')
     setReplyTarget(null)
     setLongPressId(null)
-    setAtQuery(null)
-    if (inputRef.current) { inputRef.current.style.height = 'auto' }
-  }, [inputText, status, sendText, replyTarget, setReplyTarget, setLongPressId])
+    closeAllAtPanels()
+    if (inputRef.current) inputRef.current.style.height = 'auto'
+  }, [inputText, status, sendText, replyTarget, setReplyTarget, setLongPressId, closeAllAtPanels])
 
   // ── 输入框内容变化：同步高度 + 检测 @ 触发 ────────────────────────────────
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
     setInputText(val)
-    // 自适应高度
     e.target.style.height = 'auto'
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
     sendTyping()
-    // 检测 @ 触发
     const cursor = e.target.selectionStart ?? val.length
-    setAtQuery(parseAtQuery(val, cursor))
+    const parsed = parseAtQuery(val, cursor)
+    setAtQuery(parsed)
+    // 键盘输入 @ 时，关闭按钮触发的两阶段面板，避免同时显示两个面板
+    if (parsed) { setAtPhase(null); setSelectedAssistant(null) }
   }, [sendTyping])
 
-  // ── 光标移动时重新检测（用户用方向键移动光标） ────────────────────────────
+  // ── 光标移动时重新检测 ────────────────────────────────────────────────────
   const handleSelect = useCallback(() => {
     const el = inputRef.current
     if (!el) return
@@ -159,11 +342,11 @@ export function InputBar({
     setAtQuery(parseAtQuery(el.value, cursor))
   }, [])
 
-  // ── 键盘事件：Enter 发送（@ 面板打开时由面板处理 Enter）────────────────────
+  // ── 键盘事件：Enter 发送（任意 @ 面板打开时交给面板处理）────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (atQuery) return  // @ 面板打开时，Enter/Tab/Esc 交给面板处理
+    if (atQuery || atPhase) return
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-  }, [handleSend, atQuery])
+  }, [handleSend, atQuery, atPhase])
 
   // ── 粘贴图片 ──────────────────────────────────────────────────────────────
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -187,20 +370,45 @@ export function InputBar({
     }
   }, [recording, startRec, stopRec, sendVoice])
 
-  // ── AI 快捷指令面板 ──────────────────────────────────────────────────────────
-  const [showAiPrompts, setShowAiPrompts] = useState(false)
+  // ── 点击 @ 按钮 ──────────────────────────────────────────────────────────
+  // 输入框为空：进入两阶段流程（助手列表）
+  // 输入框有内容：走原有 atQuery 路径（助手+用户混合列表）
+  const handleAtBtn = useCallback(() => {
+    if (status !== 'ok') return
+    const el = inputRef.current
 
-  const AI_QUICK_PROMPTS = [
-    { label: '总结聊天', text: '@AI 请帮我总结一下上面的聊天内容' },
-    { label: '翻译成英文', text: '@Kimi 请把上面这段话翻译成英文' },
-    { label: '润色文字', text: '@AI 请帮我润色以下文字：' },
-    { label: '解释一下', text: '@AI 请解释一下：' },
-    { label: '写首诗', text: '@Kimi 请以「' },
-  ]
+    if (!inputText.trim()) {
+      // 切换两阶段面板
+      if (atPhase) {
+        closeAllAtPanels()
+      } else {
+        setAtPhase('assistant')
+        setSelectedAssistant(null)
+        setAtQuery(null)
+        setShowPlusMenu(false)
+      }
+      return
+    }
 
-  const handleQuickPrompt = useCallback((text: string) => {
+    // 输入框有内容：走原有 atQuery 路径
+    setAtPhase(null)
+    setSelectedAssistant(null)
+    const cursor = el?.selectionStart ?? inputText.length
+    setAtQuery({ atStart: cursor, query: '' })
+    setShowPlusMenu(false)
+    setTimeout(() => el?.focus(), 50)
+  }, [inputText, status, atPhase, closeAllAtPanels])
+
+  // ── 两阶段面板：选中助手（第一阶段 → 第二阶段）────────────────────────────
+  const handleSelectAssistant = useCallback((a: AssistantDef) => {
+    setSelectedAssistant(a)
+    setAtPhase('prompt')
+  }, [])
+
+  // ── 两阶段面板：选中快捷指令（填入输入框）────────────────────────────────
+  const handleSelectPrompt = useCallback((text: string) => {
     setInputText(text)
-    setShowAiPrompts(false)
+    closeAllAtPanels()
     setShowPlusMenu(false)
     setTimeout(() => {
       const el = inputRef.current
@@ -211,56 +419,31 @@ export function InputBar({
         el.style.height = Math.min(el.scrollHeight, 120) + 'px'
       }
     }, 50)
+  }, [closeAllAtPanels])
+
+  // ── 两阶段面板：从第二阶段返回第一阶段 ──────────────────────────────────
+  const handleBackToAssistant = useCallback(() => {
+    setAtPhase('assistant')
+    setSelectedAssistant(null)
   }, [])
 
-  // ── 点击 @ 按鈕：立即弹出候选列表（不插入 @，atStart 记录光标位置）────────────
-  const handleAtBtn = useCallback(() => {
-    if (status !== 'ok') return  // Bug 12 修复：未连接时不应开启任何面板
-    const el = inputRef.current
-    // 输入框为空时，显示 AI 快捷指令面板
-    if (!inputText.trim()) {
-      setShowAiPrompts(s => !s)
-      setShowPlusMenu(false)
-      return
-    }
-    setShowAiPrompts(false)
-    // 获取当前光标位置（或末尾）
-    const cursor = el?.selectionStart ?? inputText.length
-    setAtQuery({ atStart: cursor, query: '' })
-    setShowPlusMenu(false)
-    // 延迟聚焦，避免 blur 立即关闭面板
-    setTimeout(() => el?.focus(), 50)
-  }, [inputText, status])
-
-  // ── 选中 @ 候选项：在光标处插入 @昵称 ────────────────────────────────────
+  // ── 选中 @ 候选项（原有路径）：在光标处插入 @昵称 ────────────────────────
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
-
-    // AI 插入 @AI，其他用户插入 @昵称
-    // B5 修复：明确匹配 AI 和 Kimi，保证插入名称与触发检测一致
     const mentionText = candidate.id === AI_ID ? 'AI' : candidate.id === KIMI_ID ? 'Kimi' : candidate.name
-
-    // 分割文本：@ 前的部分 + @ 后已输入的 query 之后的部分
     const before = inputText.slice(0, atQuery.atStart)
     const afterQuery = inputText.slice(atQuery.atStart + 1 + atQuery.query.length)
-
-    // 如果 @ 前面没有空格且有内容，自动补一个空格
     const needLeadingSpace = before.length > 0 && !/\s$/.test(before)
     const insert = `${needLeadingSpace ? ' ' : ''}@${mentionText} `
-
     const newText = before + insert + afterQuery
     const newCursor = before.length + insert.length
-
     setInputText(newText)
     setAtQuery(null)
-
-    // 聚焦并移动光标到插入点之后
     setTimeout(() => {
       if (el) {
         el.focus()
         el.setSelectionRange(newCursor, newCursor)
-        // 同步高度
         el.style.height = 'auto'
         el.style.height = Math.min(el.scrollHeight, 120) + 'px'
       }
@@ -278,8 +461,10 @@ export function InputBar({
       ? 'AI 正在回复中…'
       : '语言的力量'
 
+  // @ 按钮是否处于激活态
+  const atBtnActive = atQuery !== null || atPhase !== null
+
   return (
-    // ⚠️ 关键：position:relative 让 .at-panel 的 absolute 定位相对于此容器
     <div style={{ position: 'relative' }}>
 
       {/* + 号菜单 */}
@@ -315,21 +500,19 @@ export function InputBar({
         </div>
       )}
 
-      {/* AI 快捷指令面板 */}
-      {showAiPrompts && (
-        <div className="ai-prompts-panel menu-anim">
-          <div className="ai-prompts-title">✨ AI 快捷指令</div>
-          <div className="ai-prompts-list">
-            {AI_QUICK_PROMPTS.map((p, i) => (
-              <button key={i} className="ai-prompt-item" onClick={() => handleQuickPrompt(p.text)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* 两阶段 @ 菜单（按钮触发，输入框为空时显示） */}
+      {atPhase !== null && (
+        <TwoPhaseAtPanel
+          phase={atPhase}
+          selectedAssistant={selectedAssistant}
+          onSelectAssistant={handleSelectAssistant}
+          onSelectPrompt={handleSelectPrompt}
+          onBack={handleBackToAssistant}
+          onClose={closeAllAtPanels}
+        />
       )}
 
-      {/* @ 提及面板（position:absolute，相对于外层 div 定位到输入栏上方） */}
+      {/* 原有 @ 提及面板（键盘输入 @ 触发，或输入框有内容时按钮触发） */}
       {atQuery !== null && (
         <AtMentionPanel
           query={atQuery.query}
@@ -361,7 +544,7 @@ export function InputBar({
         {/* + 号按钮 */}
         <button
           className="bar-icon-btn"
-          onClick={() => { setShowPlusMenu(s => !s); setAtQuery(null) }}
+          onClick={() => { setShowPlusMenu(s => !s); closeAllAtPanels() }}
           style={{
             background: showPlusMenu ? 'var(--hz-500)' : 'var(--bg-input)',
             color: showPlusMenu ? 'white' : 'var(--text-secondary)',
@@ -380,8 +563,8 @@ export function InputBar({
           disabled={status !== 'ok'}
           style={{
             opacity: status !== 'ok' ? 0.4 : 1,
-            background: (atQuery !== null || showAiPrompts) ? 'var(--hz-500)' : 'var(--bg-input)',
-            color: (atQuery !== null || showAiPrompts) ? 'white' : 'var(--text-secondary)',
+            background: atBtnActive ? 'var(--hz-500)' : 'var(--bg-input)',
+            color: atBtnActive ? 'white' : 'var(--text-secondary)',
             transition: 'background 0.15s',
           }}
         >

@@ -1522,3 +1522,92 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
 /* ── 更多菜单高级选项折叠 */
 .more-menu-advanced-toggle { opacity: 0.75; }
 .more-menu-advanced-toggle:hover { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   两阶段 @ 菜单：助手列表 & 快捷指令列表
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* 面板头部：支持返回按钮 + 助手头像 */
+.at-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* 返回按钮 */
+.at-panel-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--hz-200);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.at-panel-back-btn:hover {
+  background: var(--hz-300);
+}
+.dark .at-panel-back-btn {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-secondary);
+}
+.dark .at-panel-back-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* 头部右侧小头像（第二阶段显示当前助手） */
+.at-panel-header-avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 助手列表项：右侧箭头 */
+.at-panel-chevron {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 助手描述文字（副标题） */
+.at-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+/* at-info 纵向布局（当有 at-desc 时） */
+.at-info {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+/* 快捷指令列表项：全宽文字，左对齐 */
+.at-panel-item-prompt {
+  padding: 10px 16px;
+}
+
+.at-prompt-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.dark .at-prompt-label {
+  color: var(--text-primary);
+}
