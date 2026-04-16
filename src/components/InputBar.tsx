@@ -127,7 +127,6 @@ function TwoPhaseAtPanel({
   phase, selectedAssistant,
   onSelectAssistant, onSelectPrompt, onBack, onClose,
 }: TwoPhaseAtPanelProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
   const items = phase === 'assistant'
@@ -137,7 +136,7 @@ function TwoPhaseAtPanel({
   // 阶段切换时重置高亮
   useEffect(() => { setActiveIndex(0) }, [phase])
 
-  // 键盘导航
+  // 键盘导航（不再处理 Escape，由 InputBar 层统一处理）
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
@@ -167,19 +166,10 @@ function TwoPhaseAtPanel({
     return () => window.removeEventListener('keydown', handler, true)
   }, [items, activeIndex, phase, selectedAssistant, onSelectAssistant, onSelectPrompt, onBack, onClose])
 
-  // 点击面板外部关闭
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 100)
-    return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler) }
-  }, [onClose])
+  // ⚠️ 点击外部关闭逻辑已移至 InputBar 层，避免阶段切换时 ref 失效导致误关闭
 
   return (
-    <div ref={panelRef} className="at-panel menu-anim">
+    <div className="at-panel menu-anim">
       {/* 面板头部 */}
       <div className="at-panel-header">
         {phase === 'prompt' && (
@@ -283,6 +273,8 @@ export function InputBar({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  // 稳定容器 ref，包裹整个两阶段面板区域，用于点击外部关闭
+  const panelWrapRef = useRef<HTMLDivElement>(null)
 
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
@@ -305,6 +297,19 @@ export function InputBar({
     setAtPhase(null)
     setSelectedAssistant(null)
   }, [])
+
+  // ── 点击面板外部关闭两阶段菜单（提升到 InputBar 层，避免阶段切换时 ref 失效）────
+  useEffect(() => {
+    if (atPhase === null) return
+    const handler = (e: MouseEvent) => {
+      if (panelWrapRef.current && !panelWrapRef.current.contains(e.target as Node)) {
+        closeAllAtPanels()
+      }
+    }
+    // 延迟注册，避免捕获到触发面板打开的同一个 mousedown
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 150)
+    return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler) }
+  }, [atPhase, closeAllAtPanels])
 
   // ── 发送消息 ──────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
@@ -498,17 +503,20 @@ export function InputBar({
         </div>
       )}
 
-      {/* 两阶段 @ 菜单（按钮触发，输入框为空时显示） */}
-      {atPhase !== null && (
-        <TwoPhaseAtPanel
-          phase={atPhase}
-          selectedAssistant={selectedAssistant}
-          onSelectAssistant={handleSelectAssistant}
-          onSelectPrompt={handleSelectPrompt}
-          onBack={handleBackToAssistant}
-          onClose={closeAllAtPanels}
-        />
-      )}
+      {/* 两阶段 @ 菜单（按钮触发，输入框为空时显示）
+           panelWrapRef 包裹整个面板区域，用于稳定的点击外部检测 */}
+      <div ref={panelWrapRef} style={{ position: 'static' }}>
+        {atPhase !== null && (
+          <TwoPhaseAtPanel
+            phase={atPhase}
+            selectedAssistant={selectedAssistant}
+            onSelectAssistant={handleSelectAssistant}
+            onSelectPrompt={handleSelectPrompt}
+            onBack={handleBackToAssistant}
+            onClose={closeAllAtPanels}
+          />
+        )}
+      </div>
 
       {/* 原有 @ 提及面板（键盘输入 @ 触发，或输入框有内容时按钮触发） */}
       {atQuery !== null && (
