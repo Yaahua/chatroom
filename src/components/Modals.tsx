@@ -24,7 +24,11 @@ export function Modals({
   imgViewer, setImgViewer
 }: ModalsProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { bottomRef.current?.scrollIntoView() }, [logs])
+  // 仅在日志面板打开时才滞动，避免面板关闭时也触发页面跳动
+  useEffect(() => {
+    if (!showLogPanel) return
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [logs, showLogPanel])
 
   return (
     <>
@@ -39,11 +43,11 @@ export function Modals({
         <div className="modal-overlay" onClick={() => setShowOnlineModal(false)}>
           <div className="modal-box modal-anim" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>在线成员 · {1 + onlineUsers.length} 人</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>在线成员 · {1 + onlineUsers.filter(u => u.id !== user.id).length} 人</span>
               <button onClick={() => setShowOnlineModal(false)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'none', border: 'none', fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
             </div>
             <div className="modal-body">
-              {[{ id: user.id, name: user.name, color: user.color }, ...onlineUsers].map(u => (
+              {[{ id: user.id, name: user.name, color: user.color }, ...onlineUsers.filter(u => u.id !== user.id)].map(u => (
                 <div key={u.id} className="modal-user-row">
                   <div className="avatar" style={{ background: u.color, width: 32, height: 32, fontSize: 13 }}>
                     {u.name.slice(0, 1).toUpperCase()}

@@ -491,8 +491,12 @@ export function useMqtt(user: User, roomCode: string | null) {
     const localUrl = URL.createObjectURL(file)
     objectUrlsRef.current.push(localUrl)  // 跟踪以便释放
 
+    // 本地消息 ID 与 MQTT 发布 ID 保持一致，防止 broker echo 时产生重复消息
+    const fileId = Math.random().toString(36).slice(2)
+    receivedMsgIdsRef.current.add(fileId)  // 预注册，防止 broker echo 时重复展示
+
     setMessages(prev => [...prev, {
-      id: Math.random().toString(36).slice(2),
+      id: fileId,
       type: isImage ? 'image' : 'file',
       senderId: user.id, senderName: user.name, senderColor: user.color,
       fileUrl: localUrl, fileName: file.name, fileSize: file.size, fileMime: mime,
@@ -510,7 +514,7 @@ export function useMqtt(user: User, roomCode: string | null) {
       publish(`chat/${roomCode}/file`, {
         type: 'file', senderId: user.id,
         senderName: user.name, senderColor: user.color,
-        id: Math.random().toString(36).slice(2),
+        id: fileId,  // 与本地消息 ID 一致
         name: file.name, size: file.size, mime, chunks
       })
       addLog('info', `发送文件: ${file.name} (${(file.size / 1024).toFixed(1)}KB, ${chunks.length} 片)`)
@@ -524,8 +528,13 @@ export function useMqtt(user: User, roomCode: string | null) {
     if (!roomCode || status !== 'ok') return
     const localUrl = URL.createObjectURL(blob)
     objectUrlsRef.current.push(localUrl)  // 跟踪以便释放
+
+    // 本地消息 ID 与 MQTT 发布 ID 保持一致，防止 broker echo 时产生重复消息
+    const voiceId = Math.random().toString(36).slice(2)
+    receivedMsgIdsRef.current.add(voiceId)  // 预注册，防止 broker echo 时重复展示
+
     setMessages(prev => [...prev, {
-      id: Math.random().toString(36).slice(2),
+      id: voiceId,
       type: 'voice',
       senderId: user.id, senderName: user.name, senderColor: user.color,
       fileUrl: localUrl, duration,
@@ -541,6 +550,7 @@ export function useMqtt(user: User, roomCode: string | null) {
       publish(`chat/${roomCode}/voice`, {
         type: 'voice', senderId: user.id,
         senderName: user.name, senderColor: user.color,
+        id: voiceId,  // 与本地消息 ID 一致
         chunks, duration
       })
       addLog('info', `发送语音: ${duration}s (${(blob.size / 1024).toFixed(1)}KB)`)

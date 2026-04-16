@@ -58,14 +58,14 @@ export function ChatHeader({
 
       <button className="header-users-btn" onClick={() => setShowOnlineModal(true)} title="查看在线成员">
         <div className="header-avatars">
-          {[user, ...onlineUsers].slice(0, 5).map(u => (
+          {[user, ...onlineUsers.filter(u => u.id !== user.id)].slice(0, 5).map(u => (
             <div key={u.id} className="avatar" style={{ background: u.color, border: '2px solid var(--bg-primary)' }}>
               {u.name.slice(0, 1).toUpperCase()}
             </div>
           ))}
         </div>
         <span style={{ fontSize: 12, marginLeft: 4, color: 'var(--text-muted)' }}>
-          {1 + onlineUsers.length}人
+          {1 + onlineUsers.filter(u => u.id !== user.id).length}人
         </span>
       </button>
 
