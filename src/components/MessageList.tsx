@@ -159,12 +159,12 @@ export function MessageList({
             <div
               key={msg.id}
               className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
-              onMouseDown={isAiMsg ? undefined : () => handleLongPressStart(msg)}
-              onMouseUp={isAiMsg ? undefined : handleLongPressEnd}
-              onMouseLeave={isAiMsg ? undefined : handleLongPressEnd}
-              onTouchStart={isAiMsg ? undefined : () => handleLongPressStart(msg)}
-              onTouchEnd={isAiMsg ? undefined : handleLongPressEnd}
-              onTouchCancel={isAiMsg ? undefined : handleLongPressEnd}
+              onMouseDown={() => handleLongPressStart(msg)}
+              onMouseUp={handleLongPressEnd}
+              onMouseLeave={handleLongPressEnd}
+              onTouchStart={() => handleLongPressStart(msg)}
+              onTouchEnd={handleLongPressEnd}
+              onTouchCancel={handleLongPressEnd}
             >
               {/* 发送者信息行（仅他人消息显示） */}
               {!msg.isSelf && (
