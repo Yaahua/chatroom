@@ -1,13 +1,13 @@
 // 日本辞世诗数据
 // 来源：《Japanese Death Poems》Yoel Hoffmann 编著
-// 包含禅僧辞世诗（Part Two）与俳句诗人辞世诗（Part Three）
+// 包含禅僧辞世诗与俳句诗人辞世诗
 
 export interface DeathPoem {
-  author: string        // 作者（中文名）
-  authorJa: string      // 作者（日文汉字）
+  author: string        // 作者
+  authorJa: string      // 作者
   year: string          // 辞世年份
-  lines: string[]       // 中文译文（逐行）
-  original?: string[]   // 英文原文（逐行，可选）
+  lines: string[]       // 中文译文
+  original?: string[]   // 英文原文
 }
 
 export const DEATH_POEMS: DeathPoem[] = [
