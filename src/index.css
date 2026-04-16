@@ -103,9 +103,14 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
 }
 
 /* ===== 聊天页 ===== */
+/* --app-height 由 JS 通过 visualViewport API 实时更新，确保键盘弹出时容器高度始终等于真实可视区域 */
+:root { --app-height: 100vh; --vv-offset-top: 0px; }
+
 .chat-root {
+  /* 使用 fixed + top + height 替代 bottom:0，避免 iOS 键盘弹出时 bottom 指向物理屏幕底部 */
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0;
+  height: var(--app-height);
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
@@ -116,9 +121,9 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   overflow: hidden;
-}
-@supports (height: 100dvh) {
-  .chat-root { height: 100dvh; bottom: auto; }
+  /* iOS Safari 键盘弹出后 visualViewport 会有 offsetTop 偏移，用 translateY 追随，确保容器始终对齐可视区域 */
+  transform: translateY(var(--vv-offset-top));
+  will-change: transform;
 }
 .chat-inner {
   -webkit-flex: 1;

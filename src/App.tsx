@@ -12,9 +12,38 @@ import { InputBar } from './components/InputBar'
 import { Modals } from './components/Modals'
 import { FocusOverlay } from './components/FocusOverlay'
 
+// ─── 追踪 visualViewport 高度，修复移动端键盘弹出时布局崩塌 ─────────────────
+// iOS/Android 键盘弹出时 window.innerHeight 不会缩小，但 visualViewport.height 会
+// 通过 CSS 变量 --app-height 让 .chat-root 始终等于真实可视区域高度
+function useVisualViewportHeight() {
+  useEffect(() => {
+    const update = () => {
+      const vv = window.visualViewport
+      const h = vv?.height ?? window.innerHeight
+      // offsetTop: iOS Safari 键盘弹出后页面上滚时，容器需要向下偏移追随可视区域
+      const offsetTop = vv?.offsetTop ?? 0
+      document.documentElement.style.setProperty('--app-height', `${h}px`)
+      // 通过 translateY 让 .chat-root 跟随 visualViewport 的偏移位置
+      document.documentElement.style.setProperty('--vv-offset-top', `${offsetTop}px`)
+    }
+    update()
+    window.visualViewport?.addEventListener('resize', update)
+    window.visualViewport?.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update)
+      window.visualViewport?.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+}
+
 export default function App() {
   const [savedName] = useState(() => localStorage.getItem('chat_name') || '')
   const [savedRoom] = useState(() => localStorage.getItem('chat_room') || '')
+
+  // 修复键盘弹出时布局崩塌
+  useVisualViewportHeight()
 
   const [inRoom, setInRoom] = useState(false)
   const [roomCode, setRoomCode] = useState<string | null>(null)
