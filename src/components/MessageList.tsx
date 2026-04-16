@@ -104,6 +104,20 @@ export function MessageList({
 }: MessageListProps) {
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 记录触摸起始坐标，用于连动阈值检测（防止截图误触）
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null)
+
+  // 监听页面可见性变化（截图后系统 UI 弹出时页面会短暂失焦），取消长按
+  useEffect(() => {
+    const cancelOnHide = () => {
+      if (document.hidden && longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+    }
+    document.addEventListener('visibilitychange', cancelOnHide)
+    return () => document.removeEventListener('visibilitychange', cancelOnHide)
+  }, [])
 
   // 自动滚动：只在用户已在底部附近（距底部 120px 内）时才自动滚动
   useEffect(() => {
@@ -115,7 +129,15 @@ export function MessageList({
     }
   }, [messages, typingUsers, aiState])
 
-  const handleLongPressStart = useCallback((msg: ChatMessage) => {
+  const handleLongPressStart = useCallback((msg: ChatMessage, e: React.TouchEvent | React.MouseEvent) => {
+    // 记录起始坐标
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      // 多点触控（如双指）直接不触发长按（某些设备截图会产生双指事件）
+      if (e.touches.length > 1) return
+    } else {
+      touchStartPos.current = null
+    }
     longPressTimer.current = setTimeout(() => {
       setLongPressId(msg.id)
       setFocusedMsg(msg)
@@ -123,8 +145,21 @@ export function MessageList({
     }, 500)
   }, [setLongPressId, setFocusedMsg])
 
+  const handleLongPressMove = useCallback((e: React.TouchEvent) => {
+    if (!longPressTimer.current || !touchStartPos.current) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - touchStartPos.current.x
+    const dy = touch.clientY - touchStartPos.current.y
+    // 移动超过 8px 即取消长按（截图时手指通常有轻微移动）
+    if (Math.sqrt(dx * dx + dy * dy) > 8) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
+
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+    touchStartPos.current = null
   }, [])
 
   const fmtSize = (n: number) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB'
@@ -159,10 +194,11 @@ export function MessageList({
             <div
               key={msg.id}
               className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
-              onMouseDown={() => handleLongPressStart(msg)}
+              onMouseDown={(e) => handleLongPressStart(msg, e)}
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
-              onTouchStart={() => handleLongPressStart(msg)}
+              onTouchStart={(e) => handleLongPressStart(msg, e)}
+              onTouchMove={handleLongPressMove}
               onTouchEnd={handleLongPressEnd}
               onTouchCancel={handleLongPressEnd}
             >

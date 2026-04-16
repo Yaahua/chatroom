@@ -84,7 +84,6 @@ interface InputBarProps {
   replyTarget: { id: string; senderName: string; text?: string; type: string } | null
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setLongPressId: (id: string | null) => void
-  setShowLogPanel: (show: boolean) => void
   /** AI 正在思考或回复中，placeholder 给出提示 */
   aiThinking?: boolean
 }
@@ -92,7 +91,7 @@ interface InputBarProps {
 export function InputBar({
   status, onlineUsers, self,
   sendText, sendTyping, sendFile, sendVoice,
-  replyTarget, setReplyTarget, setLongPressId, setShowLogPanel,
+  replyTarget, setReplyTarget, setLongPressId,
   aiThinking = false,
 }: InputBarProps) {
   const [inputText, setInputText] = useState('')
@@ -275,10 +274,6 @@ export function InputBar({
               <button className="plus-menu-item" onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false) }}>
                 <span className="plus-menu-icon">📁</span>
                 <span className="plus-menu-label">文件 <span className="file-limit-badge">≤20MB</span></span>
-              </button>
-              <button className="plus-menu-item" onClick={() => { setShowLogPanel(true); setShowPlusMenu(false) }}>
-                <span className="plus-menu-icon">🔍</span>
-                <span className="plus-menu-label">日志</span>
               </button>
             </div>
           )}

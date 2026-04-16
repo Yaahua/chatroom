@@ -414,7 +414,6 @@ export default function App() {
           replyTarget={replyTarget}
           setReplyTarget={setReplyTarget}
           setLongPressId={setLongPressId}
-          setShowLogPanel={setShowLogPanel}
           aiThinking={!!aiState}
         />
       </div>
