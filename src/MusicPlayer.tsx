@@ -78,7 +78,11 @@ interface MusicPlayerProps {
 
 export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState<Pos>({ x: window.innerWidth - FAB_SIZE - 18, y: window.innerHeight - FAB_SIZE - 88 })
+  // 使用函数式初始化，避免 SSR 或测试环境中直接读取 window
+  const [pos, setPos] = useState<Pos>(() => ({
+    x: (window.visualViewport?.width ?? window.innerWidth) - FAB_SIZE - 18,
+    y: (window.visualViewport?.height ?? window.innerHeight) - FAB_SIZE - 88,
+  }))
   const [hidden, setHidden] = useState(false)
   const [hideSide, setHideSide] = useState<'left' | 'right'>('right')
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
@@ -93,10 +97,12 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   const playerContainerRef = useRef<HTMLDivElement>(null)
   const aplayerRef = useRef<APlayerInstance | null>(null)
   const playlistRef = useRef<APlayerAudio[]>([])
-  const mountedRef = useRef(false)  // 防止重复初始化
+  const mountedRef = useRef(false)  // 防止重复初始化（含 StrictMode 双重调用保护）
 
   // 初始化 APlayer（加载资源 + 创建实例）
   const initPlayer = useCallback(async () => {
+    // StrictMode 下 effect 会被调用两次：第一次 mount → unmount → 第二次 mount
+    // 第一次调用时 playerContainerRef 可能已被卸载
     if (mountedRef.current) return
     if (!playerContainerRef.current) return
     mountedRef.current = true
@@ -250,13 +256,16 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
     ? hideSide === 'right' ? FAB_SIZE - PEEK_PX : -(FAB_SIZE - PEEK_PX)
     : 0
 
+  // 使用 visualViewport 尺寸，与 resize handler 保持一致，避免键盘弹出时卡片位置错误
+  const vpW = window.visualViewport?.width ?? window.innerWidth
+  const vpH = window.visualViewport?.height ?? window.innerHeight
   const cardRight = hideSide === 'right'
-    ? window.innerWidth - pos.x - FAB_SIZE + (hidden ? FAB_SIZE - PEEK_PX : 0)
+    ? vpW - pos.x - FAB_SIZE + (hidden ? FAB_SIZE - PEEK_PX : 0)
     : undefined
   const cardLeft = hideSide === 'left'
     ? pos.x + FAB_SIZE + 8 + (hidden ? -(FAB_SIZE - PEEK_PX) : 0)
     : undefined
-  const cardBottom = window.innerHeight - pos.y + 8
+  const cardBottom = vpH - pos.y + 8
 
   const isVisible = open && !hidden
 

@@ -433,22 +433,6 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   border-radius: 14px;
   background: var(--bg-input); border: 1.5px solid var(--hz-500);
 }
-.emoji-panel {
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-  padding: 8px 12px;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-wrap: wrap;
-  flex-wrap: wrap;
-  gap: 4px;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border);
-}
-.emoji-btn {
-  font-size: 20px; padding: 6px; border-radius: 12px;
-  background: transparent; border: none; cursor: pointer; line-height: 1;
-}
 .plus-menu {
   -webkit-flex-shrink: 0;
   flex-shrink: 0;

@@ -110,17 +110,17 @@ export function InputBar({
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
   // ── 修复 #21：拦截 textarea 的 touchmove 冒泡，防止外层列表滚动 ─────────────
-  // 必须用 addEventListener 而非 React 合成事件，因为需要 passive:false 才能 preventDefault
+  // 使用原生 addEventListener（而非 React 合成事件）以便精确控制事件传播。
+  // 只在 textarea 内容可滚动时调用 stopPropagation()，阻止冒泡到外层消息列表。
+  // 不调用 preventDefault()，保留浏览器原生文本滚动行为，因此 passive:true 即可。
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
     const handler = (e: TouchEvent) => {
-      // 只有当 textarea 内容可以滚动时才拦截
       const canScrollUp = el.scrollTop > 0
       const canScrollDown = el.scrollTop < el.scrollHeight - el.clientHeight
       if (canScrollUp || canScrollDown) {
-        e.stopPropagation()  // 阻止冒泡到外层消息列表
-        // 不调用 preventDefault()，保留原生文本滚动行为
+        e.stopPropagation()
       }
     }
     el.addEventListener('touchmove', handler, { passive: true })
