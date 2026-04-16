@@ -76,6 +76,8 @@ export function useMqtt(user: User, roomCode: string | null) {
   const connectToBrokerRef = useRef<(idx: number) => void>(() => {})
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 幽灵在线方案一：心跳超时剔除定时器
+  const presenceCleanupTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   // 主动断开标志：防止 close 事件在主动断开时误触发重连
   const intentionalDisconnectRef = useRef(false)
   // 已接收消息 ID 集合：防止重连后重复消息
@@ -132,6 +134,14 @@ export function useMqtt(user: User, roomCode: string | null) {
     const clientId = `chat_${user.id}_${Date.now().toString(36)}`
     addLog('info', `正在连接 ${broker.label}... clientId=${clientId}`)
 
+    // 幽灵在线方案二：LWT 遗嘱消息
+    // 当客户端异常断线时，Broker 会自动广播此消息，其他用户立即知道该用户已离线
+    const willPayload = JSON.stringify({
+      type: 'leave',
+      senderId: user.id,
+      senderName: user.name,
+      senderColor: user.color
+    })
     const client = mqtt.connect(broker.url, {
       clientId,
       username: broker.username,
@@ -141,7 +151,14 @@ export function useMqtt(user: User, roomCode: string | null) {
       connectTimeout: 15000,
       reconnectPeriod: 0,
       protocolVersion: 5,
-      properties: { sessionExpiryInterval: CONFIG.SESSION_EXPIRY }
+      properties: { sessionExpiryInterval: CONFIG.SESSION_EXPIRY },
+      // LWT: 异常断线时 Broker 自动发布离开消息
+      will: {
+        topic: `chat/${roomCode}/presence`,
+        payload: willPayload,
+        qos: 1 as const,
+        retain: false
+      }
     })
     clientRef.current = client
     setStatus('connecting')
@@ -181,6 +198,21 @@ export function useMqtt(user: User, roomCode: string | null) {
             senderName: user.name, senderColor: user.color
           })
         }, 20000)
+
+        // 幽灵在线方案一：心跳超时剔除
+        // 每 10 秒检查一次在线列表，剔除超过 60 秒没有心跳的用户
+        // 心跳周期为 20s，60s = 3 个周期内没有心跳则认定已掉线
+        if (presenceCleanupTimer.current) clearInterval(presenceCleanupTimer.current)
+        presenceCleanupTimer.current = setInterval(() => {
+          const now = Date.now()
+          setOnlineUsers(prev => {
+            const active = prev.filter(u => now - u.ts < 60000)
+            if (active.length < prev.length) {
+              addLog('info', `心跳超时，剔除 ${prev.length - active.length} 个失联用户`)
+            }
+            return active
+          })
+        }, 10000)
       })
     })
 
@@ -344,6 +376,7 @@ export function useMqtt(user: User, roomCode: string | null) {
 
     client.on('close', () => {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
+      if (presenceCleanupTimer.current) clearInterval(presenceCleanupTimer.current)
       // 主动断开时不重连
       if (intentionalDisconnectRef.current) return
       setStatus(s => {
@@ -391,6 +424,7 @@ export function useMqtt(user: User, roomCode: string | null) {
   const disconnect = useCallback(() => {
     intentionalDisconnectRef.current = true
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
+    if (presenceCleanupTimer.current) clearInterval(presenceCleanupTimer.current)
     setStatus('disconnected')
     if (clientRef.current && roomCode) {
       publish(`chat/${roomCode}/presence`, {

@@ -164,6 +164,12 @@ export default function App() {
     if (inRoom && roomCode && user.name) connect()
   }, [inRoom, roomCode, user, connect])
 
+  // #22 修复：已处理消息 ID 集合（必须在 doExit 之前声明）
+  const aiHandledIdsRef = useRef<Set<string>>(new Set())
+  const clearAiHandledIds = useCallback(() => {
+    aiHandledIdsRef.current = new Set()
+  }, [])
+
   const doExit = useCallback(() => {
     setShowExitModal(false)
     abortAI()
@@ -173,8 +179,10 @@ export default function App() {
     prevMsgCount.current = 0
     setUnread(0)
     setAiState(null)
+    clearAiHandledIds()        // #22: 清空内存中的已处理 ID（localStorage 保留）
+    lastAiTriggerIdRef.current = null
     document.title = '哈吉米德的聊天室'
-  }, [disconnect, abortAI])
+  }, [disconnect, abortAI, clearAiHandledIds])
 
   const exportMessages = useCallback(() => {
     const exportable = messages
@@ -203,8 +211,25 @@ export default function App() {
   }, [messages, roomCode, showToast])
 
   // ─── AI 触发逻辑 ──────────────────────────────────────────────────────────────
+  // aiHandledIdsRef 已在上方 doExit 前声明
   const lastAiTriggerIdRef = useRef<string | null>(null)
   const isStreamingRef = useRef(false)
+
+  // 进入房间时从 localStorage 恢复已处理 ID 集合
+  useEffect(() => {
+    if (!inRoom || !roomCode) return
+    try {
+      const raw = localStorage.getItem(`ai_handled_${roomCode}`)
+      if (raw) {
+        const ids: string[] = JSON.parse(raw)
+        aiHandledIdsRef.current = new Set(ids)
+      } else {
+        aiHandledIdsRef.current = new Set()
+      }
+    } catch {
+      aiHandledIdsRef.current = new Set()
+    }
+  }, [inRoom, roomCode])
 
   useEffect(() => {
     if (!inRoom) return
@@ -226,10 +251,20 @@ export default function App() {
         return isAtAI || isReplyToAI
       })
 
-    if (!triggerMsg || triggerMsg.id === lastAiTriggerIdRef.current) return
+    if (!triggerMsg) return
+    // 内存级去重：当前会话中已触发过的消息不再重复处理
+    if (triggerMsg.id === lastAiTriggerIdRef.current) return
+    // #22 持久化去重：重进房间后，历史消息中已处理过的消息不再触发
+    if (aiHandledIdsRef.current.has(triggerMsg.id)) return
     if (isStreamingRef.current) return
 
     lastAiTriggerIdRef.current = triggerMsg.id
+    // 立即写入持久化集合，防止异步期间重复触发
+    aiHandledIdsRef.current.add(triggerMsg.id)
+    try {
+      const ids = Array.from(aiHandledIdsRef.current).slice(-200) // 最多保留 200 条
+      localStorage.setItem(`ai_handled_${roomCode}`, JSON.stringify(ids))
+    } catch { /* localStorage 满了忽略 */ }
     isStreamingRef.current = true
 
     // #20: 触发者昵称（可能是自己或其他用户）
