@@ -98,18 +98,16 @@ const ASSISTANTS: AssistantDef[] = [
 // ─── 每个助手的快捷指令 ──────────────────────────────────────────────────────────
 const ASSISTANT_PROMPTS: Record<string, { label: string; suffix: string }[]> = {
   [AI_ID]: [
-    { label: '📝 总结聊天', suffix: '请帮我总结一下上面的聊天内容' },
-    { label: '✏️ 润色文字', suffix: '请帮我润色以下文字：' },
-    { label: '🔍 解释一下', suffix: '请解释一下：' },
-    { label: '💡 头脑风暴', suffix: '请帮我头脑风暴以下话题：' },
-    { label: '🐛 代码审查', suffix: '请帮我审查以下代码：' },
+    { label: '📝 总结聊天', suffix: '简要总结以上对话要点' },
+    { label: '🐢 来玩海龟汤', suffix: '生成一道海龟汤，只给汤面（场景），我先提问猜真相，你只用回答"是/否/无关"' },
+    { label: '📚 5W2H学习法', suffix: '用5W2H学习法解释' },
+    { label: '🎋 生成诗词', suffix: '给我生成一段当前聊天的诗词' },
   ],
   [KIMI_ID]: [
-    { label: '🌐 翻译成英文', suffix: '请把上面这段话翻译成英文' },
-    { label: '🌐 翻译成中文', suffix: '请把上面这段话翻译成中文' },
-    { label: '🖋️ 写首诗', suffix: '请以「' },
-    { label: '📖 长文摘要', suffix: '请帮我摘要以下长文：' },
-    { label: '💬 改写语气', suffix: '请把以下文字改写得更正式：' },
+    { label: '📝 总结聊天', suffix: '简要总结以上对话要点' },
+    { label: '🐢 来玩海龟汤', suffix: '生成一道海龟汤，只给汤面（场景），我先提问猜真相，你只用回答"是/否/无关"' },
+    { label: '📚 5W2H学习法', suffix: '用5W2H学习法解释' },
+    { label: '🎋 生成诗词', suffix: '给我生成一段当前聊天的诗词' },
   ],
 }
 
