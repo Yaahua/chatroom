@@ -1392,3 +1392,133 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
 .dark .reasoning-content {
   color: var(--text-muted);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   UX 提升方案 — 新增样式
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 消息行包裹层（用于悬停操作定位） */
+.msg-row-wrap { position: relative; }
+.msg-content-wrap { position: relative; display: flex; align-items: flex-end; }
+.msg-row-self .msg-content-wrap { flex-direction: row-reverse; }
+
+/* ── 桌面端悬停快捷操作按钮 */
+.msg-hover-actions {
+  display: none;
+  gap: 4px;
+  align-items: center;
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+.msg-row-wrap:hover .msg-hover-actions { display: flex; }
+.msg-hover-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.msg-hover-btn:hover {
+  background: var(--hz-500);
+  color: #fff;
+  border-color: var(--hz-500);
+}
+@media (hover: none) {
+  .msg-hover-actions { display: none !important; }
+}
+
+/* ── 回到底部按钮 */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 80px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--hz-500);
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  animation: fadeInUp 0.2s ease;
+  transition: background 0.15s;
+}
+.scroll-to-bottom-btn:hover { background: var(--hz-600); }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 图片查看器缩放提示 */
+.img-viewer-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── AI 快捷指令面板 */
+.ai-prompts-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 12px 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  z-index: 30;
+}
+.ai-prompts-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding: 0 2px;
+  letter-spacing: 0.5px;
+}
+.ai-prompts-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-prompt-item {
+  padding: 6px 14px;
+  font-size: 13px;
+  background: var(--hz-100);
+  border: 1px solid var(--hz-300);
+  border-radius: 999px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.ai-prompt-item:hover {
+  background: var(--hz-500);
+  border-color: var(--hz-500);
+  color: #fff;
+}
+.dark .ai-prompts-panel { background: var(--bg-secondary); }
+.dark .ai-prompt-item { background: var(--hz-200); border-color: var(--hz-400); }
+.dark .ai-prompt-item:hover { background: var(--hz-500); border-color: var(--hz-500); color: #fff; }
+
+/* ── 更多菜单高级选项折叠 */
+.more-menu-advanced-toggle { opacity: 0.75; }
+.more-menu-advanced-toggle:hover { opacity: 1; }

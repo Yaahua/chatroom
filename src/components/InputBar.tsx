@@ -187,9 +187,42 @@ export function InputBar({
     }
   }, [recording, startRec, stopRec, sendVoice])
 
+  // ── AI 快捷指令面板 ──────────────────────────────────────────────────────────
+  const [showAiPrompts, setShowAiPrompts] = useState(false)
+
+  const AI_QUICK_PROMPTS = [
+    { label: '总结聊天', text: '@AI 请帮我总结一下上面的聊天内容' },
+    { label: '翻译成英文', text: '@Kimi 请把上面这段话翻译成英文' },
+    { label: '润色文字', text: '@AI 请帮我润色以下文字：' },
+    { label: '解释一下', text: '@AI 请解释一下：' },
+    { label: '写首诗', text: '@Kimi 请以「' },
+  ]
+
+  const handleQuickPrompt = useCallback((text: string) => {
+    setInputText(text)
+    setShowAiPrompts(false)
+    setShowPlusMenu(false)
+    setTimeout(() => {
+      const el = inputRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(text.length, text.length)
+        el.style.height = 'auto'
+        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+      }
+    }, 50)
+  }, [])
+
   // ── 点击 @ 按钮：立即弹出候选列表（不插入 @，atStart 记录光标位置）────────
   const handleAtBtn = useCallback(() => {
     const el = inputRef.current
+    // 输入框为空时，显示 AI 快捷指令面板
+    if (!inputText.trim()) {
+      setShowAiPrompts(s => !s)
+      setShowPlusMenu(false)
+      return
+    }
+    setShowAiPrompts(false)
     // 获取当前光标位置（或末尾）
     const cursor = el?.selectionStart ?? inputText.length
     setAtQuery({ atStart: cursor, query: '' })
@@ -278,6 +311,20 @@ export function InputBar({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* AI 快捷指令面板 */}
+      {showAiPrompts && (
+        <div className="ai-prompts-panel menu-anim">
+          <div className="ai-prompts-title">✨ AI 快捷指令</div>
+          <div className="ai-prompts-list">
+            {AI_QUICK_PROMPTS.map((p, i) => (
+              <button key={i} className="ai-prompt-item" onClick={() => handleQuickPrompt(p.text)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -2,11 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ChatMessage } from '../types'
 import { AI_ID, KIMI_ID } from '../useAI'
 
-// ─── 语音气泡 ─────────────────────────────────────────────────────────────────
+// ─── 语音气泡（含播放进度条）─────────────────────────────────────────────────
 function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number; isSelf: boolean }) {
   const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)   // 0~1
+  const [elapsed, setElapsed] = useState(0)      // 已播放秒数
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const resumeTimeRef = useRef(0)
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -15,6 +18,7 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
         resumeTimeRef.current = audioRef.current.currentTime
         audioRef.current.pause()
         setPlaying(false)
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
       }
     }
     window.addEventListener('voice-stop-all', handler)
@@ -28,46 +32,85 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
         audioRef.current.src = ''
         audioRef.current = null
       }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [])
+
+  const tick = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    const dur = a.duration || duration || 1
+    setElapsed(Math.floor(a.currentTime))
+    setProgress(a.currentTime / dur)
+    rafRef.current = requestAnimationFrame(tick)
+  }, [duration])
 
   const toggle = useCallback(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio(url)
-      audioRef.current.onended = () => { setPlaying(false); resumeTimeRef.current = 0 }
-      audioRef.current.onerror = () => { setPlaying(false); resumeTimeRef.current = 0 }
+      audioRef.current.onended = () => {
+        setPlaying(false)
+        setProgress(0)
+        setElapsed(0)
+        resumeTimeRef.current = 0
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      }
+      audioRef.current.onerror = () => {
+        setPlaying(false)
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      }
     }
     if (playing) {
       resumeTimeRef.current = audioRef.current.currentTime
       audioRef.current.pause()
       setPlaying(false)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     } else {
       window.dispatchEvent(new CustomEvent('voice-stop-all', { detail: { except: audioRef.current } }))
       audioRef.current.currentTime = resumeTimeRef.current
       audioRef.current.play().catch(() => setPlaying(false))
       setPlaying(true)
+      rafRef.current = requestAnimationFrame(tick)
     }
-  }, [url, playing])
+  }, [url, playing, tick])
 
   const fmtDuration = (s: number) => s < 60 ? `${s}"` : `${Math.floor(s / 60)}'${String(s % 60).padStart(2, '0')}"`
+  const totalSec = duration ?? 0
+  const displayTime = playing ? fmtDuration(elapsed) : (totalSec ? fmtDuration(totalSec) : '语音')
 
   return (
     <div className={`voice-bubble ${isSelf ? 'bubble-self' : 'bubble-other'}`} onClick={toggle}>
       <div className="voice-play-btn" style={{ background: isSelf ? 'rgba(255,255,255,0.25)' : 'var(--hz-200)' }}>
         <span style={{ fontSize: 14 }}>{playing ? '⏸' : '▶️'}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div className="voice-waves">
-          {[3,5,4,6,3,5,4,3,5,6,4,3].map((h, i) => (
-            <div key={i} style={{
-              width: 2, borderRadius: 2,
-              height: playing ? `${h * 3}px` : `${h * 2}px`,
-              background: isSelf ? 'rgba(255,255,255,0.7)' : 'var(--hz-500)',
-              animation: playing ? `typingBounce ${0.8 + i * 0.07}s infinite` : 'none'
-            }} />
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 80 }}>
+        {/* 进度条 */}
+        <div style={{
+          height: 3, borderRadius: 2,
+          background: isSelf ? 'rgba(255,255,255,0.25)' : 'var(--hz-300)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', borderRadius: 2,
+            width: `${progress * 100}%`,
+            background: isSelf ? 'rgba(255,255,255,0.85)' : 'var(--hz-600)',
+            transition: 'width 0.1s linear',
+          }} />
         </div>
-        <span style={{ fontSize: 11, opacity: 0.7 }}>{duration ? fmtDuration(duration) : '语音'}</span>
+        {/* 波形 + 时间 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="voice-waves">
+            {[3,5,4,6,3,5,4,3,5,6,4,3].map((h, i) => (
+              <div key={i} style={{
+                width: 2, borderRadius: 2,
+                height: playing ? `${h * 3}px` : `${h * 2}px`,
+                background: isSelf ? 'rgba(255,255,255,0.7)' : 'var(--hz-500)',
+                animation: playing ? `typingBounce ${0.8 + i * 0.07}s infinite` : 'none'
+              }} />
+            ))}
+          </div>
+          <span style={{ fontSize: 11, opacity: 0.7 }}>{displayTime}</span>
+        </div>
       </div>
     </div>
   )
@@ -89,7 +132,6 @@ function AiThinkingDots() {
 // ─── 思考过程可折叠块 ──────────────────────────────────────────
 function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
   const [expanded, setExpanded] = useState(true)
-  // 流式输出完成后自动折叠
   const prevStreamingRef = useRef(streaming)
   useEffect(() => {
     if (prevStreamingRef.current && !streaming) {
@@ -102,14 +144,9 @@ function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming
 
   return (
     <div className="reasoning-block">
-      <button
-        className="reasoning-toggle"
-        onClick={() => setExpanded(e => !e)}
-      >
+      <button className="reasoning-toggle" onClick={() => setExpanded(e => !e)}>
         <span className="reasoning-icon">💡</span>
-        <span className="reasoning-label">
-          {streaming ? '思考中…' : '思考过程'}
-        </span>
+        <span className="reasoning-label">{streaming ? '思考中…' : '思考过程'}</span>
         <span className="reasoning-chevron">{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
@@ -131,9 +168,7 @@ interface MessageListProps {
   setFocusedMsg: (msg: ChatMessage | null) => void
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setImgViewer: (url: string) => void
-  /** AI 当前状态：null=空闲，thinking=等待首个chunk，streaming=流式输出中 */
   aiState?: { id: string; phase: 'thinking' | 'streaming' } | null
-  /** 当前用户昵称，用于判断消息是否 @ 了自己 */
   selfName?: string
 }
 
@@ -145,9 +180,7 @@ function renderTextWithMentions(text: string, selfName?: string): React.ReactNod
       const name = part.slice(1)
       const isSelf = selfName && name === selfName
       return (
-        <span key={i} className={isSelf ? 'mention-self' : 'mention-other'}>
-          {part}
-        </span>
+        <span key={i} className={isSelf ? 'mention-self' : 'mention-other'}>{part}</span>
       )
     }
     return part
@@ -159,10 +192,50 @@ export function MessageList({
 }: MessageListProps) {
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 记录触摸起始坐标，用于连动阈值检测（防止截图误触）
   const touchStartPos = useRef<{ x: number; y: number } | null>(null)
 
-  // 监听页面可见性变化（截图后系统 UI 弹出时页面会短暂失焦），取消长按
+  // ── 智能滚动：用户主动上翻时暂停自动跟随，回到底部后恢复 ──────────────────
+  const userScrolledUpRef = useRef(false)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
+
+  const handleScroll = useCallback(() => {
+    const el = msgListRef.current
+    if (!el) return
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (dist > 160) {
+      userScrolledUpRef.current = true
+      setShowScrollBtn(true)
+    } else {
+      userScrolledUpRef.current = false
+      setShowScrollBtn(false)
+    }
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    const el = msgListRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    userScrolledUpRef.current = false
+    setShowScrollBtn(false)
+  }, [])
+
+  useEffect(() => {
+    const el = msgListRef.current
+    if (!el) return
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
+  // 自动滚动：仅在用户未主动上翻时跟随
+  useEffect(() => {
+    const el = msgListRef.current
+    if (!el) return
+    if (!userScrolledUpRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [messages, typingUsers, aiState])
+
+  // 监听页面可见性变化，取消长按
   useEffect(() => {
     const cancelOnHide = () => {
       if (document.hidden && longPressTimer.current) {
@@ -174,21 +247,9 @@ export function MessageList({
     return () => document.removeEventListener('visibilitychange', cancelOnHide)
   }, [])
 
-  // 自动滚动：只在用户已在底部附近（距底部 120px 内）时才自动滚动
-  useEffect(() => {
-    const el = msgListRef.current
-    if (!el) return
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    if (distanceFromBottom < 120) {
-      el.scrollTop = el.scrollHeight
-    }
-  }, [messages, typingUsers, aiState])
-
   const handleLongPressStart = useCallback((msg: ChatMessage, e: React.TouchEvent | React.MouseEvent) => {
-    // 记录起始坐标
     if ('touches' in e && e.touches.length > 0) {
       touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      // 多点触控（如双指）直接不触发长按（某些设备截图会产生双指事件）
       if (e.touches.length > 1) return
     } else {
       touchStartPos.current = null
@@ -205,7 +266,6 @@ export function MessageList({
     const touch = e.touches[0]
     const dx = touch.clientX - touchStartPos.current.x
     const dy = touch.clientY - touchStartPos.current.y
-    // 移动超过 8px 即取消长按（截图时手指通常有轻微移动）
     if (Math.sqrt(dx * dx + dy * dy) > 8) {
       clearTimeout(longPressTimer.current)
       longPressTimer.current = null
@@ -256,7 +316,7 @@ export function MessageList({
           return (
             <div
               key={msg.id}
-              className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
+              className={`msg-anim msg-row-wrap ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
               onMouseDown={(e) => handleLongPressStart(msg, e)}
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
@@ -278,97 +338,108 @@ export function MessageList({
                   <span style={{ fontSize: 12, fontWeight: 500, color: isAiMsg ? (msg.senderId === KIMI_ID ? '#0ea5e9' : '#6366f1') : 'var(--text-muted)' }}>
                     {msg.senderName}
                   </span>
-                  {/* AI 正在思考时在名字旁显示状态标签 */}
-                  {isThisAiThinking && (
-                    <span className="ai-status-badge ai-status-thinking">思考中</span>
-                  )}
-                  {isThisAiStreaming && (
-                    <span className="ai-status-badge ai-status-streaming">回复中</span>
-                  )}
+                  {isThisAiThinking && <span className="ai-status-badge ai-status-thinking">思考中</span>}
+                  {isThisAiStreaming && <span className="ai-status-badge ai-status-streaming">回复中</span>}
                 </div>
               )}
 
-              {/* 文本气泡 */}
-              {msg.type === 'text' && (
-                <div
-                  className={[
-                    msg.isSelf ? 'bubble-self' : 'bubble-other',
-                    isAiMsg ? 'bubble-ai-msg' : '',
-                    isThisAiStreaming ? 'bubble-streaming' : '',
-                    isMentionedMe ? 'bubble-mentioned' : '',
-                  ].filter(Boolean).join(' ')}
-                  style={{ whiteSpace: 'pre-wrap' }}
-                >
-                  {msg.replyTo && (
-                    <div className="reply-preview">
-                      <span className="reply-preview-name">{msg.replyTo.senderName}</span>
-                      <span className="reply-preview-text">
-                        {msg.replyTo.type === 'text' ? (msg.replyTo.text || '') : `[图片/文件/语音]`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* 思考中：显示跳动点动画 */}
-                  {isThisAiThinking ? (
-                    <AiThinkingDots />
-                  ) : (
-                    <>
-                      {/* 思考过程块（仅推理模型有） */}
-                      {hasReasoning && (
-                        <ReasoningBlock
-                          reasoning={msg.reasoning!}
-                          streaming={isThisAiStreaming && !msg.text}
-                        />
-                      )}
-                      {/* 思考过程与正式回答之间的分隔线 */}
-                      {hasReasoning && msg.text && (
-                        <div className="reasoning-divider" />
-                      )}
-                      {/* 正式回答 */}
-                      {msg.text ? renderTextWithMentions(msg.text, selfName) : null}
-                      {/* 流式输出中：正式回答末尾显示光标 */}
-                      {isThisAiStreaming && msg.text && (
-                        <span className="ai-cursor" aria-hidden="true" />
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* 图片 */}
-              {msg.type === 'image' && msg.fileUrl && (
-                <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ padding: 0, overflow: 'hidden' }}>
-                  <img
-                    src={msg.fileUrl}
-                    alt={msg.fileName}
-                    style={{ maxWidth: 220, maxHeight: 300, objectFit: 'cover', cursor: 'pointer', display: 'block' }}
-                    onClick={() => setImgViewer(msg.fileUrl!)}
-                  />
-                </div>
-              )}
-
-              {/* 文件 */}
-              {msg.type === 'file' && (
-                <div className={`file-bubble ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
-                  <span style={{ fontSize: 24, flexShrink: 0 }}>📄</span>
-                  <div className="file-info">
-                    <div className="file-name">{msg.fileName}</div>
-                    <div className="file-size">{msg.fileSize ? fmtSize(msg.fileSize) : ''}</div>
+              {/* 消息内容 + 桌面端悬停快捷操作 */}
+              <div className="msg-content-wrap">
+                {/* 桌面端悬停快捷操作（仅非 AI 消息、非系统消息显示） */}
+                {!isAiMsg && (
+                  <div className={`msg-hover-actions ${msg.isSelf ? 'msg-hover-actions-self' : 'msg-hover-actions-other'}`}>
+                    <button
+                      className="msg-hover-btn"
+                      title="回复"
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => {
+                        e.stopPropagation()
+                        setReplyTarget({ id: msg.id, senderName: msg.senderName, text: msg.text, type: msg.type })
+                      }}
+                    >↩</button>
+                    {msg.type === 'text' && msg.text && (
+                      <button
+                        className="msg-hover-btn"
+                        title="复制"
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(msg.text!).catch(() => {})
+                        }}
+                      >⎘</button>
+                    )}
                   </div>
-                  {msg.fileUrl && (
-                    <a href={msg.fileUrl} download={msg.fileName}
-                      style={{ fontSize: 12, textDecoration: 'underline', opacity: 0.7, flexShrink: 0 }}
-                      onClick={e => e.stopPropagation()}>下载</a>
-                  )}
-                </div>
-              )}
+                )}
 
-              {/* 语音 */}
-              {msg.type === 'voice' && msg.fileUrl && (
-                <VoiceBubble url={msg.fileUrl} duration={msg.duration} isSelf={msg.isSelf} />
-              )}
+                {/* 文本气泡 */}
+                {msg.type === 'text' && (
+                  <div
+                    className={[
+                      msg.isSelf ? 'bubble-self' : 'bubble-other',
+                      isAiMsg ? 'bubble-ai-msg' : '',
+                      isThisAiStreaming ? 'bubble-streaming' : '',
+                      isMentionedMe ? 'bubble-mentioned' : '',
+                    ].filter(Boolean).join(' ')}
+                    style={{ whiteSpace: 'pre-wrap' }}
+                  >
+                    {msg.replyTo && (
+                      <div className="reply-preview">
+                        <span className="reply-preview-name">{msg.replyTo.senderName}</span>
+                        <span className="reply-preview-text">
+                          {msg.replyTo.type === 'text' ? (msg.replyTo.text || '') : `[图片/文件/语音]`}
+                        </span>
+                      </div>
+                    )}
+                    {isThisAiThinking ? (
+                      <AiThinkingDots />
+                    ) : (
+                      <>
+                        {hasReasoning && (
+                          <ReasoningBlock reasoning={msg.reasoning!} streaming={isThisAiStreaming && !msg.text} />
+                        )}
+                        {hasReasoning && msg.text && <div className="reasoning-divider" />}
+                        {msg.text ? renderTextWithMentions(msg.text, selfName) : null}
+                        {isThisAiStreaming && msg.text && <span className="ai-cursor" aria-hidden="true" />}
+                      </>
+                    )}
+                  </div>
+                )}
 
-              {/* 时间戳 + 已读状态（AI 思考中时不显示时间，避免视觉干扰） */}
+                {/* 图片 */}
+                {msg.type === 'image' && msg.fileUrl && (
+                  <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`} style={{ padding: 0, overflow: 'hidden' }}>
+                    <img
+                      src={msg.fileUrl}
+                      alt={msg.fileName}
+                      style={{ maxWidth: 220, maxHeight: 300, objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                      onClick={() => setImgViewer(msg.fileUrl!)}
+                    />
+                  </div>
+                )}
+
+                {/* 文件 */}
+                {msg.type === 'file' && (
+                  <div className={`file-bubble ${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
+                    <span style={{ fontSize: 24, flexShrink: 0 }}>📄</span>
+                    <div className="file-info">
+                      <div className="file-name">{msg.fileName}</div>
+                      <div className="file-size">{msg.fileSize ? fmtSize(msg.fileSize) : ''}</div>
+                    </div>
+                    {msg.fileUrl && (
+                      <a href={msg.fileUrl} download={msg.fileName}
+                        style={{ fontSize: 12, textDecoration: 'underline', opacity: 0.7, flexShrink: 0 }}
+                        onClick={e => e.stopPropagation()}>下载</a>
+                    )}
+                  </div>
+                )}
+
+                {/* 语音 */}
+                {msg.type === 'voice' && msg.fileUrl && (
+                  <VoiceBubble url={msg.fileUrl} duration={msg.duration} isSelf={msg.isSelf} />
+                )}
+              </div>
+
+              {/* 时间戳 + 已读状态 */}
               {!isThisAiThinking && (
                 <span className="msg-time">
                   {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -392,6 +463,13 @@ export function MessageList({
           </div>
         )}
       </div>
+
+      {/* 回到底部按钮（用户上翻时出现） */}
+      {showScrollBtn && (
+        <button className="scroll-to-bottom-btn" onClick={scrollToBottom} title="回到最新消息">
+          ↓
+        </button>
+      )}
     </>
   )
 }

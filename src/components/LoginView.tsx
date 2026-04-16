@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Jisei {
   lines: string[]
@@ -41,15 +41,38 @@ export function LoginView({ darkMode, setDarkMode, savedName, savedRoom, onEnter
   const [jisei] = useState<Jisei>(() => pickJisei())
   const [nameInput, setNameInput] = useState(savedName)
   const [roomInput, setRoomInput] = useState('')
-  const [showJoin, setShowJoin] = useState(false)
+  // 'create' | 'join' — 默认显示新建，若 URL 带 ?room= 则默认显示加入
+  const [tab, setTab] = useState<'create' | 'join'>('create')
+  const [nameErr, setNameErr] = useState('')
+  const [roomErr, setRoomErr] = useState('')
+
+  // ── URL 参数直达：?room=XXXXXX 自动填入房间码并切换到加入 Tab ──────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const roomParam = params.get('room')
+    if (roomParam) {
+      setRoomInput(roomParam.toUpperCase())
+      setTab('join')
+    }
+  }, [])
+
+  const validateName = (name: string) => {
+    if (!name.trim()) { setNameErr('请输入昵称'); return false }
+    setNameErr('')
+    return true
+  }
 
   const handleCreateRoom = () => {
+    if (!validateName(nameInput)) return
     const code = Math.random().toString(36).slice(2, 8).toUpperCase()
     onEnterRoom(code, nameInput)
   }
 
   const handleJoinRoom = () => {
-    if (!roomInput.trim()) { alert('请输入房间码'); return }
+    const nameOk = validateName(nameInput)
+    if (!roomInput.trim()) { setRoomErr('请输入房间码'); if (!nameOk) return; return }
+    setRoomErr('')
+    if (!nameOk) return
     onEnterRoom(roomInput, nameInput)
   }
 
@@ -94,41 +117,50 @@ export function LoginView({ darkMode, setDarkMode, savedName, savedRoom, onEnter
       color: isDark ? '#C8B48A' : '#9A8A6A',
       fontFamily: 'ZCOOL XiaoWei, KaiTi, serif',
     },
-    input: {
+    // Tab 切换栏
+    tabRow: {
+      display: 'flex', gap: 0, marginBottom: 14,
+      background: isDark ? '#6A4A32' : '#EDE4D2',
+      borderRadius: 12, padding: 3,
+    },
+    tabBtn: (active: boolean) => ({
+      flex: 1, padding: '8px 0', fontSize: 13, fontWeight: active ? 700 : 500,
+      background: active ? (isDark ? '#AE9F80' : '#AE9F80') : 'transparent',
+      color: active ? '#fff' : (isDark ? '#C8B48A' : '#9A8A6A'),
+      border: 'none', borderRadius: 10, cursor: 'pointer',
+      transition: 'all 0.18s',
+    }),
+    inputWrap: { marginBottom: 4 },
+    input: (hasErr: boolean) => ({
       width: '100%', padding: '12px 16px',
       fontSize: 15, textAlign: 'center' as const,
       background: isDark ? '#8A6850' : '#EDE4D2',
-      border: isDark ? '1.5px solid rgba(200,180,138,0.22)' : '1.5px solid rgba(94,80,63,0.2)',
+      border: hasErr
+        ? '1.5px solid #E57373'
+        : (isDark ? '1.5px solid rgba(200,180,138,0.22)' : '1.5px solid rgba(94,80,63,0.2)'),
       borderRadius: 14, outline: 'none',
       color: isDark ? '#F3EDE2' : '#231D17',
       fontFamily: 'inherit', boxSizing: 'border-box' as const,
-      marginBottom: 12,
       display: 'block',
-    },
-    btnRow: { display: 'flex', gap: 8, marginBottom: 12 },
-    btnPrimary: {
-      flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
-      background: '#AE9F80', color: '#fff',
-      border: 'none', borderRadius: 14, cursor: 'pointer',
-    },
-    btnSecondary: {
-      flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
-      background: isDark ? '#8A6850' : '#EDE4D2',
-      color: isDark ? '#F3EDE2' : '#231D17',
-      border: isDark ? '1px solid rgba(200,180,138,0.22)' : '1px solid rgba(94,80,63,0.2)',
-      borderRadius: 14, cursor: 'pointer',
+      transition: 'border-color 0.18s',
+    }),
+    errText: {
+      fontSize: 12, color: '#E57373',
+      marginBottom: 8, marginTop: 2,
+      textAlign: 'center' as const,
+      minHeight: 18,
     },
     btnFull: {
       width: '100%', padding: '12px 0', fontSize: 14, fontWeight: 600,
       background: '#AE9F80', color: '#fff',
-      border: 'none', borderRadius: 14, cursor: 'pointer', marginTop: 8,
+      border: 'none', borderRadius: 14, cursor: 'pointer', marginTop: 4,
       display: 'block',
     },
     recentBtn: {
       width: '100%', padding: '10px 14px', fontSize: 13,
       background: 'var(--hz-100)', border: '1.5px dashed var(--hz-400)',
       borderRadius: 12, cursor: 'pointer',
-      color: 'var(--hz-700)', marginTop: 4,
+      color: 'var(--hz-700)', marginTop: 10,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       fontWeight: 500,
     },
@@ -154,33 +186,49 @@ export function LoginView({ darkMode, setDarkMode, savedName, savedRoom, onEnter
             </p>
           </div>
         </div>
-        <div className="login-input-1">
+
+        {/* 昵称输入 */}
+        <div style={S.inputWrap}>
           <input
-            style={S.input}
+            style={S.input(!!nameErr)}
             placeholder="你的昵称"
             maxLength={12}
             value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreateRoom()}
+            onChange={e => { setNameInput(e.target.value); if (nameErr) setNameErr('') }}
+            onKeyDown={e => e.key === 'Enter' && (tab === 'create' ? handleCreateRoom() : handleJoinRoom())}
           />
+          {nameErr && <div style={S.errText}>{nameErr}</div>}
         </div>
-        <div className="login-btn-row" style={S.btnRow}>
-          <button style={S.btnPrimary} onClick={handleCreateRoom}>新建房间</button>
-          <button style={S.btnSecondary} onClick={() => setShowJoin(j => !j)}>加入房间</button>
+
+        {/* Tab 切换：新建 / 加入 */}
+        <div style={S.tabRow}>
+          <button style={S.tabBtn(tab === 'create')} onClick={() => { setTab('create'); setRoomErr('') }}>新建房间</button>
+          <button style={S.tabBtn(tab === 'join')} onClick={() => setTab('join')}>加入房间</button>
         </div>
-        {showJoin && (
-          <div className="login-join-row">
-            <input
-              style={{ ...S.input, letterSpacing: 4, textTransform: 'uppercase' as const }}
-              placeholder="输入房间码"
-              maxLength={8}
-              value={roomInput}
-              onChange={e => setRoomInput(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleJoinRoom()}
-            />
+
+        {tab === 'create' && (
+          <button style={S.btnFull} onClick={handleCreateRoom}>创建并进入</button>
+        )}
+
+        {tab === 'join' && (
+          <div>
+            <div style={S.inputWrap}>
+              <input
+                style={{ ...S.input(!!roomErr), letterSpacing: 4, textTransform: 'uppercase' as const }}
+                placeholder="输入房间码"
+                maxLength={8}
+                value={roomInput}
+                autoFocus={tab === 'join'}
+                onChange={e => { setRoomInput(e.target.value.toUpperCase()); if (roomErr) setRoomErr('') }}
+                onKeyDown={e => e.key === 'Enter' && handleJoinRoom()}
+              />
+              {roomErr && <div style={S.errText}>{roomErr}</div>}
+            </div>
             <button style={S.btnFull} onClick={handleJoinRoom}>进入房间</button>
           </div>
         )}
+
+        {/* 快速重连 */}
         {savedRoom && (
           <button style={S.recentBtn} onClick={() => onEnterRoom(savedRoom, nameInput.trim() || (localStorage.getItem('chat_name') ?? '小客'))}>
             <span>⏱ 快速重连  <span style={{ letterSpacing: 3, fontFamily: 'monospace' }}>{savedRoom}</span></span>
