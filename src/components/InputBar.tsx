@@ -292,18 +292,42 @@ export function InputBar({
   }, [])
 
   // ── 关闭所有 @ 面板的统一方法 ────────────────────────────────────────────────
-  const closeAllAtPanels = useCallback(() => {
+  // withMention: 关闭时是否将已选助手的 @mention 填入输入框（用户不选指令直接关闭时保留 @ 意图）
+  const closeAllAtPanels = useCallback((withMention?: AssistantDef | null) => {
     setAtQuery(null)
     setAtPhase(null)
     setSelectedAssistant(null)
+    if (withMention) {
+      // 在当前输入框内容末尾插入 @mention，光标置于末尾，用户可继续打字
+      const mention = `@${withMention.mentionText} `
+      setInputText(prev => {
+        const base = prev.trimEnd()
+        return base ? base + ' ' + mention : mention
+      })
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.focus()
+        // 光标移到末尾
+        const len = el.value.length
+        el.setSelectionRange(len, len)
+        el.style.height = 'auto'
+        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+      })
+    }
   }, [])
 
   // ── 点击面板外部关闭两阶段菜单（提升到 InputBar 层，避免阶段切换时 ref 失效）────
+  // 用 ref 持有最新的 selectedAssistant，避免 useEffect 闭包捕获旧值
+  const selectedAssistantRef = useRef<AssistantDef | null>(null)
+  useEffect(() => { selectedAssistantRef.current = selectedAssistant }, [selectedAssistant])
+
   useEffect(() => {
     if (atPhase === null) return
     const handler = (e: MouseEvent) => {
       if (panelWrapRef.current && !panelWrapRef.current.contains(e.target as Node)) {
-        closeAllAtPanels()
+        // 若已进入第二阶段（已选助手），关闭时保留 @mention，用户可继续打字
+        closeAllAtPanels(selectedAssistantRef.current)
       }
     }
     // 延迟注册，避免捕获到触发面板打开的同一个 mousedown
@@ -515,7 +539,7 @@ export function InputBar({
             onSelectAssistant={handleSelectAssistant}
             onSelectPrompt={handleSelectPrompt}
             onBack={handleBackToAssistant}
-            onClose={closeAllAtPanels}
+            onClose={() => closeAllAtPanels(selectedAssistant)}
           />
         )}
       </div>
