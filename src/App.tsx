@@ -522,7 +522,7 @@ export default function App() {
         <div className="toast-wrap toast-anim">{toast}</div>
       )}
 
-      <MusicPlayer />
+      <MusicPlayer muted={muted} />
 
       {/* 图片预览 */}
       {imgViewer && (

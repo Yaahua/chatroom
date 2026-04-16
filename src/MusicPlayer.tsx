@@ -36,6 +36,7 @@ interface APlayerInstance {
   destroy(): void
   play(): void
   pause(): void
+  setVolume(volume: number, storage?: boolean): void
 }
 
 interface Pos { x: number; y: number }
@@ -71,7 +72,11 @@ async function fetchPlaylist(id: string): Promise<APlayerAudio[]> {
   }))
 }
 
-export default function MusicPlayer() {
+interface MusicPlayerProps {
+  muted?: boolean
+}
+
+export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<Pos>({ x: window.innerWidth - FAB_SIZE - 18, y: window.innerHeight - FAB_SIZE - 88 })
   const [hidden, setHidden] = useState(false)
@@ -115,7 +120,7 @@ export default function MusicPlayer() {
         loop: 'all',
         order: 'list',
         preload: 'none',
-        volume: 0.7,
+        volume: muted ? 0 : 0.7,
         mutex: true,
         listFolded: false,
         listMaxHeight: '200px',
@@ -127,7 +132,7 @@ export default function MusicPlayer() {
       setErrorMsg((e as Error).message || '加载失败')
       setLoadState('error')
     }
-  }, [])
+  }, [muted])
 
   // 首次打开时初始化
   useEffect(() => {
@@ -147,6 +152,14 @@ export default function MusicPlayer() {
       }
     }
   }, [])
+
+  // 监听全局静音状态，同步控制 APlayer 音量
+  useEffect(() => {
+    if (!aplayerRef.current) return
+    try {
+      aplayerRef.current.setVolume(muted ? 0 : 0.7, false)
+    } catch { /* APlayer 尚未初始化时忽略 */ }
+  }, [muted])
 
   // 吸附逻辑
   const snapToEdge = useCallback((x: number, y: number) => {
