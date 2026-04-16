@@ -410,18 +410,20 @@ export function InputBar({
 
   // ── 两阶段面板：选中快捷指令（填入输入框）────────────────────────────────
   const handleSelectPrompt = useCallback((text: string) => {
-    setInputText(text)
+    // 末尾加空格，用户选完指令后可直接追加补充内容，不会紧贴在指令文本后
+    const textWithSpace = text.endsWith(' ') ? text : text + ' '
+    setInputText(textWithSpace)
     closeAllAtPanels()
     setShowPlusMenu(false)
-    setTimeout(() => {
+    // 双重聚焦：requestAnimationFrame 确保 DOM 更新后再聚焦，兼容移动端
+    requestAnimationFrame(() => {
       const el = inputRef.current
-      if (el) {
-        el.focus()
-        el.setSelectionRange(text.length, text.length)
-        el.style.height = 'auto'
-        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-      }
-    }, 50)
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(textWithSpace.length, textWithSpace.length)
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    })
   }, [closeAllAtPanels])
 
   // ── 两阶段面板：从第二阶段返回第一阶段 ──────────────────────────────────
