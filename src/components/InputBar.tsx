@@ -2,9 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import type { OnlineUser, User } from '../types'
 import { AtMentionPanel } from './AtMentionPanel'
 import type { MentionCandidate } from './AtMentionPanel'
-import { AI_NAME, AI_ID } from '../useAI'
-
-const EMOJIS = ['😀','😂','🥰','😎','🤔','😅','🙏','👍','👎','❤️','🔥','✨','🎉','💯','😭','🤣','😊','😍','🥺','😤','💪','🤝','👏','🎊','🌟','🍵','🌸','🍂','🌙','⭐']
+import { AI_ID } from '../useAI'
 
 // ─── 语音录制 Hook ────────────────────────────────────────────────────────────
 function useVoiceRecorder() {
@@ -61,16 +59,12 @@ function useVoiceRecorder() {
 }
 
 // ─── 解析当前光标前的 @ 触发词 ─────────────────────────────────────────────────
-// 返回 { atStart, query } 或 null（未触发）
 function parseAtQuery(text: string, cursorPos: number): { atStart: number; query: string } | null {
-  // 从光标往前找最近的 @
   const before = text.slice(0, cursorPos)
   const atIdx = before.lastIndexOf('@')
   if (atIdx === -1) return null
-  // @ 前面必须是行首或空格（防止邮箱地址触发）
   if (atIdx > 0 && !/[\s]/.test(before[atIdx - 1])) return null
   const query = before.slice(atIdx + 1)
-  // query 中不能有空格（有空格说明已经完成了 @ 输入）
   if (/\s/.test(query)) return null
   return { atStart: atIdx, query }
 }
@@ -96,7 +90,6 @@ export function InputBar({
   replyTarget, setReplyTarget, setLongPressId, setShowLogPanel
 }: InputBarProps) {
   const [inputText, setInputText] = useState('')
-  const [showEmoji, setShowEmoji] = useState(false)
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [showPhotoMode, setShowPhotoMode] = useState(false)
 
@@ -130,13 +123,12 @@ export function InputBar({
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
     sendTyping()
 
-    // 检测 @ 触发
     const cursor = e.target.selectionStart ?? val.length
     const parsed = parseAtQuery(val, cursor)
     setAtQuery(parsed)
   }, [sendTyping])
 
-  // 光标移动时也重新检测（用户用方向键移动光标）
+  // 光标移动时重新检测（用户用方向键移动光标）
   const handleSelect = useCallback(() => {
     const el = inputRef.current
     if (!el) return
@@ -145,9 +137,9 @@ export function InputBar({
     setAtQuery(parsed)
   }, [])
 
-  // 键盘事件：Enter 发送（@ 面板打开时由面板自己处理 Enter）
+  // 键盘事件：Enter 发送（@ 面板打开时由面板处理 Enter）
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (atQuery) return  // @ 面板打开时，Enter/Tab/方向键由面板处理
+    if (atQuery) return
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }, [handleSend, atQuery])
 
@@ -173,33 +165,24 @@ export function InputBar({
     }
   }, [recording, startRec, stopRec, sendVoice])
 
-  // 点击 @ 按钮：直接弹出候选列表（不插入 @ 字符，选中后再插入）
-  // query 设为空字符串，面板会展示全部候选：AI → 自己 → 其他用户
+  // 点击 @ 按钮：立即弹出候选列表
   const handleAtBtn = useCallback(() => {
     const el = inputRef.current
     const cursor = el?.selectionStart ?? inputText.length
-    // 记录当前光标位置作为将来插入 @ 的位置
     setAtQuery({ atStart: cursor, query: '' })
-    setShowEmoji(false)
     setShowPlusMenu(false)
-    // 聚焦输入框，方便用户选完后继续输入
     setTimeout(() => el?.focus(), 0)
   }, [inputText])
 
-  // 选中 @ 候选项：在 atStart 处插入 @昵称 + 空格
-  // - 如果是通过输入 @ 触发：替换已输入的 @xxx
-  // - 如果是通过按钮触发：在光标处直接插入，并自动补空格分隔
+  // 选中 @ 候选项
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
-    // AI 候选项插入 @AI，普通用户插入 @昵称
     const mentionText = candidate.id === AI_ID ? 'AI' : candidate.name
     const before = inputText.slice(0, atQuery.atStart)
-    // 如果是通过输入 @ 触发，就跳过已输入的 query；否则在光标处直接插入
     const afterStart = atQuery.query.length > 0
-      ? inputText.slice(atQuery.atStart + 1 + atQuery.query.length)  // 跳过 @query
-      : inputText.slice(el?.selectionStart ?? atQuery.atStart)        // 从光标处截取
-    // 如果 @ 前面不是空格/行首，自动补空格
+      ? inputText.slice(atQuery.atStart + 1 + atQuery.query.length)
+      : inputText.slice(el?.selectionStart ?? atQuery.atStart)
     const needSpace = before.length > 0 && !/\s$/.test(before)
     const mention = `${needSpace ? ' ' : ''}@${mentionText} `
     const newText = before + mention + afterStart
@@ -212,7 +195,6 @@ export function InputBar({
     }, 0)
   }, [atQuery, inputText])
 
-  // 关闭 @ 面板
   const closeAtPanel = useCallback(() => setAtQuery(null), [])
 
   const statusMap: Record<string, string> = { disconnected: '未连接', connecting: '连接中', ok: '已连接', err: '连接失败' }
@@ -220,18 +202,6 @@ export function InputBar({
 
   return (
     <>
-      {/* 表情面板 */}
-      {showEmoji && (
-        <div className="emoji-panel menu-anim">
-          {EMOJIS.map(e => (
-            <button key={e} className="emoji-btn"
-              onClick={() => { setInputText(t => t + e); setShowEmoji(false); inputRef.current?.focus() }}>
-              {e}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* + 号菜单 */}
       {showPlusMenu && (
         <div className="plus-menu menu-anim">
@@ -301,7 +271,7 @@ export function InputBar({
         {/* + 号按钮 */}
         <button
           className="bar-icon-btn"
-          onClick={() => { setShowPlusMenu(s => !s); setShowEmoji(false); setAtQuery(null) }}
+          onClick={() => { setShowPlusMenu(s => !s); setAtQuery(null) }}
           style={{
             background: showPlusMenu ? 'var(--hz-500)' : 'var(--bg-input)',
             color: showPlusMenu ? 'white' : 'var(--text-secondary)',
@@ -312,19 +282,11 @@ export function InputBar({
           +
         </button>
 
-        {/* 表情按钮 */}
-        <button
-          className="bar-icon-btn"
-          onClick={() => { setShowEmoji(s => !s); setShowPlusMenu(false); setAtQuery(null) }}
-        >
-          😊
-        </button>
-
         {/* @ 按钮 */}
         <button
           className="bar-icon-btn at-btn"
           onClick={handleAtBtn}
-          title={`@ 提及 · 召唤 ${AI_NAME}`}
+          title="@ 提及 · 召唤 AI"
           disabled={status !== 'ok'}
           style={{ opacity: status !== 'ok' ? 0.4 : 1 }}
         >
