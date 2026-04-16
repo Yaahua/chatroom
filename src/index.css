@@ -457,7 +457,31 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   flex: 1;
 }
 .plus-menu-icon { font-size: 24px; line-height: 1; }
-.plus-menu-label { font-size: 12px; color: var(--text-secondary); }
+.plus-menu-label { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+/* 相册模式选择面板 */
+.photo-mode-panel {
+  display: -webkit-flex; display: flex;
+  -webkit-flex-direction: column; flex-direction: column;
+  gap: 10px;
+}
+.photo-mode-title {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-muted); text-align: center;
+  padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.photo-mode-back {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--text-muted);
+  padding: 4px 0; text-align: left;
+}
+.photo-mode-back:hover { color: var(--hz-600); }
+/* 文件大小限制标识 */
+.file-limit-badge {
+  font-size: 10px; padding: 1px 5px;
+  border-radius: 6px; font-weight: 600;
+  background: var(--hz-200); color: var(--hz-700);
+  white-space: nowrap;
+}
 
 /* ===== 滚动条 ===== */
 ::-webkit-scrollbar { width: 3px; height: 3px; }
@@ -697,8 +721,12 @@ textarea.no-scrollbar::-webkit-scrollbar { display: none; }
 .music-card-wrap { position: fixed; z-index: 39; animation: cardSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both; }
 .music-card {
   width: min(320px, 92vw); border-radius: 18px; overflow: hidden;
-  background: var(--bg-card); border: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(94,80,63,0.22);
+  background: var(--bg-card); border: 2px solid var(--hz-400);
+  box-shadow: 0 8px 40px rgba(94,80,63,0.40), 0 2px 8px rgba(94,80,63,0.20);
+}
+.dark .music-card {
+  border-color: var(--hz-600);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.40);
 }
 .music-card-header {
   display: -webkit-flex; display: flex;

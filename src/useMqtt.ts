@@ -107,7 +107,7 @@ export function useMqtt(user: User, roomCode: string | null) {
           type: 'join', senderId: user.id,
           senderName: user.name, senderColor: user.color
         })
-        addSysMsg(`已进入房间 ${roomCode}，点击顶部房间码可复制分享`)
+        addSysMsg(`✅ 已进入房间 ${roomCode}`)
         heartbeatTimer.current = setInterval(() => {
           publish(`chat/${roomCode}/presence`, {
             type: 'heartbeat', senderId: user.id,
@@ -130,12 +130,12 @@ export function useMqtt(user: User, roomCode: string | null) {
               return [...filtered, { id: m.senderId, name: m.senderName, color: m.senderColor, ts: Date.now() }]
             })
             if (m.type === 'join') {
-              addSysMsg(`${m.senderName} 加入了房间`)
+              addSysMsg(`🟢 ${m.senderName} 加入了房间`)
               addLog('info', `用户加入: ${m.senderName}`)
             }
           } else if (m.type === 'leave') {
             setOnlineUsers(prev => prev.filter(u => u.id !== m.senderId))
-            addSysMsg(`${m.senderName} 离开了房间`)
+            addSysMsg(`🔴 ${m.senderName} 离开了房间`)
             addLog('info', `用户离开: ${m.senderName}`)
           }
         } else if (topic.endsWith('/typing')) {

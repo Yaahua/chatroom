@@ -316,6 +316,8 @@ export default function App() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const [showPhotoMode, setShowPhotoMode] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
   const moreMenuRef = useRef<HTMLDivElement>(null)
@@ -553,9 +555,12 @@ export default function App() {
         display: 'block',
       },
       recentBtn: {
-        width: '100%', padding: '8px 0', fontSize: 12,
-        background: 'none', border: 'none', cursor: 'pointer',
-        color: '#9A8A6A', marginTop: 4, display: 'block',
+        width: '100%', padding: '10px 14px', fontSize: 13,
+        background: 'var(--hz-100)', border: '1.5px dashed var(--hz-400)',
+        borderRadius: 12, cursor: 'pointer',
+        color: 'var(--hz-700)', marginTop: 4,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontWeight: 500,
       },
     }
     return (
@@ -606,8 +611,9 @@ export default function App() {
             </div>
           )}
           {savedRoom && (
-            <button style={S.recentBtn} onClick={() => { setRoomInput(savedRoom); setShowJoin(true) }}>
-              最近房间：{savedRoom}
+            <button style={S.recentBtn} onClick={() => handleEnterRoom(savedRoom, nameInput.trim() || (localStorage.getItem('chat_name') ?? '小客'))}>
+              <span>⏱ 快速重连  <span style={{ letterSpacing: 3, fontFamily: 'monospace' }}>{savedRoom}</span></span>
+              <span style={{ fontSize: 11, opacity: 0.65 }}>一键加入 →</span>
             </button>
           )}
         </div>
@@ -805,24 +811,38 @@ export default function App() {
         {/* +号菜单 */}
         {showPlusMenu && (
           <div className="plus-menu menu-anim">
-            <div className="plus-menu-grid">
-              <button className="plus-menu-item" onClick={() => { imgInputRef.current?.click(); setShowPlusMenu(false) }}>
-                <span className="plus-menu-icon">🖼️</span>
-                <span className="plus-menu-label">图片</span>
-              </button>
-              <button className="plus-menu-item" onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false) }}>
-                <span className="plus-menu-icon">📁</span>
-                <span className="plus-menu-label">文件</span>
-              </button>
-              <button className="plus-menu-item" onClick={() => { handleVoiceBtn(); setShowPlusMenu(false) }}>
-                <span className="plus-menu-icon">🎤</span>
-                <span className="plus-menu-label">{recording ? `录音中 ${recDuration}s` : '语音'}</span>
-              </button>
-              <button className="plus-menu-item" onClick={() => { setShowLogPanel(true); setShowPlusMenu(false) }}>
-                <span className="plus-menu-icon">🔍</span>
-                <span className="plus-menu-label">日志</span>
-              </button>
-            </div>
+            {showPhotoMode ? (
+              /* 相册模式选择面板 */
+              <div className="photo-mode-panel">
+                <div className="photo-mode-title">选择方式</div>
+                <div className="plus-menu-grid">
+                  <button className="plus-menu-item" onClick={() => { cameraInputRef.current?.click(); setShowPlusMenu(false); setShowPhotoMode(false) }}>
+                    <span className="plus-menu-icon">📷</span>
+                    <span className="plus-menu-label">拍照</span>
+                  </button>
+                  <button className="plus-menu-item" onClick={() => { imgInputRef.current?.click(); setShowPlusMenu(false); setShowPhotoMode(false) }}>
+                    <span className="plus-menu-icon">🖼️</span>
+                    <span className="plus-menu-label">从相册选择</span>
+                  </button>
+                </div>
+                <button className="photo-mode-back" onClick={() => setShowPhotoMode(false)}>← 返回</button>
+              </div>
+            ) : (
+              <div className="plus-menu-grid">
+                <button className="plus-menu-item" onClick={() => setShowPhotoMode(true)}>
+                  <span className="plus-menu-icon">🖼️</span>
+                  <span className="plus-menu-label">图片</span>
+                </button>
+                <button className="plus-menu-item" onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false) }}>
+                  <span className="plus-menu-icon">📁</span>
+                  <span className="plus-menu-label">文件 <span className="file-limit-badge">≤20MB</span></span>
+                </button>
+                <button className="plus-menu-item" onClick={() => { setShowLogPanel(true); setShowPlusMenu(false) }}>
+                  <span className="plus-menu-icon">🔍</span>
+                  <span className="plus-menu-label">日志</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -890,6 +910,8 @@ export default function App() {
 
         {/* 隐藏文件输入 — 必须用 style 而非 className="hidden" */}
         <input ref={imgInputRef} type="file" style={{ display: 'none' }} accept="image/*"
+          onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
+        <input ref={cameraInputRef} type="file" style={{ display: 'none' }} accept="image/*" capture="environment"
           onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
         <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="*/*"
           onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
