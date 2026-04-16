@@ -19,20 +19,21 @@ function useVisualViewportHeight() {
   useEffect(() => {
     const update = () => {
       const vv = window.visualViewport
-      const h = vv?.height ?? window.innerHeight
-      // offsetTop: iOS Safari 键盘弹出后页面上滚时，容器需要向下偏移追随可视区域
-      const offsetTop = vv?.offsetTop ?? 0
-      document.documentElement.style.setProperty('--app-height', `${h}px`)
-      // 通过 translateY 让 .chat-root 跟随 visualViewport 的偏移位置
-      document.documentElement.style.setProperty('--vv-offset-top', `${offsetTop}px`)
+      if (!vv) return
+      // 键盘弹出时 vv.height < window.innerHeight，用真实高度覆盖 CSS 变量
+      // 键盘收起时恢复为 100%（让 bottom:0 接管）
+      const keyboardOpen = vv.height < window.innerHeight * 0.9
+      if (keyboardOpen) {
+        document.documentElement.style.setProperty('--app-height', `${vv.height}px`)
+      } else {
+        document.documentElement.style.setProperty('--app-height', '100%')
+      }
     }
     update()
     window.visualViewport?.addEventListener('resize', update)
-    window.visualViewport?.addEventListener('scroll', update)
     window.addEventListener('resize', update)
     return () => {
       window.visualViewport?.removeEventListener('resize', update)
-      window.visualViewport?.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
   }, [])

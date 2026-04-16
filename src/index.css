@@ -58,9 +58,17 @@
   --shadow-sm:      0 2px 8px rgba(0,0,0,0.35);
 }
 
-html, body {
+html {
   margin: 0; padding: 0;
-  width: 100%; height: 100%;
+  /* dvh 随地址栏收缩动态更新，避免静态 100% 导致容器高度计算错误 */
+  height: -webkit-fill-available;
+  height: 100dvh;
+  overflow: hidden;
+}
+body {
+  margin: 0; padding: 0;
+  width: 100%;
+  height: 100%;
   font-family: 'Noto Serif SC', 'SimSun', serif;
   overscroll-behavior: none;
 }
@@ -103,13 +111,18 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
 }
 
 /* ===== 聊天页 ===== */
-/* --app-height 由 JS 通过 visualViewport API 实时更新，确保键盘弹出时容器高度始终等于真实可视区域 */
-:root { --app-height: 100vh; --vv-offset-top: 0px; }
+/*
+ * 移动端键盘布局方案（三重保障）：
+ * 1. html 使用 100dvh（随地址栏收缩动态更新）
+ * 2. .chat-root 使用 position:fixed + top/bottom:0（始终贴满视口）
+ * 3. JS visualViewport 监听键盘弹出，通过 --app-height 缩减容器高度
+ */
+:root { --app-height: 100%; --vv-offset-top: 0px; }
 
 .chat-root {
-  /* 使用 fixed + top + height 替代 bottom:0，避免 iOS 键盘弹出时 bottom 指向物理屏幕底部 */
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
+  /* 键盘弹出时 JS 会将 --app-height 设为 visualViewport.height，覆盖 bottom:0 的计算 */
   height: var(--app-height);
   display: -webkit-flex;
   display: flex;
@@ -121,9 +134,7 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   overflow: hidden;
-  /* iOS Safari 键盘弹出后 visualViewport 会有 offsetTop 偏移，用 translateY 追随，确保容器始终对齐可视区域 */
-  transform: translateY(var(--vv-offset-top));
-  will-change: transform;
+  will-change: height;
 }
 .chat-inner {
   -webkit-flex: 1;
