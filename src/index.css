@@ -201,6 +201,89 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   color: white; background: #c07070; border: none;
   cursor: pointer; white-space: nowrap;
 }
+
+/* ===== 更多菜单 ===== */
+.more-menu-wrap {
+  position: relative;
+}
+.more-btn {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  transition: background 0.15s, color 0.15s;
+}
+.more-btn-active {
+  background: var(--hz-200) !important;
+  color: var(--hz-700) !important;
+}
+.more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 148px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+  padding: 6px;
+  z-index: 200;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  gap: 2px;
+}
+.more-menu-item {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.12s;
+  width: 100%;
+}
+.more-menu-item:hover {
+  background: var(--hz-100);
+}
+.dark .more-menu-item:hover {
+  background: rgba(255,255,255,0.08);
+}
+.more-menu-icon {
+  font-size: 15px;
+  width: 20px;
+  text-align: center;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+.more-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+.more-menu-exit {
+  color: #c07070;
+}
+.more-menu-exit:hover {
+  background: rgba(192,112,112,0.1) !important;
+}
+/* 断线时重连按钮：警示动画 */
+.reconnect-btn {
+  color: #e07070 !important;
+  background: rgba(224,112,112,0.12) !important;
+  font-size: 15px !important;
+  font-weight: 700;
+  animation: pulse 1.2s infinite;
+}
 .unread-badge {
   display: -webkit-inline-flex;
   display: inline-flex;

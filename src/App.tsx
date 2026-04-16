@@ -210,6 +210,7 @@ export default function App() {
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [showOnlineModal, setShowOnlineModal] = useState(false)
   const [showLogPanel, setShowLogPanel] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [inputText, setInputText] = useState('')
   const [imgViewer, setImgViewer] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -222,8 +223,10 @@ export default function App() {
   const imgInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
 
   const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs } = useMqtt(user, roomCode)
+
   const { playSend, playReceive } = useSound(muted)
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
@@ -365,6 +368,18 @@ export default function App() {
   const toggleMute = useCallback(() => {
     setMuted(m => { localStorage.setItem('chat_muted', m ? '0' : '1'); return !m })
   }, [])
+
+  // 点击外部关闭更多菜单
+  useEffect(() => {
+    if (!showMoreMenu) return
+    const handler = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMoreMenu])
 
   const statusDotClass = { disconnected: 'status-disc', connecting: 'status-conn', ok: 'status-ok', err: 'status-err' }[status]
   const statusText = { disconnected: '未连接', connecting: '连接中', ok: '已连接', err: '连接失败' }[status]
@@ -555,19 +570,47 @@ export default function App() {
 
           {/* 右：工具按钮 */}
           <div className="header-tools">
-            <button className="icon-btn" onClick={toggleMute} title={muted ? '开启音效' : '静音'}>
-              {muted ? '🔇' : '🔔'}
+            {/* 断线时显示重连按钮 */}
+            {(status === 'disconnected' || status === 'err') && (
+              <button className="icon-btn reconnect-btn" onClick={manualReconnect} title="连接已断开，点击重连">
+                ↻
+              </button>
+            )}
+            {/* 音效开关 */}
+            <button className="icon-btn" onClick={toggleMute} title={muted ? '开启音效' : '关闭音效'}>
+              {muted ? '🔇' : '🔊'}
             </button>
-            <button className="icon-btn" onClick={() => setDarkMode(d => !d)}>
+            {/* 主题切换 */}
+            <button className="icon-btn" onClick={() => setDarkMode(d => !d)} title={darkMode ? '切换亮色模式' : '切换暗色模式'}>
               {darkMode ? '☀️' : '🌙'}
             </button>
-            <button className="icon-btn" onClick={manualReconnect} title="手动重连" style={{ fontSize: 14, fontWeight: 700 }}>
-              ↻
-            </button>
-            <button className="icon-btn" onClick={() => setShowLogPanel(true)} title="调试日志">
-              🔍
-            </button>
-            <button className="exit-btn" onClick={handleExit}>退出</button>
+            {/* 更多菜单 */}
+            <div className="more-menu-wrap" ref={moreMenuRef}>
+              <button
+                className={`icon-btn more-btn${showMoreMenu ? ' more-btn-active' : ''}`}
+                onClick={() => setShowMoreMenu(s => !s)}
+                title="更多选项"
+              >
+                ⋯
+              </button>
+              {showMoreMenu && (
+                <div className="more-menu menu-anim">
+                  <button className="more-menu-item" onClick={() => { setShowLogPanel(true); setShowMoreMenu(false) }}>
+                    <span className="more-menu-icon">🔍</span>
+                    <span>调试日志</span>
+                  </button>
+                  <button className="more-menu-item" onClick={() => { manualReconnect(); setShowMoreMenu(false) }}>
+                    <span className="more-menu-icon">↻</span>
+                    <span>手动重连</span>
+                  </button>
+                  <div className="more-menu-divider" />
+                  <button className="more-menu-item more-menu-exit" onClick={() => { handleExit(); setShowMoreMenu(false) }}>
+                    <span className="more-menu-icon">🚪</span>
+                    <span>退出房间</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
