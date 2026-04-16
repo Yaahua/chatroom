@@ -63,9 +63,9 @@ async function fetchPlaylist(id: string): Promise<APlayerAudio[]> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`MetingAPI ${res.status}`)
   const data = await res.json()
-  return (data as { title: string; author: string; url: string; pic: string; lrc?: string }[]).map(s => ({
-    name: s.title,
-    artist: s.author,
+  return (data as { name: string; artist: string; url: string; pic: string; lrc?: string }[]).map(s => ({
+    name: s.name,
+    artist: s.artist,
     url: s.url,
     cover: s.pic,
     lrc: s.lrc,
