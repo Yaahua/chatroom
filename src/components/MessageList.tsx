@@ -156,7 +156,7 @@ function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming
         <span className="reasoning-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (
-        <div className="reasoning-content" onClick={e => e.stopPropagation()}>
+        <div className="reasoning-content">
           {reasoning}
           {streaming && <span className="ai-cursor" aria-hidden="true" />}
         </div>

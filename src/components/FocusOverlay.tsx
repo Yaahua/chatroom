@@ -51,10 +51,7 @@ function FocusReasoningBlock({ reasoning }: { reasoning: string }) {
         <span style={{ fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (
-        <div
-          style={{ padding: '0 8px 6px', color: 'var(--text-secondary)', lineHeight: 1.6 }}
-          onClick={e => e.stopPropagation()}
-        >
+        <div style={{ padding: '0 8px 6px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           {reasoning}
         </div>
       )}
