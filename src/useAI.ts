@@ -312,7 +312,7 @@ export function useAI(): UseAIReturn {
 
     const apiUrl = isKimi ? KIMI_API_URL : DEEPSEEK_API_URL
     const apiKey = isKimi ? KIMI_API_KEY : DEEPSEEK_API_KEY
-    const model  = isKimi ? 'moonshot-v1-8k' : 'deepseek-chat'
+    const model  = isKimi ? 'kimi-k2.5' : 'deepseek-chat'
 
     streamRequest(
       apiUrl, apiKey, model, messages,
