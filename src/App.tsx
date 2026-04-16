@@ -349,6 +349,8 @@ export default function App() {
   const [replyTarget, setReplyTarget] = useState<{ id: string; senderName: string; text?: string; type: string } | null>(null)
   // 长按选中的消息 ID（用于高亮显示）
   const [longPressId, setLongPressId] = useState<string | null>(null)
+  // #13 聚焦沉浸模式：当前聚焦的消息
+  const [focusedMsg, setFocusedMsg] = useState<import('./types').ChatMessage | null>(null)
   // 自定义退出确认弹框
   const [showExitModal, setShowExitModal] = useState(false)
   const [imgViewer, setImgViewer] = useState<string | null>(null)
@@ -367,7 +369,7 @@ export default function App() {
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<typeof messages>([])
 
-  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, manualReconnect, clearLogs } = useMqtt(user, roomCode)
+  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, sendRecall, manualReconnect, clearLogs } = useMqtt(user, roomCode)
 
   // 保持 messagesRef 与 messages 同步（用于事件回调中访问最新消息）
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -479,17 +481,60 @@ export default function App() {
 
   // 长按处理：返回一个可绑定到 onMouseDown/onTouchStart 的函数
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const handleLongPressStart = useCallback((msg: { id: string; senderName: string; text?: string; type: string }) => {
+  const handleLongPressStart = useCallback((msg: import('./types').ChatMessage) => {
     longPressTimer.current = setTimeout(() => {
       setLongPressId(msg.id)
-      setReplyTarget({ id: msg.id, senderName: msg.senderName, text: msg.text, type: msg.type })
+      setFocusedMsg(msg)  // #13 进入聚焦沉浸模式
       // 振动反馈（如果支持）
-      if (navigator.vibrate) navigator.vibrate(30)
+      if (navigator.vibrate) navigator.vibrate(40)
     }, 500)
   }, [])
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
   }, [])
+
+  // 退出聚焦模式
+  const exitFocusMode = useCallback(() => {
+    setFocusedMsg(null)
+    setLongPressId(null)
+  }, [])
+
+  // #14 导出聊天记录为 JSON
+  const exportMessages = useCallback(() => {
+    const exportable = messages
+      .filter(m => m.type !== 'sys')
+      .map(m => ({
+        id: m.id,
+        type: m.type,
+        senderId: m.senderId,
+        senderName: m.senderName,
+        text: m.text,
+        fileUrl: m.fileUrl,
+        fileName: m.fileName,
+        fileSize: m.fileSize,
+        duration: m.duration,
+        ts: m.ts,
+        tsFormatted: new Date(m.ts).toLocaleString(),
+        isSelf: m.isSelf,
+        readStatus: m.readStatus,
+        recalled: m.recalled,
+        replyTo: m.replyTo,
+      }))
+    const payload = JSON.stringify({
+      room: roomCode,
+      exportedAt: new Date().toISOString(),
+      messageCount: exportable.length,
+      messages: exportable,
+    }, null, 2)
+    const blob = new Blob([payload], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chat_${roomCode}_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast(`导出 ${exportable.length} 条记录`)
+  }, [messages, roomCode, showToast])
 
   const handleSend = useCallback(() => {
     const text = inputText.trim()
@@ -732,6 +777,113 @@ export default function App() {
         <ExitConfirmModal onConfirm={doExit} onCancel={() => setShowExitModal(false)} />
       )}
 
+      {/* #13 聚焦沉浸模式 */}
+      {focusedMsg && (
+        <div className="focus-overlay" onClick={exitFocusMode}>
+          <div className="focus-card" onClick={e => e.stopPropagation()}>
+
+            {/* 发送者信息 */}
+            {!focusedMsg.isSelf && (
+              <div className="focus-sender">
+                <div className="avatar" style={{ background: focusedMsg.senderColor, width: 28, height: 28, fontSize: 13 }}>
+                  {focusedMsg.senderName.slice(0, 1).toUpperCase()}
+                </div>
+                <span className="focus-sender-name">{focusedMsg.senderName}</span>
+              </div>
+            )}
+
+            {/* 消息内容 */}
+            {focusedMsg.type === 'text' && (
+              <div className={`focus-bubble ${focusedMsg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
+                {focusedMsg.replyTo && (
+                  <div className="reply-preview">
+                    <span className="reply-preview-name">{focusedMsg.replyTo.senderName}</span>
+                    <span className="reply-preview-text">{focusedMsg.replyTo.text || '[...]'}</span>
+                  </div>
+                )}
+                {focusedMsg.text}
+              </div>
+            )}
+            {focusedMsg.type === 'image' && focusedMsg.fileUrl && (
+              <img
+                src={focusedMsg.fileUrl}
+                alt={focusedMsg.fileName}
+                className="focus-image"
+                onClick={() => { setImgViewer(focusedMsg.fileUrl!); exitFocusMode() }}
+              />
+            )}
+            {focusedMsg.type === 'voice' && focusedMsg.fileUrl && (
+              <VoiceBubble url={focusedMsg.fileUrl} duration={focusedMsg.duration} isSelf={focusedMsg.isSelf} />
+            )}
+            {focusedMsg.type === 'file' && (
+              <div className={`file-bubble ${focusedMsg.isSelf ? 'bubble-self' : 'bubble-other'}`}>
+                <span style={{ fontSize: 24 }}>📄</span>
+                <div className="file-info">
+                  <div className="file-name">{focusedMsg.fileName}</div>
+                  <div className="file-size">{focusedMsg.fileSize ? fmtSize(focusedMsg.fileSize) : ''}</div>
+                </div>
+              </div>
+            )}
+
+            {/* 时间戳 */}
+            <span className="focus-time">
+              {new Date(focusedMsg.ts).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+
+            {/* 操作菜单栏 */}
+            <div className="focus-menu">
+              {/* 回复：所有消息均可 */}
+              <button
+                className="focus-menu-item"
+                onClick={() => {
+                  setReplyTarget({ id: focusedMsg.id, senderName: focusedMsg.senderName, text: focusedMsg.text, type: focusedMsg.type })
+                  exitFocusMode()
+                  setTimeout(() => inputRef.current?.focus(), 100)
+                }}
+              >
+                <span className="focus-menu-icon">↩</span>
+                <span>回复</span>
+              </button>
+
+              {/* 复制：仅文本消息 */}
+              {focusedMsg.type === 'text' && focusedMsg.text && (
+                <button
+                  className="focus-menu-item"
+                  onClick={() => {
+                    navigator.clipboard.writeText(focusedMsg.text!)
+                      .then(() => { showToast('已复制'); exitFocusMode() })
+                      .catch(() => { showToast('复制失败'); exitFocusMode() })
+                  }}
+                >
+                  <span className="focus-menu-icon">📋</span>
+                  <span>复制</span>
+                </button>
+              )}
+
+              {/* 撤回：仅自己的消息，且未撤回 */}
+              {focusedMsg.isSelf && !focusedMsg.recalled && (
+                <button
+                  className="focus-menu-item focus-menu-item-danger"
+                  onClick={() => {
+                    sendRecall(focusedMsg.id)
+                    exitFocusMode()
+                  }}
+                >
+                  <span className="focus-menu-icon">↺</span>
+                  <span>撤回</span>
+                </button>
+              )}
+
+              {/* 关闭 */}
+              <button className="focus-menu-item focus-menu-item-close" onClick={exitFocusMode}>
+                <span className="focus-menu-icon">✕</span>
+                <span>关闭</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 聊天区域 */}
       <div className="chat-inner">
 
@@ -793,6 +945,10 @@ export default function App() {
                     <span className="more-menu-icon">↻</span>
                     <span>手动重连</span>
                   </button>
+                  <button className="more-menu-item" onClick={() => { exportMessages(); setShowMoreMenu(false) }}>
+                    <span className="more-menu-icon">📥</span>
+                    <span>导出记录</span>
+                  </button>
                   <div className="more-menu-divider" />
                   <button className="more-menu-item more-menu-exit" onClick={() => { handleExit(); setShowMoreMenu(false) }}>
                     <span className="more-menu-icon">🚪</span>
@@ -818,15 +974,23 @@ export default function App() {
                 <div key={msg.id} className="msg-anim msg-sys">{msg.text}</div>
               )
             }
+            // 撤回消息：显示为居中提示
+            if (msg.recalled) {
+              return (
+                <div key={msg.id} className="msg-anim msg-recalled">
+                  {msg.text || `${msg.senderName} 撤回了一条消息`}
+                </div>
+              )
+            }
             const isHighlighted = longPressId === msg.id
             return (
               <div
                 key={msg.id}
                 className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
-                onMouseDown={() => msg.type !== 'sys' && handleLongPressStart(msg as { id: string; senderName: string; text?: string; type: string })}
+                onMouseDown={() => handleLongPressStart(msg)}
                 onMouseUp={handleLongPressEnd}
                 onMouseLeave={handleLongPressEnd}
-                onTouchStart={() => msg.type !== 'sys' && handleLongPressStart(msg as { id: string; senderName: string; text?: string; type: string })}
+                onTouchStart={() => handleLongPressStart(msg)}
                 onTouchEnd={handleLongPressEnd}
                 onTouchCancel={handleLongPressEnd}
               >

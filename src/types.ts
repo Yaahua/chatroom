@@ -24,6 +24,8 @@ export interface ChatMessage {
   readStatus?: 'sent' | 'delivered' | 'read'
   // 引用回复
   replyTo?: { id: string; senderName: string; text?: string; type: string }
+  // 是否已撤回
+  recalled?: boolean
 }
 
 export interface OnlineUser {

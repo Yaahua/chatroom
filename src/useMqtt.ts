@@ -151,6 +151,7 @@ export function useMqtt(user: User, roomCode: string | null) {
         `chat/${roomCode}/voice`,
         `chat/${roomCode}/history`,  // 订阅历史快照（retained）
         `chat/${roomCode}/read`,      // 已读回执
+        `chat/${roomCode}/recall`,    // 消息撤回
       ]
       client.subscribe(topics, { qos: 1 }, (err) => {
         if (err) {
@@ -209,6 +210,18 @@ export function useMqtt(user: User, roomCode: string | null) {
           setMessages(prev => prev.map(pm =>
             m.msgIds.includes(pm.id) ? { ...pm, readStatus: 'read' as const } : pm
           ))
+          return
+        }
+
+        // 撤回处理（自己和他人都处理）
+        if (topic.endsWith('/recall')) {
+          const { msgId, senderName: recallSender } = msg as { msgId: string; senderId: string; senderName: string }
+          setMessages(prev => prev.map(pm =>
+            pm.id === msgId
+              ? { ...pm, recalled: true, text: `${recallSender} 撤回了一条消息` }
+              : pm
+          ))
+          addLog('info', `消息被撤回: ${msgId}`)
           return
         }
 
@@ -417,6 +430,18 @@ export function useMqtt(user: User, roomCode: string | null) {
     ))
   }, [roomCode, user, publish])
 
+  const sendRecall = useCallback((msgId: string) => {
+    if (!roomCode || !clientRef.current?.connected) return
+    publish(`chat/${roomCode}/recall`, { type: 'recall', senderId: user.id, senderName: user.name, msgId })
+    // 本地立即更新
+    setMessages(prev => prev.map(m =>
+      m.id === msgId
+        ? { ...m, recalled: true, text: `${user.name} 撤回了一条消息` }
+        : m
+    ))
+    addLog('info', `撤回消息: ${msgId}`)
+  }, [roomCode, user, publish, addLog])
+
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sendTyping = useCallback(() => {
     if (!roomCode || status !== 'ok') return
@@ -521,7 +546,7 @@ export function useMqtt(user: User, roomCode: string | null) {
   return {
     status, messages, onlineUsers, typingUsers, logs,
     activeBrokerIndex,
-    connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead,
+    connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, sendRecall,
     manualReconnect, clearLogs
   }
 }
