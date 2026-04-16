@@ -1,0 +1,6 @@
+name = "chatroom-deepseek-proxy"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# 部署后访问地址形如：
+# https://chatroom-deepseek-proxy.<your-subdomain>.workers.dev
