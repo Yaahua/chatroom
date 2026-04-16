@@ -100,7 +100,7 @@ export function JiseiDisplay({ isDark }: JiseiDisplayProps) {
           textAlign: 'center',
         }}
       >
-        —— {poem.author}（{poem.authorJa}）· {poem.year}
+        —— {poem.author} · {poem.year}
       </p>
     </div>
   )
