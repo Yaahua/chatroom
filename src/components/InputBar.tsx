@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { OnlineUser, User } from '../types'
 import { AtMentionPanel } from './AtMentionPanel'
 import type { MentionCandidate } from './AtMentionPanel'
@@ -108,6 +108,24 @@ export function InputBar({
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
+
+  // ── 修复 #21：拦截 textarea 的 touchmove 冒泡，防止外层列表滚动 ─────────────
+  // 必须用 addEventListener 而非 React 合成事件，因为需要 passive:false 才能 preventDefault
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    const handler = (e: TouchEvent) => {
+      // 只有当 textarea 内容可以滚动时才拦截
+      const canScrollUp = el.scrollTop > 0
+      const canScrollDown = el.scrollTop < el.scrollHeight - el.clientHeight
+      if (canScrollUp || canScrollDown) {
+        e.stopPropagation()  // 阻止冒泡到外层消息列表
+        // 不调用 preventDefault()，保留原生文本滚动行为
+      }
+    }
+    el.addEventListener('touchmove', handler, { passive: true })
+    return () => el.removeEventListener('touchmove', handler)
+  }, [])
 
   // ── 发送消息 ──────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
@@ -337,8 +355,8 @@ export function InputBar({
         ) : (
           <textarea
             ref={inputRef}
-            className="input-hz no-scrollbar"
-            style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflow: 'hidden' }}
+            className="input-hz"
+            style={{ minHeight: 40, maxHeight: 120, padding: '10px 14px', fontSize: 14, lineHeight: '1.4', resize: 'none', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
             placeholder={placeholder}
             disabled={status !== 'ok'}
             value={inputText}

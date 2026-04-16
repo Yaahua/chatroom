@@ -653,6 +653,9 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
 }
 .input-hz:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(174,159,128,0.20); }
 .input-hz::placeholder { color: var(--text-muted); }
+/* textarea 输入框：隐藏滚动条但允许内容滚动（修复 #21 touchmove 冒泡） */
+textarea.input-hz { scrollbar-width: none; -ms-overflow-style: none; }
+textarea.input-hz::-webkit-scrollbar { display: none; }
 textarea.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 textarea.no-scrollbar::-webkit-scrollbar { display: none; }
 
