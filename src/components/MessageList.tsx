@@ -175,7 +175,13 @@ export function MessageList({
       <div ref={msgListRef} className="msg-list">
         {messages.map(msg => {
           if (msg.type === 'sys') {
-            return <div key={msg.id} className="msg-anim msg-sys">{msg.text}</div>
+            return (
+              <div key={msg.id} className="msg-anim msg-sys">
+                <span className="msg-sys-line" />
+                <span className="msg-sys-text">{msg.text}</span>
+                <span className="msg-sys-line" />
+              </div>
+            )
           }
           if (msg.recalled) {
             return (

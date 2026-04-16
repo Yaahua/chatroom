@@ -363,11 +363,29 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   align-items: flex-start;
 }
 .msg-sys {
-  -webkit-align-self: center;
-  align-self: center;
-  font-size: 12px; padding: 4px 12px;
-  border-radius: 999px; max-width: 90%; text-align: center;
-  background: var(--bg-input); color: var(--text-muted);
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 4px;
+  color: var(--text-muted);
+}
+.msg-sys-line {
+  -webkit-flex: 1;
+  flex: 1;
+  height: 1px;
+  background: var(--text-muted);
+  opacity: 0.2;
+}
+.msg-sys-text {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  white-space: nowrap;
 }
 .msg-sender-row {
   display: -webkit-flex;

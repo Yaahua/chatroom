@@ -74,6 +74,8 @@ export function useMqtt(user: User, roomCode: string | null) {
   const reconnectAttempts = useRef(0)
   const brokerIndexRef = useRef(0)
   const connectToBrokerRef = useRef<(idx: number) => void>(() => {})
+  // 是否是首次进入房间（区分首次连接和重连，避免重连时重复刷屏“已进入房间”）
+  const isFirstConnectRef = useRef(true)
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   // 幽灵在线方案一：心跳超时剔除定时器
@@ -188,9 +190,15 @@ export function useMqtt(user: User, roomCode: string | null) {
           type: 'join', senderId: user.id,
           senderName: user.name, senderColor: user.color
         })
-        addSysMsg(`✅ 已进入房间 ${roomCode}`)
-        if (brokerIdx > 0) {
-          addSysMsg(`⚠️ 当前使用备用节点（${broker.label}）`)
+        // 首次连接显示“已进入房间”，重连只显示“已重新连接”，避免刷屏
+        if (isFirstConnectRef.current) {
+          isFirstConnectRef.current = false
+          addSysMsg(`已进入房间 ${roomCode}`)
+          if (brokerIdx > 0) {
+            addSysMsg(`当前使用备用节点（${broker.label}）`)
+          }
+        } else {
+          addSysMsg('已重新连接')
         }
         heartbeatTimer.current = setInterval(() => {
           publish(`chat/${roomCode}/presence`, {
@@ -448,6 +456,7 @@ export function useMqtt(user: User, roomCode: string | null) {
     reconnectAttempts.current = 0
     brokerIndexRef.current = 0
     setActiveBrokerIndex(0)
+    isFirstConnectRef.current = true   // 重置，下次进入房间时再次显示“已进入房间”
     receivedMsgIdsRef.current.clear()
     // 释放所有 ObjectURL
     objectUrlsRef.current.forEach(u => URL.revokeObjectURL(u))
