@@ -338,6 +338,22 @@ export default function App() {
           setAiState({ id: placeholderId, phase: 'streaming' })
           return
         }
+        if (delta.startsWith('\x00REASONING\x00')) {
+          // 思考过程更新（直接替换整个 reasoning 字段）
+          const reasoning = delta.slice('\x00REASONING\x00'.length)
+          updateLocalMessage(placeholderId, prev => ({ ...prev, reasoning }))
+          return
+        }
+        if (delta.startsWith('\x00CONTENT\x00')) {
+          // 正式回答增量
+          const piece = delta.slice('\x00CONTENT\x00'.length)
+          updateLocalMessage(placeholderId, prev => ({
+            ...prev,
+            text: (prev.text ?? '') + piece,
+          }))
+          return
+        }
+        // 兴趣模型（DeepSeek）无前缀，直接追加到 text
         updateLocalMessage(placeholderId, prev => ({
           ...prev,
           text: (prev.text ?? '') + delta,

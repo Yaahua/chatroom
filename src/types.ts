@@ -28,6 +28,8 @@ export interface ChatMessage {
   recalled?: boolean
   // 被 @ 的用户昵称列表（用于接收方判断自己是否被提及）
   mentions?: string[]
+  // 思考过程（Kimi K2.5 等推理模型专用）
+  reasoning?: string
 }
 
 export interface OnlineUser {

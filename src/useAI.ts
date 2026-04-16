@@ -145,8 +145,11 @@ class SSEParser {
       }
       try {
         const parsed = JSON.parse(data)
-        const delta = parsed.choices?.[0]?.delta?.content
-        if (delta) deltas.push(delta)
+        const d = parsed.choices?.[0]?.delta
+        if (!d) continue
+        // reasoning_content 用 \x00R\x00 前缀区分，content 直接返回
+        if (d.reasoning_content) deltas.push('\x00R\x00' + d.reasoning_content)
+        else if (d.content) deltas.push(d.content)
       } catch {
         // 忽略心跳包等非 JSON 行
       }
@@ -199,7 +202,10 @@ async function streamRequest(
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let fullText = ''
+    let reasoningText = ''
     let firstChunk = true
+    const REASONING_PREFIX = '\x00R\x00'
+    const MAX_REASONING = 500  // 思考过程最多展示 500 字
 
     while (true) {
       const { done, value } = await reader.read()
@@ -214,12 +220,31 @@ async function streamRequest(
           onDone(fullText)
           return
         }
-        if (firstChunk) {
-          firstChunk = false
-          onChunk('\x00FIRST\x00')
+
+        if (delta.startsWith(REASONING_PREFIX)) {
+          // 思考过程：累积到 reasoningText，超出 500 字后不再追加
+          const piece = delta.slice(REASONING_PREFIX.length)
+          if (reasoningText.length < MAX_REASONING) {
+            reasoningText += piece
+            if (reasoningText.length > MAX_REASONING) {
+              reasoningText = reasoningText.slice(0, MAX_REASONING) + '...'
+            }
+            // 向外传递思考更新标记
+            if (firstChunk) {
+              firstChunk = false
+              onChunk('\x00FIRST\x00')
+            }
+            onChunk('\x00REASONING\x00' + reasoningText)
+          }
+        } else {
+          // 正式回答
+          if (firstChunk) {
+            firstChunk = false
+            onChunk('\x00FIRST\x00')
+          }
+          fullText += delta
+          onChunk('\x00CONTENT\x00' + delta)
         }
-        fullText += delta
-        onChunk(delta)
       }
     }
 

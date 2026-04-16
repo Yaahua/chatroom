@@ -1,6 +1,6 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ChatMessage } from '../types'
-import { AI_ID } from '../useAI'
+import { AI_ID, KIMI_ID } from '../useAI'
 
 // ─── 语音气泡 ─────────────────────────────────────────────────────────────────
 function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number; isSelf: boolean }) {
@@ -75,7 +75,7 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
 
 export { VoiceBubble }
 
-// ─── AI 思考动画（三个跳动的点）────────────────────────────────────────────────
+// ─// ─── AI 思考动画（三个跳动的点）──────────────────────────────────────────
 function AiThinkingDots() {
   return (
     <span className="ai-thinking-dots" aria-label="AI 思考中">
@@ -83,6 +83,42 @@ function AiThinkingDots() {
       <span className="ai-dot" />
       <span className="ai-dot" />
     </span>
+  )
+}
+
+// ─── 思考过程可折叠块 ──────────────────────────────────────────
+function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
+  const [expanded, setExpanded] = useState(true)
+  // 流式输出完成后自动折叠
+  const prevStreamingRef = useRef(streaming)
+  useEffect(() => {
+    if (prevStreamingRef.current && !streaming) {
+      const t = setTimeout(() => setExpanded(false), 0)
+      prevStreamingRef.current = streaming
+      return () => clearTimeout(t)
+    }
+    prevStreamingRef.current = streaming
+  }, [streaming])
+
+  return (
+    <div className="reasoning-block">
+      <button
+        className="reasoning-toggle"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span className="reasoning-icon">💡</span>
+        <span className="reasoning-label">
+          {streaming ? '思考中…' : '思考过程'}
+        </span>
+        <span className="reasoning-chevron">{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div className="reasoning-content">
+          {reasoning}
+          {streaming && <span className="ai-cursor" aria-hidden="true" />}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -212,9 +248,10 @@ export function MessageList({
 
           const isHighlighted = longPressId === msg.id
           const isMentionedMe = !!(selfName && msg.mentions && msg.mentions.includes(selfName) && !msg.isSelf)
-          const isAiMsg = msg.senderId === AI_ID
+          const isAiMsg = msg.senderId === AI_ID || msg.senderId === KIMI_ID
           const isThisAiThinking = isAiMsg && aiState?.id === msg.id && aiState.phase === 'thinking'
           const isThisAiStreaming = isAiMsg && aiState?.id === msg.id && aiState.phase === 'streaming'
+          const hasReasoning = !!(msg.reasoning)
 
           return (
             <div
@@ -238,7 +275,7 @@ export function MessageList({
                       {msg.senderName.slice(0, 1).toUpperCase()}
                     </div>
                   )}
-                  <span style={{ fontSize: 12, fontWeight: 500, color: isAiMsg ? '#6366f1' : 'var(--text-muted)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: isAiMsg ? (msg.senderId === KIMI_ID ? '#0ea5e9' : '#6366f1') : 'var(--text-muted)' }}>
                     {msg.senderName}
                   </span>
                   {/* AI 正在思考时在名字旁显示状态标签 */}
@@ -276,9 +313,21 @@ export function MessageList({
                     <AiThinkingDots />
                   ) : (
                     <>
+                      {/* 思考过程块（仅推理模型有） */}
+                      {hasReasoning && (
+                        <ReasoningBlock
+                          reasoning={msg.reasoning!}
+                          streaming={isThisAiStreaming && !msg.text}
+                        />
+                      )}
+                      {/* 思考过程与正式回答之间的分隔线 */}
+                      {hasReasoning && msg.text && (
+                        <div className="reasoning-divider" />
+                      )}
+                      {/* 正式回答 */}
                       {msg.text ? renderTextWithMentions(msg.text, selfName) : null}
-                      {/* 流式输出中：末尾显示光标 */}
-                      {isThisAiStreaming && (
+                      {/* 流式输出中：正式回答末尾显示光标 */}
+                      {isThisAiStreaming && msg.text && (
                         <span className="ai-cursor" aria-hidden="true" />
                       )}
                     </>
