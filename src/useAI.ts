@@ -1,27 +1,47 @@
 import { useCallback, useRef } from 'react'
 import type { ChatMessage } from './types'
 
-// DeepSeek API 配置
+// ─── AI 配置 ──────────────────────────────────────────────────────────────────
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 const DEEPSEEK_API_KEY = 'sk-209a9d7b033b45b685c3ce767521a802'
 
-// AI 在聊天室中的标识
-export const AI_ID = '__ai_deepseek__'
-export const AI_NAME = 'AI 助手'
-export const AI_COLOR = '#6366f1'
+const KIMI_API_URL = 'https://api.moonshot.cn/v1/chat/completions'
+const KIMI_API_KEY = 'sk-SDPUZHxTe8pd3s9zh3xCukDrjCJ09OFvB4taAz0mCxLCgcgH'
+
+// ─── AI 标识（DeepSeek 保持原有 ID，Kimi 新增）────────────────────────────────
+export const AI_ID       = '__ai_deepseek__'
+export const AI_NAME     = 'AI 助手'
+export const AI_COLOR    = '#6366f1'
+
+export const KIMI_ID     = '__ai_kimi__'
+export const KIMI_NAME   = 'Kimi'
+export const KIMI_COLOR  = '#0ea5e9'   // 天蓝色
 
 // 请求超时时间（毫秒）
 const REQUEST_TIMEOUT_MS = 30_000
 
 // ─── @ 触发检测 ──────────────────────────────────────────────────────────────
-// 支持：@AI、@ai、@AI 助手 等所有变体
+// DeepSeek：@AI、@ai、@AI助手
 export function hasAtAI(text: string): boolean {
   return /@AI(\s|$|助手)/i.test(text)
+}
+
+// Kimi：@Kimi、@kimi
+export function hasAtKimi(text: string): boolean {
+  return /@[Kk]imi(\s|$)/i.test(text)
 }
 
 // 从消息文本中提取 @AI 后的实际提问内容
 export function extractAIPrompt(text: string): string | null {
   const match = text.match(/@AI(?:\s*助手)?\s*([\s\S]*)/i)
+  if (!match) return null
+  const prompt = match[1].trim()
+  return prompt || null
+}
+
+// 从消息文本中提取 @Kimi 后的实际提问内容
+export function extractKimiPrompt(text: string): string | null {
+  const match = text.match(/@[Kk]imi\s*([\s\S]*)/i)
   if (!match) return null
   const prompt = match[1].trim()
   return prompt || null
@@ -42,7 +62,7 @@ function friendlyError(err: unknown): string {
 }
 
 // ─── 上下文构建（带 token 预估保护）────────────────────────────────────────
-type DeepSeekMessage = {
+type AIMessage = {
   role: 'system' | 'user' | 'assistant'
   content: string
 }
@@ -58,31 +78,25 @@ function buildMessages(
   contextMsgs: ChatMessage[],
   userPrompt: string,
   userName: string,
-  targetUserName?: string
-): DeepSeekMessage[] {
-  // #20: 如果有触发者，在系统提示词中注入定向对话信息
-  const targetLine = targetUserName
-    ? `\n当前你正在和「${targetUserName}」进行 1×1 对话。回复时请直接称呼对方昵称，不要广播给整个聊天室。`
-    : ''
-  const systemPrompt = `你是一个聊天室里的 AI 助手，昵称为“AI 助手”。用户通过 @AI 或回复你的消息来召唤你。回复应简洁、友好、口语化，适合聊天室场景。不要在回复中重复提及“@AI”或“AI 助手”，直接回答即可。${targetLine}`
+  aiSenderId: string,
+  systemPrompt: string,
+  extractPromptFn: (text: string) => string | null
+): AIMessage[] {
+  const cleanPrompt = extractPromptFn(userPrompt) || userPrompt
 
-  const cleanPrompt = extractAIPrompt(userPrompt) || userPrompt
-
-  // 构建历史消息，从最新往前取，直到 token 预算用完
-  const TOKEN_BUDGET = 2000  // 为回复预留 1024 token，上下文最多用 2000
+  const TOKEN_BUDGET = 2000
   let usedTokens = estimateTokens(systemPrompt) + estimateTokens(cleanPrompt)
 
   const recentMsgs = contextMsgs
     .filter(m => m.type !== 'sys' && !m.recalled)
-    .slice(-30)  // 最多取 30 条候选
+    .slice(-30)
 
-  const historyItems: DeepSeekMessage[] = []
+  const historyItems: AIMessage[] = []
 
-  // 从最新往前遍历，直到 token 预算用完
   for (let i = recentMsgs.length - 1; i >= 0; i--) {
     const m = recentMsgs[i]
     let content = ''
-    const prefix = m.senderId === AI_ID ? '' : `[${m.senderName}]: `
+    const prefix = m.senderId === aiSenderId ? '' : `[${m.senderName}]: `
 
     if (m.type === 'text' && m.text) {
       content = `${prefix}${m.text}`
@@ -100,7 +114,7 @@ function buildMessages(
     if (usedTokens + t > TOKEN_BUDGET) break
     usedTokens += t
 
-    const role = m.senderId === AI_ID ? 'assistant' : 'user'
+    const role = m.senderId === aiSenderId ? 'assistant' : 'user'
     historyItems.unshift({ role, content })
   }
 
@@ -143,7 +157,90 @@ class SSEParser {
   reset() { this.buffer = '' }
 }
 
+// ─── 通用流式请求函数 ────────────────────────────────────────────────────────
+async function streamRequest(
+  apiUrl: string,
+  apiKey: string,
+  model: string,
+  messages: AIMessage[],
+  controller: AbortController,
+  sseParser: SSEParser,
+  onChunk: (delta: string) => void,
+  onDone: (fullText: string) => void,
+  onError: (err: string) => void,
+  clearTimeout_: () => void,
+  setIsThinking: (v: boolean) => void
+) {
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        max_tokens: 1024,
+        temperature: 0.7,
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout_()
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      throw new Error(`${res.status} ${errText}`)
+    }
+    if (!res.body) throw new Error('响应体为空')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let firstChunk = true
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value, { stream: true })
+      const deltas = sseParser.feed(chunk)
+
+      for (const delta of deltas) {
+        if (delta === '\x00DONE\x00') {
+          setIsThinking(false)
+          onDone(fullText)
+          return
+        }
+        if (firstChunk) {
+          firstChunk = false
+          onChunk('\x00FIRST\x00')
+        }
+        fullText += delta
+        onChunk(delta)
+      }
+    }
+
+    setIsThinking(false)
+    onDone(fullText)
+  } catch (err) {
+    clearTimeout_()
+    setIsThinking(false)
+    if ((err as Error).name === 'AbortError') return
+    onError(friendlyError(err))
+  }
+}
+
 // ─── useAI Hook ──────────────────────────────────────────────────────────────
+export interface AskAIOptions {
+  /** 触发的 AI 类型：'deepseek' | 'kimi'，默认 deepseek */
+  aiType?: 'deepseek' | 'kimi'
+  /** 触发者昵称，用于 AI 定向回复 */
+  targetUserName?: string
+}
+
 export interface UseAIReturn {
   askAI: (
     userText: string,
@@ -152,8 +249,8 @@ export interface UseAIReturn {
     onChunk: (delta: string) => void,
     onDone: (fullText: string) => void,
     onError: (err: string) => void,
-    /** #20: 触发者昵称，用于 AI 定向回复 */
-    targetUserName?: string
+    targetUserName?: string,
+    options?: AskAIOptions
   ) => void
   abortAI: () => void
   isThinking: React.MutableRefObject<boolean>
@@ -179,9 +276,9 @@ export function useAI(): UseAIReturn {
     onChunk: (delta: string) => void,
     onDone: (fullText: string) => void,
     onError: (err: string) => void,
-    targetUserName?: string
+    targetUserName?: string,
+    options?: AskAIOptions
   ) => {
-    // 中止上一次请求
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
@@ -192,78 +289,38 @@ export function useAI(): UseAIReturn {
     abortControllerRef.current = controller
     isThinking.current = true
 
-    // 超时保护：30 秒内没有任何响应则中止
     timeoutRef.current = setTimeout(() => {
       controller.abort()
       isThinking.current = false
       onError('timeout')
     }, REQUEST_TIMEOUT_MS)
 
-    const messages = buildMessages(contextMsgs, userText, userName, targetUserName)
+    const aiType = options?.aiType ?? 'deepseek'
+    const isKimi = aiType === 'kimi'
 
-    fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-        stream: true,
-        max_tokens: 1024,
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
-    })
-      .then(async res => {
-        // 收到响应头即取消超时计时（流式读取可能很慢，但已建立连接）
-        clearTimeout_()
+    const aiSenderId = isKimi ? KIMI_ID : AI_ID
+    const aiDisplayName = isKimi ? KIMI_NAME : AI_NAME
+    const targetLine = targetUserName
+      ? `\n当前你正在和「${targetUserName}」进行 1对1 对话。回复时请直接称呼对方昵称，不要广播给整个聊天室。`
+      : ''
+    const systemPrompt = isKimi
+      ? `你是聊天室里的 AI 助手，昵称为"Kimi"，由 Moonshot AI 提供支持。回复应简洁、友好、口语化，适合聊天室场景。不要在回复中重复提及"@Kimi"，直接回答即可。${targetLine}`
+      : `你是一个聊天室里的 AI 助手，昵称为"${aiDisplayName}"。用户通过 @AI 或回复你的消息来召唤你。回复应简洁、友好、口语化，适合聊天室场景。不要在回复中重复提及"@AI"或"AI 助手"，直接回答即可。${targetLine}`
 
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '')
-          throw new Error(`${res.status} ${errText}`)
-        }
-        if (!res.body) throw new Error('响应体为空')
+    const extractFn = isKimi ? extractKimiPrompt : extractAIPrompt
+    const messages = buildMessages(contextMsgs, userText, userName, aiSenderId, systemPrompt, extractFn)
 
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let fullText = ''
-        let firstChunk = true
+    const apiUrl = isKimi ? KIMI_API_URL : DEEPSEEK_API_URL
+    const apiKey = isKimi ? KIMI_API_KEY : DEEPSEEK_API_KEY
+    const model  = isKimi ? 'moonshot-v1-8k' : 'deepseek-chat'
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value, { stream: true })
-          const deltas = sseParser.current.feed(chunk)
-
-          for (const delta of deltas) {
-            if (delta === '\x00DONE\x00') {
-              isThinking.current = false
-              onDone(fullText)
-              return
-            }
-            // 收到第一个 chunk 时通知外部（可用于隐藏"思考中"动画）
-            if (firstChunk) {
-              firstChunk = false
-              onChunk('\x00FIRST\x00')  // 特殊标记：首个 chunk
-            }
-            fullText += delta
-            onChunk(delta)
-          }
-        }
-
-        // 流正常结束但没有收到 [DONE]
-        isThinking.current = false
-        onDone(fullText)
-      })
-      .catch(err => {
-        clearTimeout_()
-        isThinking.current = false
-        if (err.name === 'AbortError') return  // 主动中止，静默处理
-        onError(friendlyError(err))
-      })
+    streamRequest(
+      apiUrl, apiKey, model, messages,
+      controller, sseParser.current,
+      onChunk, onDone, onError,
+      clearTimeout_,
+      (v) => { isThinking.current = v }
+    )
   }, [clearTimeout_])
 
   const abortAI = useCallback(() => {

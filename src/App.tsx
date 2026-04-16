@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMqtt, pickColor } from './useMqtt'
 import MusicPlayer from './MusicPlayer'
 import { useSound } from './useSound'
-import { useAI, hasAtAI, AI_ID, AI_NAME, AI_COLOR } from './useAI'
+import { useAI, hasAtAI, hasAtKimi, AI_ID, AI_NAME, AI_COLOR, KIMI_ID, KIMI_NAME, KIMI_COLOR } from './useAI'
 import type { User, ChatMessage } from './types'
 
 import { LoginView } from './components/LoginView'
@@ -259,55 +259,65 @@ export default function App() {
   useEffect(() => {
     if (!inRoom) return
 
-    // 构建 AI 消息 ID 集合，用于判断「回复 AI 消息」触发条件（#19）
+    // 构建所有 AI 消息 ID 集合（DeepSeek + Kimi），用于判断「回复 AI 消息」触发
+    const allAiSenderIds = new Set([AI_ID, KIMI_ID])
     const aiMsgIds = new Set(
-      messagesRef.current.filter(m => m.senderId === AI_ID).map(m => m.id)
+      messagesRef.current.filter(m => allAiSenderIds.has(m.senderId)).map(m => m.id)
+    )
+    // 同时记录每条 AI 消息对应的 AI 类型，用于回复时路由
+    const aiMsgTypeMap = new Map<string, 'deepseek' | 'kimi'>(
+      messagesRef.current
+        .filter(m => allAiSenderIds.has(m.senderId))
+        .map(m => [m.id, m.senderId === KIMI_ID ? 'kimi' : 'deepseek'])
     )
 
-    // 从最新消息往前找，满足任一条件即触发：
-    // 条件 1（#16）：用户主动 @AI
-    // 条件 2（#19）：用户回复了 AI 的消息
+    // 从最新消息往前找触发消息
+    // 条件 1：用户主动 @AI 或 @Kimi
+    // 条件 2：用户回复了某个 AI 的消息
     const triggerMsg = [...messages]
       .reverse()
       .find(m => {
-        if (m.type !== 'text' || !m.text || m.senderId === AI_ID) return false
-        const isAtAI = hasAtAI(m.text)
+        if (m.type !== 'text' || !m.text || allAiSenderIds.has(m.senderId)) return false
+        const isAtAI   = hasAtAI(m.text)
+        const isAtKimi = hasAtKimi(m.text)
         const isReplyToAI = !!(m.replyTo && aiMsgIds.has(m.replyTo.id))
-        return isAtAI || isReplyToAI
+        return isAtAI || isAtKimi || isReplyToAI
       })
 
     if (!triggerMsg) return
-    // 内存级去重：当前会话中已触发过的消息不再重复处理
     if (triggerMsg.id === lastAiTriggerIdRef.current) return
-    // #22 持久化去重：重进房间后，历史消息中已处理过的消息不再触发
     if (aiHandledIdsRef.current.has(triggerMsg.id)) return
     if (isStreamingRef.current) return
 
     lastAiTriggerIdRef.current = triggerMsg.id
-    // 立即写入持久化集合，防止异步期间重复触发
     aiHandledIdsRef.current.add(triggerMsg.id)
     try {
-      const ids = Array.from(aiHandledIdsRef.current).slice(-200) // 最多保留 200 条
+      const ids = Array.from(aiHandledIdsRef.current).slice(-200)
       localStorage.setItem(`ai_handled_${roomCode}`, JSON.stringify(ids))
     } catch { /* localStorage 满了忽略 */ }
     isStreamingRef.current = true
 
-    // #20: 触发者昵称（可能是自己或其他用户）
     const triggerUserName = triggerMsg.senderName
+
+    // 判断路由到哪个 AI
+    const isKimiTrigger = hasAtKimi(triggerMsg.text!) ||
+      !!(triggerMsg.replyTo && aiMsgTypeMap.get(triggerMsg.replyTo.id) === 'kimi')
+    const aiType: 'deepseek' | 'kimi' = isKimiTrigger ? 'kimi' : 'deepseek'
+    const placeholderSenderId    = isKimiTrigger ? KIMI_ID    : AI_ID
+    const placeholderSenderName  = isKimiTrigger ? KIMI_NAME  : AI_NAME
+    const placeholderSenderColor = isKimiTrigger ? KIMI_COLOR : AI_COLOR
 
     const placeholderId = Math.random().toString(36).slice(2, 11)
     const placeholder: ChatMessage = {
       id: placeholderId,
       type: 'text',
-      senderId: AI_ID,
-      senderName: AI_NAME,
-      senderColor: AI_COLOR,
-      // 空字符串：由 MessageList 根据 aiState.phase 渲染"思考中"动画
+      senderId: placeholderSenderId,
+      senderName: placeholderSenderName,
+      senderColor: placeholderSenderColor,
       text: '',
       ts: Date.now(),
       isSelf: false,
       readStatus: 'delivered',
-      // #20: AI 回复标记为回复触发者的消息，形成 1对1 对话线程
       replyTo: {
         id: triggerMsg.id,
         senderName: triggerUserName,
@@ -324,7 +334,6 @@ export default function App() {
       triggerUserName,
       contextSnapshot,
       (delta) => {
-        // 收到首个 chunk 时切换到 streaming 阶段
         if (delta === '\x00FIRST\x00') {
           setAiState({ id: placeholderId, phase: 'streaming' })
           return
@@ -348,7 +357,8 @@ export default function App() {
         setAiState(null)
         showToast(`AI：${err}`)
       },
-      triggerUserName  // #20: 传入触发者昵称，实现定向回复
+      triggerUserName,
+      { aiType }
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, inRoom, askAI, playReceive, showToast])

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { OnlineUser, User } from '../types'
-import { AI_NAME, AI_COLOR, AI_ID } from '../useAI'
+import { AI_NAME, AI_COLOR, AI_ID, KIMI_NAME, KIMI_COLOR, KIMI_ID } from '../useAI'
 
 // @ 候选项的统一类型
 export interface MentionCandidate {
@@ -29,16 +29,20 @@ function AtMentionPanelInner({ query, onlineUsers, self, onSelect, onClose }: At
   const [activeIndex, setActiveIndex] = useState(0)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // 构建候选列表：AI 排首位，然后是自己，然后是其他在线用户（去重）
+  // 构建候选列表：DeepSeek 排首位，Kimi 排第二，然后是自己，然后是其他在线用户
   const allCandidates = useMemo((): MentionCandidate[] => {
     const seen = new Set<string>()
     const list: MentionCandidate[] = []
 
-    // AI 固定排第一
+    // DeepSeek AI 排第一
     list.push({ id: AI_ID, name: AI_NAME, color: AI_COLOR, isAI: true })
     seen.add(AI_ID)
 
-    // 自己排第二
+    // Kimi AI 排第二
+    list.push({ id: KIMI_ID, name: KIMI_NAME, color: KIMI_COLOR, isAI: true })
+    seen.add(KIMI_ID)
+
+    // 自己排第三
     if (self.id && !seen.has(self.id)) {
       list.push({ id: self.id, name: self.name, color: self.color })
       seen.add(self.id)
@@ -128,7 +132,7 @@ function AtMentionPanelInner({ query, onlineUsers, self, onSelect, onClose }: At
               onMouseEnter={() => setActiveIndex(i)}
             >
               {c.isAI ? (
-                <div className="at-avatar at-avatar-ai">
+                <div className="at-avatar at-avatar-ai" style={{ background: c.color }}>
                   <span style={{ fontSize: 14 }}>🤖</span>
                 </div>
               ) : (
@@ -138,7 +142,8 @@ function AtMentionPanelInner({ query, onlineUsers, self, onSelect, onClose }: At
               )}
               <div className="at-info">
                 <span className="at-name">{c.name}</span>
-                {c.isAI && <span className="at-badge">DeepSeek</span>}
+                {c.id === AI_ID && <span className="at-badge">DeepSeek</span>}
+                {c.id === KIMI_ID && <span className="at-badge" style={{ background: KIMI_COLOR }}>Moonshot</span>}
                 {c.id === self.id && !c.isAI && <span className="at-badge at-badge-self">我</span>}
               </div>
             </button>
