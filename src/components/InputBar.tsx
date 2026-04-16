@@ -59,12 +59,15 @@ function useVoiceRecorder() {
 }
 
 // ─── 解析当前光标前的 @ 触发词 ─────────────────────────────────────────────────
+// 返回 @ 的位置和 @ 后面已输入的查询字符串
 function parseAtQuery(text: string, cursorPos: number): { atStart: number; query: string } | null {
   const before = text.slice(0, cursorPos)
   const atIdx = before.lastIndexOf('@')
   if (atIdx === -1) return null
+  // @ 前面必须是空白或行首
   if (atIdx > 0 && !/[\s]/.test(before[atIdx - 1])) return null
   const query = before.slice(atIdx + 1)
+  // query 中出现空格说明已经完成了 @ 提及，关闭面板
   if (/\s/.test(query)) return null
   return { atStart: atIdx, query }
 }
@@ -82,7 +85,7 @@ interface InputBarProps {
   setReplyTarget: (target: { id: string; senderName: string; text?: string; type: string } | null) => void
   setLongPressId: (id: string | null) => void
   setShowLogPanel: (show: boolean) => void
-  /** AI 正在思考或回复中，禁止输入框发送含 @AI 的消息 */
+  /** AI 正在思考或回复中，placeholder 给出提示 */
   aiThinking?: boolean
 }
 
@@ -96,7 +99,7 @@ export function InputBar({
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [showPhotoMode, setShowPhotoMode] = useState(false)
 
-  // @ 面板状态
+  // @ 面板状态：null = 关闭，否则包含 @ 的位置和查询字符串
   const [atQuery, setAtQuery] = useState<{ atStart: number; query: string } | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -106,7 +109,7 @@ export function InputBar({
 
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
-  // 发送消息
+  // ── 发送消息 ──────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const text = inputText.trim()
     if (!text || status !== 'ok') return
@@ -118,35 +121,34 @@ export function InputBar({
     if (inputRef.current) { inputRef.current.style.height = 'auto' }
   }, [inputText, status, sendText, replyTarget, setReplyTarget, setLongPressId])
 
-  // 输入框内容变化：同步高度 + 检测 @ 触发
+  // ── 输入框内容变化：同步高度 + 检测 @ 触发 ────────────────────────────────
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
     setInputText(val)
+    // 自适应高度
     e.target.style.height = 'auto'
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
     sendTyping()
-
+    // 检测 @ 触发
     const cursor = e.target.selectionStart ?? val.length
-    const parsed = parseAtQuery(val, cursor)
-    setAtQuery(parsed)
+    setAtQuery(parseAtQuery(val, cursor))
   }, [sendTyping])
 
-  // 光标移动时重新检测（用户用方向键移动光标）
+  // ── 光标移动时重新检测（用户用方向键移动光标） ────────────────────────────
   const handleSelect = useCallback(() => {
     const el = inputRef.current
     if (!el) return
     const cursor = el.selectionStart ?? el.value.length
-    const parsed = parseAtQuery(el.value, cursor)
-    setAtQuery(parsed)
+    setAtQuery(parseAtQuery(el.value, cursor))
   }, [])
 
-  // 键盘事件：Enter 发送（@ 面板打开时由面板处理 Enter）
+  // ── 键盘事件：Enter 发送（@ 面板打开时由面板处理 Enter）────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (atQuery) return
+    if (atQuery) return  // @ 面板打开时，Enter/Tab/Esc 交给面板处理
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }, [handleSend, atQuery])
 
-  // 粘贴图片
+  // ── 粘贴图片 ──────────────────────────────────────────────────────────────
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -158,7 +160,7 @@ export function InputBar({
     }
   }, [sendFile])
 
-  // 语音按钮
+  // ── 语音按钮 ──────────────────────────────────────────────────────────────
   const handleVoiceBtn = useCallback(async () => {
     if (recording) {
       const result = await stopRec()
@@ -168,33 +170,48 @@ export function InputBar({
     }
   }, [recording, startRec, stopRec, sendVoice])
 
-  // 点击 @ 按钮：立即弹出候选列表
+  // ── 点击 @ 按钮：立即弹出候选列表（不插入 @，atStart 记录光标位置）────────
   const handleAtBtn = useCallback(() => {
     const el = inputRef.current
+    // 获取当前光标位置（或末尾）
     const cursor = el?.selectionStart ?? inputText.length
     setAtQuery({ atStart: cursor, query: '' })
     setShowPlusMenu(false)
-    setTimeout(() => el?.focus(), 0)
+    // 延迟聚焦，避免 blur 立即关闭面板
+    setTimeout(() => el?.focus(), 50)
   }, [inputText])
 
-  // 选中 @ 候选项
+  // ── 选中 @ 候选项：在光标处插入 @昵称 ────────────────────────────────────
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
+
+    // AI 插入 @AI，其他用户插入 @昵称
     const mentionText = candidate.id === AI_ID ? 'AI' : candidate.name
+
+    // 分割文本：@ 前的部分 + @ 后已输入的 query 之后的部分
     const before = inputText.slice(0, atQuery.atStart)
-    const afterStart = atQuery.query.length > 0
-      ? inputText.slice(atQuery.atStart + 1 + atQuery.query.length)
-      : inputText.slice(el?.selectionStart ?? atQuery.atStart)
-    const needSpace = before.length > 0 && !/\s$/.test(before)
-    const mention = `${needSpace ? ' ' : ''}@${mentionText} `
-    const newText = before + mention + afterStart
-    const newCursor = atQuery.atStart + mention.length
+    const afterQuery = inputText.slice(atQuery.atStart + 1 + atQuery.query.length)
+
+    // 如果 @ 前面没有空格且有内容，自动补一个空格
+    const needLeadingSpace = before.length > 0 && !/\s$/.test(before)
+    const insert = `${needLeadingSpace ? ' ' : ''}@${mentionText} `
+
+    const newText = before + insert + afterQuery
+    const newCursor = before.length + insert.length
+
     setInputText(newText)
     setAtQuery(null)
+
+    // 聚焦并移动光标到插入点之后
     setTimeout(() => {
-      el?.focus()
-      el?.setSelectionRange(newCursor, newCursor)
+      if (el) {
+        el.focus()
+        el.setSelectionRange(newCursor, newCursor)
+        // 同步高度
+        el.style.height = 'auto'
+        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+      }
     }, 0)
   }, [atQuery, inputText])
 
@@ -203,7 +220,6 @@ export function InputBar({
   const statusMap: Record<string, string> = { disconnected: '未连接', connecting: '连接中', ok: '已连接', err: '连接失败' }
   const statusText = statusMap[status] || '未连接'
 
-  // AI 忙碌时的 placeholder 提示
   const placeholder = status !== 'ok'
     ? statusText
     : aiThinking
@@ -211,7 +227,9 @@ export function InputBar({
       : '语言的力量'
 
   return (
-    <>
+    // ⚠️ 关键：position:relative 让 .at-panel 的 absolute 定位相对于此容器
+    <div style={{ position: 'relative' }}>
+
       {/* + 号菜单 */}
       {showPlusMenu && (
         <div className="plus-menu menu-anim">
@@ -249,8 +267,8 @@ export function InputBar({
         </div>
       )}
 
-      {/* @ 提及面板 */}
-      {atQuery && (
+      {/* @ 提及面板（position:absolute，相对于外层 div 定位到输入栏上方） */}
+      {atQuery !== null && (
         <AtMentionPanel
           query={atQuery.query}
           onlineUsers={onlineUsers}
@@ -298,7 +316,12 @@ export function InputBar({
           onClick={handleAtBtn}
           title="@ 提及 · 召唤 AI"
           disabled={status !== 'ok'}
-          style={{ opacity: status !== 'ok' ? 0.4 : 1 }}
+          style={{
+            opacity: status !== 'ok' ? 0.4 : 1,
+            background: atQuery !== null ? 'var(--hz-500)' : 'var(--bg-input)',
+            color: atQuery !== null ? 'white' : 'var(--text-secondary)',
+            transition: 'background 0.15s',
+          }}
         >
           @
         </button>
@@ -349,6 +372,6 @@ export function InputBar({
         onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
       <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="*/*"
         onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = '' }} />
-    </>
+    </div>
   )
 }
