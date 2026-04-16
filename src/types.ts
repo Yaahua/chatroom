@@ -26,6 +26,8 @@ export interface ChatMessage {
   replyTo?: { id: string; senderName: string; text?: string; type: string }
   // 是否已撤回
   recalled?: boolean
+  // 被 @ 的用户昵称列表（用于接收方判断自己是否被提及）
+  mentions?: string[]
 }
 
 export interface OnlineUser {
@@ -42,6 +44,7 @@ export interface MqttTextMsg {
   senderColor: string
   text: string
   ts: number
+  mentions?: string[]  // 被 @ 的用户昵称列表
 }
 
 export interface MqttTypingMsg {

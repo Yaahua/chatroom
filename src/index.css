@@ -311,6 +311,36 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   border-radius: 999px; font-size: 10px; font-weight: 700;
   color: white; background: var(--hz-600); margin-left: 2px;
 }
+/* @ 角标（被 @ 时替代普通未读数） */
+.mention-badge {
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; font-size: 10px; font-weight: 700;
+  color: white; background: #e67e22; margin-left: 2px;
+  animation: mentionPulse 1.5s ease-in-out infinite;
+}
+@keyframes mentionPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+/* 被 @ 的消息气泡高亮背景 */
+.bubble-mentioned {
+  border-left: 3px solid #e67e22;
+}
+/* 文本中的 @昵称 高亮 */
+.mention-self {
+  color: #e67e22;
+  font-weight: 600;
+}
+.mention-other {
+  color: var(--hz-600);
+  font-weight: 500;
+}
 .status-dot {
   display: inline-block;
   width: 8px; height: 8px; border-radius: 50%;

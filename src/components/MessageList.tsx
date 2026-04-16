@@ -97,10 +97,29 @@ interface MessageListProps {
   setImgViewer: (url: string) => void
   /** AI 当前状态：null=空闲，thinking=等待首个chunk，streaming=流式输出中 */
   aiState?: { id: string; phase: 'thinking' | 'streaming' } | null
+  /** 当前用户昵称，用于判断消息是否 @ 了自己 */
+  selfName?: string
+}
+
+// 将消息文本中的 @昵称 渲染为高亮 span
+function renderTextWithMentions(text: string, selfName?: string): React.ReactNode {
+  const parts = text.split(/(@[^\s@]+)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      const name = part.slice(1)
+      const isSelf = selfName && name === selfName
+      return (
+        <span key={i} className={isSelf ? 'mention-self' : 'mention-other'}>
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
 }
 
 export function MessageList({
-  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer, aiState
+  messages, typingUsers, longPressId, setLongPressId, setFocusedMsg, setReplyTarget, setImgViewer, aiState, selfName
 }: MessageListProps) {
   const msgListRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -192,6 +211,7 @@ export function MessageList({
           }
 
           const isHighlighted = longPressId === msg.id
+          const isMentionedMe = !!(selfName && msg.mentions && msg.mentions.includes(selfName) && !msg.isSelf)
           const isAiMsg = msg.senderId === AI_ID
           const isThisAiThinking = isAiMsg && aiState?.id === msg.id && aiState.phase === 'thinking'
           const isThisAiStreaming = isAiMsg && aiState?.id === msg.id && aiState.phase === 'streaming'
@@ -238,6 +258,7 @@ export function MessageList({
                     msg.isSelf ? 'bubble-self' : 'bubble-other',
                     isAiMsg ? 'bubble-ai-msg' : '',
                     isThisAiStreaming ? 'bubble-streaming' : '',
+                    isMentionedMe ? 'bubble-mentioned' : '',
                   ].filter(Boolean).join(' ')}
                   style={{ whiteSpace: 'pre-wrap' }}
                 >
@@ -255,7 +276,7 @@ export function MessageList({
                     <AiThinkingDots />
                   ) : (
                     <>
-                      {msg.text}
+                      {msg.text ? renderTextWithMentions(msg.text, selfName) : null}
                       {/* 流式输出中：末尾显示光标 */}
                       {isThisAiStreaming && (
                         <span className="ai-cursor" aria-hidden="true" />

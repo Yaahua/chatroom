@@ -5,6 +5,7 @@ interface ChatHeaderProps {
   roomCode: string | null
   status: string
   unread: number
+  mentionCount: number
   onlineUsers: OnlineUser[]
   user: User
   muted: boolean
@@ -20,7 +21,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({
-  roomCode, status, unread, onlineUsers, user, muted, darkMode, setDarkMode,
+  roomCode, status, unread, mentionCount, onlineUsers, user, muted, darkMode, setDarkMode,
   toggleMute, setShowOnlineModal, setShowLogPanel, setShowExitModal,
   manualReconnect, exportMessages, showToast
 }: ChatHeaderProps) {
@@ -53,7 +54,8 @@ export function ChatHeader({
       <button className="header-room-btn" onClick={copyRoomCode}>
         <span className={`status-dot ${statusDotClass}`} />
         {roomCode}
-        {unread > 0 && <span className="unread-badge">{unread}</span>}
+        {mentionCount > 0 && <span className="mention-badge">@{mentionCount}</span>}
+        {unread > 0 && !mentionCount && <span className="unread-badge">{unread}</span>}
       </button>
 
       <button className="header-users-btn" onClick={() => setShowOnlineModal(true)} title="查看在线成员">

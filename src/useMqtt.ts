@@ -308,7 +308,8 @@ export function useMqtt(user: User, roomCode: string | null) {
             senderName: m.senderName, senderColor: m.senderColor,
             text: m.text, ts: m.ts, isSelf: false,
             readStatus: 'delivered' as const,
-            replyTo: m.replyTo
+            replyTo: m.replyTo,
+            ...(m.mentions && m.mentions.length > 0 ? { mentions: m.mentions } : {})
           }])
           // 自动发送已送达回执
           publish(`chat/${roomCode}/read`, { type: 'read', senderId: user.id, msgIds: [newMsgId] })
@@ -469,11 +470,15 @@ export function useMqtt(user: User, roomCode: string | null) {
     if (!roomCode || !text.trim() || status !== 'ok') return
     const msgId = Math.random().toString(36).slice(2)
     const ts = Date.now()
+    // 解析文本中所有 @昵称，注入 mentions 字段（匹配 @昵称 直到空格/标点/行尾）
+    const mentionMatches = text.match(/@([^\s@]+)/g) || []
+    const mentions = mentionMatches.map(m => m.slice(1)).filter(Boolean)
     publish(`chat/${roomCode}/msg`, {
       type: 'text', senderId: user.id,
       senderName: user.name, senderColor: user.color,
       text: text.trim(), ts, id: msgId,
-      ...(replyTo ? { replyTo } : {})
+      ...(replyTo ? { replyTo } : {}),
+      ...(mentions.length > 0 ? { mentions } : {})
     })
     setMessages(prev => {
       const next = [...prev, {
@@ -481,7 +486,8 @@ export function useMqtt(user: User, roomCode: string | null) {
         senderName: user.name, senderColor: user.color,
         text: text.trim(), ts, isSelf: true,
         readStatus: 'sent' as const,
-        ...(replyTo ? { replyTo } : {})
+        ...(replyTo ? { replyTo } : {}),
+        ...(mentions.length > 0 ? { mentions } : {})
       }]
       // 每发 10 条同步一次 MQTT retained 快照
       if (next.filter(m => m.type !== 'sys').length % 10 === 0) {

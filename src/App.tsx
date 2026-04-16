@@ -61,6 +61,7 @@ export default function App() {
   const [imgViewer, setImgViewer] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
+  const [mentionCount, setMentionCount] = useState(0)  // 被 @ 的未读数
   const [focused, setFocused] = useState(true)
 
   const [replyTarget, setReplyTarget] = useState<{ id: string; senderName: string; text?: string; type: string } | null>(null)
@@ -104,6 +105,7 @@ export default function App() {
     const onFocus = () => {
       setFocused(true)
       setUnread(0)
+      setMentionCount(0)
       document.title = '哈吉米德的聊天室'
       const unreadIds = messagesRef.current
         .filter(m => !m.isSelf && m.type !== 'sys' && m.readStatus !== 'read')
@@ -122,23 +124,45 @@ export default function App() {
     const last = messages[messages.length - 1]
     if (messages.length > prevMsgCount.current) {
       if (last.type !== 'sys' && last.senderId !== AI_ID) {
-        if (last.isSelf) playSend()
-        else {
+        if (last.isSelf) {
+          playSend()
+        } else {
+          // 判断自己是否被 @（匹配昵称）
+          const isMentioned = !!(last.mentions && last.mentions.includes(user.name))
           playReceive()
           if (!focused) {
             setTimeout(() => {
-              setUnread(n => {
-                const next = n + 1
-                document.title = `(${next}) 哈吉米德的聊天室`
-                return next
-              })
+              if (isMentioned) {
+                // 被 @ 时：单独计数，标题显示 [@]
+                setMentionCount(n => {
+                  const next = n + 1
+                  setUnread(u => {
+                    document.title = `[@${next}](${u + 1}) 哈吉米德的聊天室`
+                    return u + 1
+                  })
+                  return next
+                })
+              } else {
+                setUnread(n => {
+                  const next = n + 1
+                  setMentionCount(m => {
+                    if (m > 0) {
+                      document.title = `[@${m}](${next}) 哈吉米德的聊天室`
+                    } else {
+                      document.title = `(${next}) 哈吉米德的聊天室`
+                    }
+                    return m
+                  })
+                  return next
+                })
+              }
             }, 0)
           }
         }
       }
       prevMsgCount.current = messages.length
     }
-  }, [messages, focused, playSend, playReceive])
+  }, [messages, focused, user.name, playSend, playReceive])
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -178,6 +202,7 @@ export default function App() {
     setRoomCode(null)
     prevMsgCount.current = 0
     setUnread(0)
+    setMentionCount(0)
     setAiState(null)
     clearAiHandledIds()        // #22: 清空内存中的已处理 ID（localStorage 保留）
     lastAiTriggerIdRef.current = null
@@ -378,6 +403,7 @@ export default function App() {
           roomCode={roomCode}
           status={status}
           unread={unread}
+          mentionCount={mentionCount}
           onlineUsers={onlineUsers}
           user={user}
           muted={muted}
@@ -401,6 +427,7 @@ export default function App() {
           setReplyTarget={setReplyTarget}
           setImgViewer={setImgViewer}
           aiState={aiState}
+          selfName={user.name}
         />
 
         <InputBar
