@@ -230,10 +230,43 @@ function LogPanel({ logs, onClear, onClose }: {
   )
 }
 
+// ===== 自定义退出确认弹框 =====
+function ExitConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box modal-anim exit-modal" onClick={e => e.stopPropagation()}>
+        <div className="exit-modal-icon">🚶</div>
+        <div className="exit-modal-title">退出房间</div>
+        <div className="exit-modal-body">确定要离开当前房间吗？</div>
+        <div className="exit-modal-btns">
+          <button className="exit-modal-btn exit-modal-btn-cancel" onClick={onCancel}>留下</button>
+          <button className="exit-modal-btn exit-modal-btn-confirm" onClick={onConfirm}>退出</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ===== 语音气泡 =====
 function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number; isSelf: boolean }) {
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // 断点续播：记录上次暂停位置
+  const resumeTimeRef = useRef(0)
+
+  // 监听全局停止事件（其他语音开始播放时触发）
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ except: HTMLAudioElement | null }>).detail
+      if (audioRef.current && audioRef.current !== detail.except) {
+        resumeTimeRef.current = audioRef.current.currentTime
+        audioRef.current.pause()
+        setPlaying(false)
+      }
+    }
+    window.addEventListener('voice-stop-all', handler)
+    return () => window.removeEventListener('voice-stop-all', handler)
+  }, [])
 
   // 组件卸载时清理 Audio 对象，防止内存泄漏
   useEffect(() => {
@@ -249,14 +282,19 @@ function VoiceBubble({ url, duration, isSelf }: { url: string; duration?: number
   const toggle = useCallback(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio(url)
-      audioRef.current.onended = () => setPlaying(false)
-      audioRef.current.onerror = () => setPlaying(false)
+      audioRef.current.onended = () => { setPlaying(false); resumeTimeRef.current = 0 }
+      audioRef.current.onerror = () => { setPlaying(false); resumeTimeRef.current = 0 }
     }
     if (playing) {
+      // 暂停：记录当前位置以便断点续播
+      resumeTimeRef.current = audioRef.current.currentTime
       audioRef.current.pause()
-      audioRef.current.currentTime = 0
       setPlaying(false)
     } else {
+      // 播放前：通知其他语音停止（互斥）
+      window.dispatchEvent(new CustomEvent('voice-stop-all', { detail: { except: audioRef.current } }))
+      // 断点续播：从上次暂停位置继续
+      audioRef.current.currentTime = resumeTimeRef.current
       audioRef.current.play().catch(() => setPlaying(false))
       setPlaying(true)
     }
@@ -306,8 +344,13 @@ export default function App() {
   const [showOnlineModal, setShowOnlineModal] = useState(false)
   const [showLogPanel, setShowLogPanel] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
-  const [showNotifPanel, setShowNotifPanel] = useState(false)
   const [inputText, setInputText] = useState('')
+  // 引用回复状态
+  const [replyTarget, setReplyTarget] = useState<{ id: string; senderName: string; text?: string; type: string } | null>(null)
+  // 长按选中的消息 ID（用于高亮显示）
+  const [longPressId, setLongPressId] = useState<string | null>(null)
+  // 自定义退出确认弹框
+  const [showExitModal, setShowExitModal] = useState(false)
   const [imgViewer, setImgViewer] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
@@ -322,8 +365,12 @@ export default function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevMsgCount = useRef(0)
   const moreMenuRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<typeof messages>([])
 
-  const { status, messages, onlineUsers, typingUsers, logs, notifications, activeBrokerIndex, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, manualReconnect, clearLogs, markNotifRead, clearNotifications } = useMqtt(user, roomCode)
+  const { status, messages, onlineUsers, typingUsers, logs, connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead, manualReconnect, clearLogs } = useMqtt(user, roomCode)
+
+  // 保持 messagesRef 与 messages 同步（用于事件回调中访问最新消息）
+  useEffect(() => { messagesRef.current = messages }, [messages])
 
   const { playSend, playReceive } = useSound(muted)
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
@@ -339,12 +386,21 @@ export default function App() {
   }, [inRoom])
 
   useEffect(() => {
-    const onFocus = () => { setFocused(true); setUnread(0); document.title = '哈吉米德的聊天室' }
+    const onFocus = () => {
+      setFocused(true)
+      setUnread(0)
+      document.title = '哈吉米德的聊天室'
+      // 窗口获得焦点时，批量发送未读消息的已读回执
+      const unreadIds = messagesRef.current
+        .filter(m => !m.isSelf && m.type !== 'sys' && m.readStatus !== 'read')
+        .map(m => m.id)
+      if (unreadIds.length > 0) sendRead(unreadIds)
+    }
     const onBlur = () => setFocused(false)
     window.addEventListener('focus', onFocus)
     window.addEventListener('blur', onBlur)
     return () => { window.removeEventListener('focus', onFocus); window.removeEventListener('blur', onBlur) }
-  }, [])
+  }, [sendRead])
 
   useEffect(() => {
     if (messages.length === 0) return
@@ -406,15 +462,12 @@ export default function App() {
     if (inRoom && roomCode && user.name) connect()
   }, [inRoom, roomCode, user, connect])
 
-  // 进入房间后申请浏览器通知权限
-  useEffect(() => {
-    if (inRoom && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
-    }
-  }, [inRoom])
-
   const handleExit = useCallback(() => {
-    if (!confirm('确定退出房间？')) return
+    setShowExitModal(true)
+  }, [])
+
+  const doExit = useCallback(() => {
+    setShowExitModal(false)
     disconnect()
     setInRoom(false)
     setRoomCode(null)
@@ -424,13 +477,29 @@ export default function App() {
     document.title = '哈吉米德的聊天室'
   }, [disconnect])
 
+  // 长按处理：返回一个可绑定到 onMouseDown/onTouchStart 的函数
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleLongPressStart = useCallback((msg: { id: string; senderName: string; text?: string; type: string }) => {
+    longPressTimer.current = setTimeout(() => {
+      setLongPressId(msg.id)
+      setReplyTarget({ id: msg.id, senderName: msg.senderName, text: msg.text, type: msg.type })
+      // 振动反馈（如果支持）
+      if (navigator.vibrate) navigator.vibrate(30)
+    }, 500)
+  }, [])
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+  }, [])
+
   const handleSend = useCallback(() => {
     const text = inputText.trim()
     if (!text || status !== 'ok') return
-    sendText(text)
+    sendText(text, replyTarget ?? undefined)
     setInputText('')
+    setReplyTarget(null)
+    setLongPressId(null)
     if (inputRef.current) { inputRef.current.style.height = 'auto' }
-  }, [inputText, status, sendText])
+  }, [inputText, status, sendText, replyTarget])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value)
@@ -658,6 +727,11 @@ export default function App() {
         <LogPanel logs={logs} onClear={clearLogs} onClose={() => setShowLogPanel(false)} />
       )}
 
+      {/* 自定义退出确认弹框 */}
+      {showExitModal && (
+        <ExitConfirmModal onConfirm={doExit} onCancel={() => setShowExitModal(false)} />
+      )}
+
       {/* 聊天区域 */}
       <div className="chat-inner">
 
@@ -692,17 +766,6 @@ export default function App() {
                 ↻
               </button>
             )}
-            {/* 推送通知铃铛 */}
-            <button
-              className="icon-btn notif-btn"
-              onClick={() => { setShowNotifPanel(s => !s); if (notifications.some(n => !n.read)) notifications.forEach(n => markNotifRead(n.id)) }}
-              title="推送通知"
-            >
-              🔔
-              {notifications.filter(n => !n.read).length > 0 && (
-                <span className="notif-badge">{notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}</span>
-              )}
-            </button>
             {/* 音效开关 */}
             <button className="icon-btn" onClick={toggleMute} title={muted ? '开启音效' : '关闭音效'}>
               {muted ? '🔇' : '🔊'}
@@ -740,40 +803,14 @@ export default function App() {
             </div>
           </div>
         </header>
-        {/* 推送通知面板 */}
-        {showNotifPanel && (
-          <div className="notif-panel">
-            <div className="notif-panel-header">
-              <span className="notif-panel-title">🔔 推送通知</span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {notifications.length > 0 && (
-                  <button className="notif-clear-btn" onClick={clearNotifications}>清空</button>
-                )}
-                <button className="notif-close-btn" onClick={() => setShowNotifPanel(false)}>✕</button>
-              </div>
-            </div>
-            {notifications.length === 0 ? (
-              <div className="notif-empty">暂无通知</div>
-            ) : (
-              <div className="notif-list">
-                {notifications.map(n => (
-                  <div key={n.id} className={`notif-item${n.read ? ' notif-read' : ''}`}>
-                    <div className="notif-item-title">{n.title}</div>
-                    {n.body && <div className="notif-item-body">{n.body}</div>}
-                    <div className="notif-item-time">{new Date(n.ts).toLocaleTimeString()}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="notif-panel-footer">
-              <span className="notif-broker-label">
-                {activeBrokerIndex === 0 ? '🟢 主节点' : '🟡 备用节点'}
-              </span>
-              <span className="notif-broker-name">{['EMQX 主节点', 'HiveMQ 备用节点'][activeBrokerIndex]}</span>
-            </div>
-          </div>
-        )}
         {/* 消息列表 */}
+        {/* 长按选中时的覙层背景 */}
+        {longPressId && (
+          <div
+            className="reply-overlay"
+            onClick={() => { setLongPressId(null); setReplyTarget(null) }}
+          />
+        )}
         <div ref={msgListRef} className="msg-list">
           {messages.map(msg => {
             if (msg.type === 'sys') {
@@ -781,8 +818,18 @@ export default function App() {
                 <div key={msg.id} className="msg-anim msg-sys">{msg.text}</div>
               )
             }
+            const isHighlighted = longPressId === msg.id
             return (
-              <div key={msg.id} className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}`}>
+              <div
+                key={msg.id}
+                className={`msg-anim ${msg.isSelf ? 'msg-row-self' : 'msg-row-other'}${isHighlighted ? ' msg-highlighted' : ''}`}
+                onMouseDown={() => msg.type !== 'sys' && handleLongPressStart(msg as { id: string; senderName: string; text?: string; type: string })}
+                onMouseUp={handleLongPressEnd}
+                onMouseLeave={handleLongPressEnd}
+                onTouchStart={() => msg.type !== 'sys' && handleLongPressStart(msg as { id: string; senderName: string; text?: string; type: string })}
+                onTouchEnd={handleLongPressEnd}
+                onTouchCancel={handleLongPressEnd}
+              >
                 {!msg.isSelf && (
                   <div className="msg-sender-row">
                     <div className="avatar" style={{ background: msg.senderColor, width: 20, height: 20, fontSize: 10 }}>
@@ -795,6 +842,15 @@ export default function App() {
                 {msg.type === 'text' && (
                   <div className={`${msg.isSelf ? 'bubble-self' : 'bubble-other'}`}
                     style={{ whiteSpace: 'pre-wrap' }}>
+                    {/* 引用回复预览 */}
+                    {msg.replyTo && (
+                      <div className="reply-preview">
+                        <span className="reply-preview-name">{msg.replyTo.senderName}</span>
+                        <span className="reply-preview-text">
+                          {msg.replyTo.type === 'text' ? (msg.replyTo.text || '') : `[图片/文件/语音]`}
+                        </span>
+                      </div>
+                    )}
                     {msg.text}
                   </div>
                 )}
@@ -831,6 +887,11 @@ export default function App() {
 
                 <span className="msg-time">
                   {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.isSelf && (
+                    <span className={`read-tick${msg.readStatus === 'read' ? ' read-tick-read' : ''}`}>
+                      {msg.readStatus === 'read' ? '✓✓' : '✓'}
+                    </span>
+                  )}
                 </span>
               </div>
             )
@@ -894,6 +955,22 @@ export default function App() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 引用回复预览条 */}
+        {replyTarget && (
+          <div className="reply-bar">
+            <div className="reply-bar-content">
+              <span className="reply-bar-name">{replyTarget.senderName}</span>
+              <span className="reply-bar-text">
+                {replyTarget.type === 'text' ? (replyTarget.text || '') : `[图片/文件/语音]`}
+              </span>
+            </div>
+            <button
+              className="reply-bar-close"
+              onClick={() => { setReplyTarget(null); setLongPressId(null) }}
+            >✕</button>
           </div>
         )}
 

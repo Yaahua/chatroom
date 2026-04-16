@@ -20,6 +20,10 @@ export interface ChatMessage {
   duration?: number
   ts: number
   isSelf: boolean
+  // 已读状态: 'sent' = 已发送, 'delivered' = 已送达, 'read' = 已读
+  readStatus?: 'sent' | 'delivered' | 'read'
+  // 引用回复
+  replyTo?: { id: string; senderName: string; text?: string; type: string }
 }
 
 export interface OnlineUser {

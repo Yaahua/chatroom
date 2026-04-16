@@ -7,6 +7,13 @@ import type {
   MqttTextMsg, MqttTypingMsg, MqttPresenceMsg, MqttFileMsg
 } from './types'
 
+// 已读回执 MQTT 消息类型
+interface MqttReadMsg {
+  type: 'read'
+  senderId: string
+  msgIds: string[]  // 已读的消息 ID 列表
+}
+
 // 安全的 base64 编码：避免展开运算符导致大数组栈溢出
 function safeBase64Encode(bytes: Uint8Array): string {
   let binary = ''
@@ -23,19 +30,36 @@ export interface LogEntry {
   ts: number
 }
 
-export interface NotifyMessage {
-  id: string
-  title: string
-  body: string
-  ts: number
-  read: boolean
-}
-
 const COLORS = ['#C4956A','#9B7E5A','#7D6E52','#B8956A','#A07850','#C8A87A','#8B6E4E','#D4A574']
 export function pickColor(id: string) {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xFFFFFF
   return COLORS[h % COLORS.length]
+}
+
+// ─── 消息缓存工具 ───────────────────────────────────────────────────────────
+const CACHE_MAX = 100  // 最多缓存 100 条
+
+/** 从 localStorage 读取历史消息（过滤掉 sys 消息，不持久化系统提示） */
+function loadCachedMessages(roomCode: string): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(`chat_history_${roomCode}`)
+    if (!raw) return []
+    const msgs: ChatMessage[] = JSON.parse(raw)
+    return msgs.filter(m => m.type !== 'sys')
+  } catch {
+    return []
+  }
+}
+
+/** 将消息列表写入 localStorage（只保留最近 CACHE_MAX 条非 sys 消息） */
+function saveCachedMessages(roomCode: string, msgs: ChatMessage[]) {
+  try {
+    const toSave = msgs.filter(m => m.type !== 'sys').slice(-CACHE_MAX)
+    localStorage.setItem(`chat_history_${roomCode}`, JSON.stringify(toSave))
+  } catch {
+    // 存储满了忽略
+  }
 }
 
 export function useMqtt(user: User, roomCode: string | null) {
@@ -45,7 +69,6 @@ export function useMqtt(user: User, roomCode: string | null) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [notifications, setNotifications] = useState<NotifyMessage[]>([])
   const [activeBrokerIndex, setActiveBrokerIndex] = useState(0)
 
   const reconnectAttempts = useRef(0)
@@ -72,18 +95,27 @@ export function useMqtt(user: User, roomCode: string | null) {
     }])
   }, [])
 
-  const publish = useCallback((topic: string, payload: object) => {
+  const publish = useCallback((topic: string, payload: object, retained = false) => {
     if (!clientRef.current?.connected) return
-    clientRef.current.publish(topic, JSON.stringify(payload), { qos: 1 })
+    clientRef.current.publish(topic, JSON.stringify(payload), { qos: 1, retain: retained })
   }, [])
 
-  // 推送通知：标记已读
-  const markNotifRead = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }, [])
+  // ─── 消息缓存：每次 messages 变化时同步写入 localStorage ────────────────
+  useEffect(() => {
+    if (!roomCode || messages.length === 0) return
+    saveCachedMessages(roomCode, messages)
+  }, [messages, roomCode])
 
-  // 推送通知：清空所有
-  const clearNotifications = useCallback(() => setNotifications([]), [])
+  // ─── 消息缓存：发布 MQTT retained 历史快照 ──────────────────────────────
+  const publishHistorySnapshot = useCallback((msgs: ChatMessage[]) => {
+    if (!roomCode) return
+    const toSave = msgs
+      .filter(m => m.type !== 'sys' && m.type !== 'image' && m.type !== 'file' && m.type !== 'voice')
+      .slice(-50)
+      .map(m => ({ id: m.id, type: m.type, senderId: m.senderId, senderName: m.senderName, senderColor: m.senderColor, text: m.text, ts: m.ts, isSelf: false }))
+    if (toSave.length === 0) return
+    publish(`chat/${roomCode}/history`, { msgs: toSave, updatedAt: Date.now() }, true)
+  }, [roomCode, publish])
 
   const connectToBroker = useCallback((brokerIdx: number) => {
     if (!roomCode) return
@@ -117,9 +149,8 @@ export function useMqtt(user: User, roomCode: string | null) {
         `chat/${roomCode}/presence`,
         `chat/${roomCode}/typing`,
         `chat/${roomCode}/voice`,
-        // 推送通知 topic：订阅全局通知和个人通知
-        `${CONFIG.NOTIFY_TOPIC_PREFIX}/all`,
-        `${CONFIG.NOTIFY_TOPIC_PREFIX}/user/${user.id}`,
+        `chat/${roomCode}/history`,  // 订阅历史快照（retained）
+        `chat/${roomCode}/read`,      // 已读回执
       ]
       client.subscribe(topics, { qos: 1 }, (err) => {
         if (err) {
@@ -150,21 +181,34 @@ export function useMqtt(user: User, roomCode: string | null) {
       try {
         const msg = JSON.parse(payload.toString())
 
-        // 推送通知消息处理
-        if (topic.startsWith(CONFIG.NOTIFY_TOPIC_PREFIX)) {
-          const notif: NotifyMessage = {
-            id: Math.random().toString(36).slice(2),
-            title: msg.title || '新通知',
-            body: msg.body || '',
-            ts: msg.ts || Date.now(),
-            read: false,
-          }
-          setNotifications(prev => [notif, ...prev.slice(0, 49)])
-          // 尝试发送浏览器原生通知
-          if (Notification.permission === 'granted') {
-            new Notification(notif.title, { body: notif.body, icon: '/favicon.ico' })
-          }
-          addLog('info', `收到推送通知: ${notif.title}`)
+        // ── MQTT retained 历史快照 ──────────────────────────────────────
+        if (topic.endsWith('/history')) {
+          const remoteMsgs: ChatMessage[] = (msg.msgs || []).map((m: ChatMessage) => ({ ...m, isSelf: m.senderId === user.id }))
+          if (remoteMsgs.length === 0) return
+          // 合并：本地缓存 + 远端快照，去重，按时间排序
+          setMessages(prev => {
+            const localNonSys = prev.filter(m => m.type !== 'sys')
+            const allIds = new Set(localNonSys.map(m => m.id))
+            const merged = [...localNonSys]
+            for (const rm of remoteMsgs) {
+              if (!allIds.has(rm.id)) merged.push(rm)
+            }
+            merged.sort((a, b) => a.ts - b.ts)
+            // 保留 sys 消息在末尾
+            const sysMessages = prev.filter(m => m.type === 'sys')
+            return [...merged.slice(-CACHE_MAX), ...sysMessages]
+          })
+          addLog('info', `收到历史快照：${remoteMsgs.length} 条`)
+          return
+        }
+
+        // 已读回执处理
+        if (topic.endsWith('/read')) {
+          const m = msg as MqttReadMsg
+          if (m.senderId === user.id) return  // 自己发的回执不处理
+          setMessages(prev => prev.map(pm =>
+            m.msgIds.includes(pm.id) ? { ...pm, readStatus: 'read' as const } : pm
+          ))
           return
         }
 
@@ -194,13 +238,18 @@ export function useMqtt(user: User, roomCode: string | null) {
             setTypingUsers(prev => prev.filter(n => n !== m.senderName))
           }, CONFIG.TYPING_DEBOUNCE + 500)
         } else if (topic.endsWith('/msg')) {
-          const m = msg as MqttTextMsg
+          const m = msg as MqttTextMsg & { id?: string; replyTo?: ChatMessage['replyTo'] }
+          const newMsgId = m.id || Math.random().toString(36).slice(2)
           setMessages(prev => [...prev, {
-            id: Math.random().toString(36).slice(2),
+            id: newMsgId,
             type: 'text', senderId: m.senderId,
             senderName: m.senderName, senderColor: m.senderColor,
-            text: m.text, ts: m.ts, isSelf: false
+            text: m.text, ts: m.ts, isSelf: false,
+            readStatus: 'delivered' as const,
+            replyTo: m.replyTo
           }])
+          // 自动发送已送达回执
+          publish(`chat/${roomCode}/read`, { type: 'read', senderId: user.id, msgIds: [newMsgId] })
         } else if (topic.endsWith('/file')) {
           const m = msg as MqttFileMsg
           try {
@@ -268,7 +317,6 @@ export function useMqtt(user: User, roomCode: string | null) {
         reconnectAttempts.current++
         const maxPerBroker = CONFIG.MAX_RECONNECT_ATTEMPTS_PER_BROKER
         if (reconnectAttempts.current > maxPerBroker) {
-          // 当前 Broker 重试超限，尝试切换到下一个
           const nextIdx = (brokerIndexRef.current + 1) % BROKERS.length
           if (nextIdx !== brokerIndexRef.current) {
             addLog('warn', `${BROKERS[brokerIndexRef.current].label} 连接失败，切换到 ${BROKERS[nextIdx].label}`)
@@ -297,8 +345,14 @@ export function useMqtt(user: User, roomCode: string | null) {
     if (!roomCode) return
     if (clientRef.current?.connected) return
     reconnectAttempts.current = 0
+    // 先从 localStorage 恢复历史消息，再连接
+    const cached = loadCachedMessages(roomCode)
+    if (cached.length > 0) {
+      setMessages(cached)
+      addLog('info', `从本地缓存恢复 ${cached.length} 条历史消息`)
+    }
     connectToBroker(0)
-  }, [roomCode, connectToBroker])
+  }, [roomCode, connectToBroker, addLog])
 
   const disconnect = useCallback(() => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
@@ -307,6 +361,11 @@ export function useMqtt(user: User, roomCode: string | null) {
       publish(`chat/${roomCode}/presence`, {
         type: 'leave', senderId: user.id,
         senderName: user.name, senderColor: user.color
+      })
+      // 退出前发布最终历史快照到 MQTT retained
+      setMessages(prev => {
+        publishHistorySnapshot(prev)
+        return prev
       })
       setTimeout(() => {
         clientRef.current?.end(true)
@@ -320,22 +379,43 @@ export function useMqtt(user: User, roomCode: string | null) {
     reconnectAttempts.current = 0
     brokerIndexRef.current = 0
     setActiveBrokerIndex(0)
-  }, [roomCode, user, publish, addLog])
+  }, [roomCode, user, publish, addLog, publishHistorySnapshot])
 
-  const sendText = useCallback((text: string) => {
+  const sendText = useCallback((text: string, replyTo?: ChatMessage['replyTo']) => {
     if (!roomCode || !text.trim() || status !== 'ok') return
+    const msgId = Math.random().toString(36).slice(2)
+    const ts = Date.now()
     publish(`chat/${roomCode}/msg`, {
       type: 'text', senderId: user.id,
       senderName: user.name, senderColor: user.color,
-      text: text.trim(), ts: Date.now()
+      text: text.trim(), ts, id: msgId,
+      ...(replyTo ? { replyTo } : {})
     })
-    setMessages(prev => [...prev, {
-      id: Math.random().toString(36).slice(2),
-      type: 'text', senderId: user.id,
-      senderName: user.name, senderColor: user.color,
-      text: text.trim(), ts: Date.now(), isSelf: true
-    }])
-  }, [roomCode, user, status, publish])
+    setMessages(prev => {
+      const next = [...prev, {
+        id: msgId, type: 'text' as const, senderId: user.id,
+        senderName: user.name, senderColor: user.color,
+        text: text.trim(), ts, isSelf: true,
+        readStatus: 'sent' as const,
+        ...(replyTo ? { replyTo } : {})
+      }]
+      // 每发 10 条同步一次 MQTT retained 快照
+      if (next.filter(m => m.type !== 'sys').length % 10 === 0) {
+        setTimeout(() => publishHistorySnapshot(next), 100)
+      }
+      return next
+    })
+  }, [roomCode, user, status, publish, publishHistorySnapshot])
+
+  // 发送已读回执（主动调用，用于展示窗口切换时批量标记已读）
+  const sendRead = useCallback((msgIds: string[]) => {
+    if (!roomCode || msgIds.length === 0 || !clientRef.current?.connected) return
+    publish(`chat/${roomCode}/read`, { type: 'read', senderId: user.id, msgIds })
+    // 同时更新本地状态
+    setMessages(prev => prev.map(m =>
+      msgIds.includes(m.id) && !m.isSelf ? { ...m, readStatus: 'read' as const } : m
+    ))
+  }, [roomCode, user, publish])
 
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sendTyping = useCallback(() => {
@@ -440,8 +520,8 @@ export function useMqtt(user: User, roomCode: string | null) {
 
   return {
     status, messages, onlineUsers, typingUsers, logs,
-    notifications, activeBrokerIndex,
-    connect, disconnect, sendText, sendTyping, sendFile, sendVoice,
-    manualReconnect, clearLogs, markNotifRead, clearNotifications
+    activeBrokerIndex,
+    connect, disconnect, sendText, sendTyping, sendFile, sendVoice, sendRead,
+    manualReconnect, clearLogs
   }
 }
