@@ -288,12 +288,28 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   // 使用 visualViewport 尺寸，与 resize handler 保持一致，避免键盘弹出时卡片位置错误
   const vpW = window.visualViewport?.width ?? window.innerWidth
   const vpH = window.visualViewport?.height ?? window.innerHeight
-  const cardRight = hideSide === 'right'
-    ? vpW - pos.x - FAB_SIZE + (hidden ? FAB_SIZE - PEEK_PX : 0)
-    : undefined
-  const cardLeft = hideSide === 'left'
-    ? pos.x + FAB_SIZE + 8 + (hidden ? -(FAB_SIZE - PEEK_PX) : 0)
-    : undefined
+  // 播放器卡片宽度（与 CSS min(320px, 92vw) 保持一致）
+  const CARD_W = Math.min(320, vpW * 0.92)
+  const CARD_MARGIN = 8  // 距屏幕边缘最小间距
+
+  // 计算面板位置，并做边界保护防止溢出
+  let cardRight: number | undefined
+  let cardLeft: number | undefined
+
+  if (hideSide === 'right') {
+    // FAB 在右侧：面板向左展开，right 值 = 距右边缘距离
+    const rawRight = vpW - pos.x - FAB_SIZE + (hidden ? FAB_SIZE - PEEK_PX : 0)
+    // 确保面板左边缘不超出屏幕左侧
+    const maxRight = vpW - CARD_W - CARD_MARGIN
+    cardRight = Math.min(rawRight, maxRight)
+  } else {
+    // FAB 在左侧：面板向右展开，left 值 = 距左边缘距离
+    const rawLeft = pos.x + FAB_SIZE + 8 + (hidden ? -(FAB_SIZE - PEEK_PX) : 0)
+    // 确保面板右边缘不超出屏幕右侧
+    const maxLeft = vpW - CARD_W - CARD_MARGIN
+    cardLeft = Math.min(rawLeft, maxLeft)
+  }
+
   const cardBottom = vpH - pos.y + 8
 
   const isVisible = open && !hidden

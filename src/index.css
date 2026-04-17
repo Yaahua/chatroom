@@ -146,9 +146,53 @@ body.page-chat  { background: var(--bg-primary); overflow: hidden; }
   overflow: hidden;
   width: 100%;
 }
+/* ===== 响应式断点 ===== */
+
+/* 平板（≥768px）：居中 + 限宽 */
 @media (min-width: 768px) {
-  .chat-root { -webkit-align-items: center; align-items: center; }
-  .chat-inner { max-width: 720px; }
+  .chat-root {
+    -webkit-align-items: center;
+    align-items: center;
+    background: var(--hz-200);
+  }
+  .dark .chat-root { background: var(--hz-950); }
+  .chat-inner {
+    max-width: 720px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 0 40px rgba(94,80,63,0.12);
+  }
+  .dark .chat-inner {
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
+  }
+  /* 气泡宽度收窄，避免过宽 */
+  .msg-row-self,
+  .msg-row-other { max-width: 68%; }
+  /* 消息列表左右内边距增大 */
+  .msg-list { padding: 20px 20px; }
+  /* 输入栏内边距 */
+  .input-bar { padding: 12px 16px; padding-bottom: calc(12px + var(--safe-bottom)); }
+}
+
+/* 桌面（≥1024px）：更宽的聊天区 */
+@media (min-width: 1024px) {
+  .chat-inner { max-width: 800px; }
+  /* 气泡进一步收窄 */
+  .msg-row-self,
+  .msg-row-other { max-width: 60%; }
+  /* 消息列表内边距 */
+  .msg-list { padding: 24px 28px; }
+  /* 输入栏内边距 */
+  .input-bar { padding: 14px 20px; padding-bottom: calc(14px + var(--safe-bottom)); }
+  /* 顶栏内边距 */
+  .chat-header { padding: 12px 20px; }
+  /* 登录卡片更宽 */
+  .login-card { max-width: 400px; }
+}
+
+/* 大屏（≥1280px）：最大宽度 */
+@media (min-width: 1280px) {
+  .chat-inner { max-width: 860px; }
 }
 
 /* ===== 顶栏 ===== */
