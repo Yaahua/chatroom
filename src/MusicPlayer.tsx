@@ -89,8 +89,8 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   const [errorMsg, setErrorMsg] = useState('')
 
   // 用 ref 持有最新 muted 值，避免 initPlayer useCallback 因 muted 变化而重新创建
+  // （mutedRef 的同步在下方的静音 useEffect 中统一处理）
   const mutedRef = useRef(muted)
-  useEffect(() => { mutedRef.current = muted }, [muted])
 
   const dragging = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -136,6 +136,9 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
         listMaxHeight: '200px',
         audio: playlist,
       })
+      // 初始化完成后立即同步一次最新 muted 状态
+      // 防止「先关喇叭再打开播放器」时 APlayer 以默认音量启动
+      try { aplayerRef.current.setVolume(mutedRef.current ? 0 : 0.7, false) } catch { /* ignore */ }
       setLoadState('ready')
     } catch (e) {
       mountedRef.current = false  // 允许重试
@@ -164,7 +167,9 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   }, [])
 
   // 监听全局静音状态，同步控制 APlayer 音量
+  // 同时更新 mutedRef，确保 initPlayer 异步完成时能读到最新值
   useEffect(() => {
+    mutedRef.current = muted
     try {
       aplayerRef.current?.setVolume(muted ? 0 : 0.7, false)
     } catch { /* APlayer 尚未初始化时忽略 */ }
