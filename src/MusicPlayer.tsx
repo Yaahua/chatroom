@@ -121,10 +121,16 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
       ])
       playlistRef.current = playlist
       if (!playerContainerRef.current) return
-      // 3. 创建 APlayer 实例前，先把 localStorage["volume"] 设置为正确值
-      // APlayer 初始化时会读取 localStorage["volume"] 并覆盖 options.volume
+      // 3. 创建 APlayer 实例前，先把 localStorage["aplayer"] 中的 volume 设置为正确值
+      // APlayer 把所有设置存在 localStorage["aplayer"]（JSON 对象），key 不是 "volume"
+      // Storage 构造函数：this.data = JSON.parse(localStorage["aplayer"])
+      //                   this.data.volume = this.data.volume || options.volume
       // 必须在 new APlayer() 之前写入，否则静音状态会被旧值覆盖
-      try { localStorage.setItem('volume', String(mutedRef.current ? 0 : 0.7)) } catch { /* ignore */ }
+      try {
+        const _asd = JSON.parse(localStorage.getItem('aplayer') || '{}')
+        _asd.volume = mutedRef.current ? 0 : 0.7
+        localStorage.setItem('aplayer', JSON.stringify(_asd))
+      } catch { /* ignore */ }
       aplayerRef.current = new window.APlayer({
         container: playerContainerRef.current,
         mini: false,
@@ -173,8 +179,13 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   useEffect(() => {
     mutedRef.current = muted
     const vol = muted ? 0 : 0.7
-    // 同时写入 localStorage，防止 APlayer 下次初始化时读到旧值并覆盖静音设置
-    try { localStorage.setItem('volume', String(vol)) } catch { /* ignore */ }
+    // 同时写入 localStorage["aplayer"]，防止 APlayer 下次初始化时读到旧值并覆盖静音设置
+    // APlayer 使用 localStorage["aplayer"] 存储 JSON 对象，不是直接存 "volume" key
+    try {
+      const _asd = JSON.parse(localStorage.getItem('aplayer') || '{}')
+      _asd.volume = vol
+      localStorage.setItem('aplayer', JSON.stringify(_asd))
+    } catch { /* ignore */ }
     // 如果 APlayer 已初始化，立即同步音量
     try {
       aplayerRef.current?.setVolume(vol, false)
