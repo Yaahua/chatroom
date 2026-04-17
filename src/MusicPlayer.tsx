@@ -121,15 +121,16 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
       ])
       playlistRef.current = playlist
       if (!playerContainerRef.current) return
-      // 3. 创建 APlayer 实例前，先把 localStorage["aplayer"] 中的 volume 设置为正确值
-      // APlayer 把所有设置存在 localStorage["aplayer"]（JSON 对象），key 不是 "volume"
-      // Storage 构造函数：this.data = JSON.parse(localStorage["aplayer"])
+      // 3. 创建 APlayer 实例前，先把 localStorage["aplayer-setting"] 中的 volume 设置为正确值
+      // APlayer 实际使用的 storageName 是 "aplayer-setting"（通过浏览器实测确认）
+      // 存储格式：JSON 字符串，如 {"volume": 0.7}
+      // Storage 构造函数：this.data = JSON.parse(localStorage["aplayer-setting"])
       //                   this.data.volume = this.data.volume || options.volume
       // 必须在 new APlayer() 之前写入，否则静音状态会被旧值覆盖
       try {
-        const _asd = JSON.parse(localStorage.getItem('aplayer') || '{}')
+        const _asd = JSON.parse(localStorage.getItem('aplayer-setting') || '{}')
         _asd.volume = mutedRef.current ? 0 : 0.7
-        localStorage.setItem('aplayer', JSON.stringify(_asd))
+        localStorage.setItem('aplayer-setting', JSON.stringify(_asd))
       } catch { /* ignore */ }
       aplayerRef.current = new window.APlayer({
         container: playerContainerRef.current,
@@ -179,12 +180,12 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
   useEffect(() => {
     mutedRef.current = muted
     const vol = muted ? 0 : 0.7
-    // 同时写入 localStorage["aplayer"]，防止 APlayer 下次初始化时读到旧值并覆盖静音设置
-    // APlayer 使用 localStorage["aplayer"] 存储 JSON 对象，不是直接存 "volume" key
+    // 同时写入 localStorage["aplayer-setting"]，防止 APlayer 下次初始化时读到旧值并覆盖静音设置
+    // APlayer 实际使用的 storageName 是 "aplayer-setting"（通过浏览器实测确认）
     try {
-      const _asd = JSON.parse(localStorage.getItem('aplayer') || '{}')
+      const _asd = JSON.parse(localStorage.getItem('aplayer-setting') || '{}')
       _asd.volume = vol
-      localStorage.setItem('aplayer', JSON.stringify(_asd))
+      localStorage.setItem('aplayer-setting', JSON.stringify(_asd))
     } catch { /* ignore */ }
     // 如果 APlayer 已初始化，立即同步音量
     try {
