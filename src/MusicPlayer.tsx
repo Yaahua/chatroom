@@ -36,7 +36,8 @@ interface APlayerInstance {
   destroy(): void
   play(): void
   pause(): void
-  setVolume(volume: number, storage?: boolean): void
+  /** APlayer 实际方法名是 volume，不是 setVolume */
+  volume(volume: number, storage?: boolean): number
 }
 
 interface Pos { x: number; y: number }
@@ -148,7 +149,8 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
       })
       // 初始化完成后立即同步一次最新 muted 状态
       // 防止「先关喇叭再打开播放器」时 APlayer 以默认音量启动
-      try { aplayerRef.current.setVolume(mutedRef.current ? 0 : 0.7, false) } catch { /* ignore */ }
+      // 注意：APlayer 方法名是 volume()，不是 setVolume()
+      try { aplayerRef.current.volume(mutedRef.current ? 0 : 0.7, false) } catch { /* ignore */ }
       setLoadState('ready')
     } catch (e) {
       mountedRef.current = false  // 允许重试
@@ -188,8 +190,9 @@ export default function MusicPlayer({ muted = false }: MusicPlayerProps) {
       localStorage.setItem('aplayer-setting', JSON.stringify(_asd))
     } catch { /* ignore */ }
     // 如果 APlayer 已初始化，立即同步音量
+    // 注意：APlayer 方法名是 volume()，不是 setVolume()
     try {
-      aplayerRef.current?.setVolume(vol, false)
+      aplayerRef.current?.volume(vol, false)
     } catch { /* APlayer 尚未初始化时忽略 */ }
   }, [muted])
 
