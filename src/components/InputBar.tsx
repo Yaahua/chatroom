@@ -278,7 +278,7 @@ export function InputBar({
 
   const { recording, duration: recDuration, start: startRec, stop: stopRec } = useVoiceRecorder()
 
-  // ── 修复 #21：拦截 textarea 的 touchmove 冒泡，防止外层列表滚动 ─────────────
+   // ── 拦截 textarea 的 touchmove 冒泡，防止外层列表滚动 ───────────
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
@@ -288,6 +288,16 @@ export function InputBar({
       if (canScrollUp || canScrollDown) e.stopPropagation()
     }
     el.addEventListener('touchmove', handler, { passive: true })
+    return () => el.removeEventListener('touchmove', handler)
+  }, [])
+
+  // ── 拦截整个输入栏区域的 touchmove，防止按鈕/空白区拖动导致页面位移 ───────────
+  const inputBarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = inputBarRef.current
+    if (!el) return
+    const handler = (e: TouchEvent) => { e.preventDefault() }
+    el.addEventListener('touchmove', handler, { passive: false })
     return () => el.removeEventListener('touchmove', handler)
   }, [])
 
@@ -449,10 +459,11 @@ export function InputBar({
     setSelectedAssistant(null)
   }, [])
 
-  // ── 选中 @ 候选项（原有路径）：在光标处插入 @昵称 ────────────────────────
+  // ── 选中 @ 候选项（原有路径）：在光标处插入 @昵称 ────────────────────
   const handleMentionSelect = useCallback((candidate: MentionCandidate) => {
     if (!atQuery) return
     const el = inputRef.current
+    const isAIAssistant = candidate.id === AI_ID || candidate.id === KIMI_ID
     const mentionText = candidate.id === AI_ID ? 'AI' : candidate.id === KIMI_ID ? 'Kimi' : candidate.name
     const before = inputText.slice(0, atQuery.atStart)
     const afterQuery = inputText.slice(atQuery.atStart + 1 + atQuery.query.length)
@@ -462,14 +473,24 @@ export function InputBar({
     const newCursor = before.length + insert.length
     setInputText(newText)
     setAtQuery(null)
-    setTimeout(() => {
-      if (el) {
-        el.focus()
-        el.setSelectionRange(newCursor, newCursor)
-        el.style.height = 'auto'
-        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-      }
-    }, 0)
+
+    if (isAIAssistant) {
+      // 选中 AI 助手时，进入快捷指令二级菜单
+      const assistantDef = ASSISTANTS.find(a => a.id === candidate.id) ?? null
+      setSelectedAssistant(assistantDef)
+      setAtPhase('prompt')
+      setTimeout(() => el?.focus(), 50)
+    } else {
+      // 选中普通用户：直接插入，关闭面板
+      setTimeout(() => {
+        if (el) {
+          el.focus()
+          el.setSelectionRange(newCursor, newCursor)
+          el.style.height = 'auto'
+          el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+        }
+      }, 0)
+    }
   }, [atQuery, inputText])
 
   const closeAtPanel = useCallback(() => setAtQuery(null), [])
@@ -483,8 +504,10 @@ export function InputBar({
       ? 'AI 正在回复中…'
       : '语言的力量'
 
-  // @ 按钮是否处于激活态
-  const atBtnActive = atQuery !== null || atPhase !== null
+  // @ 按鈕是否处于激活态
+  // 注意：只用 atPhase 判断，不用 atQuery
+  // 因为 atQuery 会随用户输入/删除频繁变化，导致按鈕样式不断闪烁
+  const atBtnActive = atPhase !== null
 
   return (
     <div style={{ position: 'relative' }}>
@@ -565,7 +588,7 @@ export function InputBar({
       )}
 
       {/* 底部输入栏 */}
-      <div className="input-bar">
+      <div className="input-bar" ref={inputBarRef}>
         {/* + 号按钮 */}
         <button
           className="bar-icon-btn"
