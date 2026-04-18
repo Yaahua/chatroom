@@ -398,33 +398,26 @@ export function InputBar({
   }, [recording, startRec, stopRec, sendVoice])
 
   // ── 点击 @ 按钮 ──────────────────────────────────────────────────────────
-  // 输入框为空：进入两阶段流程（助手列表）
-  // 输入框有内容：走原有 atQuery 路径（助手+用户混合列表）
+  // @ 按鈕：无论输入框是否为空，都走 AtMentionPanel（支持助手 + 在线用户全列表）
+  // TwoPhaseAtPanel 保留但不再由按鈕触发，可通过键盘输入 @ 后选择助手再进入快捷指令流程
   const handleAtBtn = useCallback(() => {
     if (status !== 'ok') return
     const el = inputRef.current
 
-    if (!inputText.trim()) {
-      // 切换两阶段面板
-      if (atPhase) {
-        closeAllAtPanels()
-      } else {
-        setAtPhase('assistant')
-        setSelectedAssistant(null)
-        setAtQuery(null)
-        setShowPlusMenu(false)
-      }
+    // 如果已有任意 @ 面板打开，则关闭
+    if (atQuery !== null || atPhase !== null) {
+      closeAllAtPanels()
       return
     }
 
-    // 输入框有内容：走原有 atQuery 路径
+    // 统一走 AtMentionPanel：在当前光标位置（或末尾）插入 @
     setAtPhase(null)
     setSelectedAssistant(null)
     const cursor = el?.selectionStart ?? inputText.length
     setAtQuery({ atStart: cursor, query: '' })
     setShowPlusMenu(false)
     setTimeout(() => el?.focus(), 50)
-  }, [inputText, status, atPhase, closeAllAtPanels])
+  }, [inputText, status, atQuery, atPhase, closeAllAtPanels])
 
   // ── 两阶段面板：选中助手（第一阶段 → 第二阶段）────────────────────────────
   const handleSelectAssistant = useCallback((a: AssistantDef) => {
